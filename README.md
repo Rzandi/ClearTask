@@ -1,16 +1,51 @@
-# React + Vite
+# ClearTask — Pencatatan Penjualan Digital
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+ClearTask adalah aplikasi Progressive Web App (PWA) berbasis React untuk mencatat transaksi penjualan harian. Dirancang dengan antarmuka "Neon Terminal" yang gelap dan modern, aplikasi ini membantu kasir dan pemilik bisnis memantau pemasukan secara real-time dan mengekspor laporan ke format Excel.
 
-Currently, two official plugins are available:
+## 🌟 Fitur Utama
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Pencatatan Transaksi**: Form 2-kolom yang responsif dengan perhitungan total otomatis.
+- **Dashboard Metrik**: Pantau total pemasukan hari ini beserta tren perbandingan dari hari sebelumnya.
+- **Manajemen Riwayat**: Tabel transaksi lengkap dengan fitur pencarian, filter tanggal, dan pengurutan (sorting).
+- **Export to Excel**: Unduh laporan penjualan harian dengan format Excel (.xlsx) yang sudah di-styling rapi.
+- **Progressive Web App (PWA)**: Bisa di-install di HP/Desktop sebagai native app dan memiliki fallback saat offline.
+- **Penyimpanan Lokal**: Menggunakan LocalStorage untuk MVP yang cepat tanpa memerlukan setup backend/database (privasi data terjamin di device).
 
-## React Compiler
+## 🚀 Teknologi yang Digunakan
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend Framework**: React 19 + Vite
+- **Styling**: Tailwind CSS v4
+- **Export Engine**: ExcelJS
+- **Desain**: Dark Mode (Glassmorphism) dengan aksen `#00ffa3` (Neon Green)
 
-## Expanding the ESLint configuration
+## 📦 Cara Install & Menjalankan (Development)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Pastikan kamu sudah menginstal [Node.js](https://nodejs.org/) di komputermu.
+
+1. Clone repository ini:
+   ```bash
+   git clone https://github.com/Rzandi/ClearTask.git
+   ```
+2. Masuk ke direktori proyek:
+   ```bash
+   cd ClearTask
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Jalankan server development:
+   ```bash
+   npm run dev
+   ```
+5. Buka `http://localhost:5173/` di browsermu.
+
+## 📱 PWA & Instalasi (Mobile/Desktop)
+
+Untuk mendapatkan pengalaman terbaik:
+1. Buka aplikasi ini via browser (Chrome/Safari).
+2. Klik opsi **"Add to Home Screen"** atau klik icon install di address bar.
+3. Aplikasi akan terpasang dan bisa dibuka layaknya aplikasi native.
+
+## 📄 Lisensi
+MIT License
