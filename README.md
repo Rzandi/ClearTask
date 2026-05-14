@@ -5,7 +5,7 @@
       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
     </svg>
   </div>
-  <h1 align="center">ClearTask v2.0</h1>
+  <h1 align="center">ClearTask v2.1</h1>
   <p align="center"><strong>Aesthetic & Robust Point-of-Sale (POS) PWA for Modern Retailers.</strong></p>
 </p>
 
@@ -13,13 +13,14 @@
 
 ## 🌟 Tentang ClearTask
 
-ClearTask adalah aplikasi PWA (*Progressive Web App*) super-cepat dan *offline-first* yang dirancang khusus untuk memfasilitasi pencatatan transaksi harian secara modern. Membawakan visualisasi *Neon Terminal* (Dark Mode dengan Aksen Neon Hijau `#00ffa3`), ClearTask v2.0 memastikan performa kasir yang tak kenal kompromi meskipun tanpa koneksi internet.
+ClearTask adalah aplikasi PWA (*Progressive Web App*) super-cepat dan *offline-first* yang dirancang khusus untuk memfasilitasi pencatatan transaksi harian secara modern. Membawakan visualisasi *Neon Terminal* (Dark Mode dengan Aksen Neon Hijau `#00ffa3`), ClearTask v2.1 memastikan performa kasir yang tak kenal kompromi meskipun tanpa koneksi internet.
 
-### Fitur Unggulan (v2.0)
+### Fitur Unggulan (v2.1)
 
 - 🛍️ **Smart Transaction Input**: Form dua-kolom dengan perhitungan total otomatis dan manajemen kategori/sub-kategori dinamis.
 - 🕒 **Session & Shift Management**: Kelola sesi kasir harian (*Buka/Tutup Sesi*). Cetak rangkuman performa pada setiap shift yang telah berakhir dengan mudah.
-- 🗄️ **Database Manager (Backup/Restore)**: Lindungi dan migrasikan data Anda menggunakan fitur impor/ekspor (*Smart Merge Validation* menolak duplikasi data secara otomatis).
+- 📦 **Master Barang (Inventaris)**: Modul CRUD lengkap untuk mengelola daftar barang dagangan — nama, kategori, sub-kategori, harga, satuan, dan stok. Dilengkapi pencarian, filter, dan peringatan stok rendah.
+- 🗄️ **Database Manager (Backup/Restore)**: Lindungi dan migrasikan data Anda (termasuk inventaris) menggunakan fitur impor/ekspor (*Smart Merge Validation* menolak duplikasi data secara otomatis).
 - ✏️ **Edit & Delete Transaksi**: Manajemen transaksi tingkat lanjut, cegah kerugian dari *human error*.
 - 📊 **Metrik Real-time**: Papan laporan harian interaktif membandingkan persentase tren pendapatan dengan hari sebelumnya.
 - 📥 **Enterprise Export**: Ekspor tabel transaksi atau Sesi langsung ke dalam bentuk *Excel (.xlsx)* rapi atau *CSV* (dilengkapi Lazy-loading *ExcelJS*).
@@ -36,9 +37,18 @@ Data dijamin 100% menjadi milik pengguna! ClearTask menggunakan model komputasi 
 - **Framework:** React 19 + Vite 8
 - **Styling:** Tailwind CSS v4 (Vanilla CSS untuk estetika Neon)
 - **Persistensi Data:** Native Browser LocalStorage (No DB Config Needed)
-- **Pengujian (Testing):** Vitest (Teruji 278 Unit Test Cases)
+- **Pengujian (Testing):** Vitest (Teruji 291 Unit Test Cases)
 - **Ekspor Dokumen:** ExcelJS + FileSaver (Lazy Loaded)
 - **Deployment:** Vercel
+
+### Data Storage Keys
+| Key | Deskripsi |
+| --- | --- |
+| `cleartask_transactions` | Seluruh transaksi penjualan |
+| `cleartask_sessions` | Riwayat sesi/shift kasir |
+| `cleartask_categories` | Kategori & sub-kategori kustom |
+| `cleartask_inventory` | Master data barang (inventaris) |
+| `cleartask_settings` | Pengaturan profil toko & kasir |
 
 ---
 
@@ -102,4 +112,4 @@ Aplikasi ini berorientasi pada kemudahan dan *Zero-config deployment* di **Verce
 ---
 
 ## 📄 Changelog & Versioning
-Cek file [`CHANGELOG.md`](./CHANGELOG.md) untuk detail perubahan terbaru pada v2.0.0.
+Cek file [`CHANGELOG.md`](./CHANGELOG.md) untuk detail perubahan terbaru pada v2.1.0.

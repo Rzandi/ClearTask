@@ -180,6 +180,47 @@ export default function HelpModal({ isOpen, onClose }) {
           {/* Divider */}
           <div className="border-t border-border-subtle" />
 
+          {/* Seksi 5: Master Barang (Inventaris) */}
+          <section>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00ffa3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+              <h3 className="text-sm font-semibold text-text-primary">Master Barang (Inventaris)</h3>
+            </div>
+            <div className="pl-9 space-y-2">
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Kelola daftar barang dagangan Anda secara terpisah melalui tab <span className="font-semibold">Master Barang</span> di halaman Database:
+              </p>
+              <ul className="space-y-1 text-xs text-text-secondary">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Tambah Barang:</strong> Daftarkan nama, kategori, sub-kategori, harga satuan, satuan, dan jumlah stok barang Anda.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Edit & Hapus:</strong> Perbarui informasi harga atau stok kapan saja melalui tombol aksi di setiap baris barang.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Cari & Filter:</strong> Gunakan pencarian nama atau filter kategori untuk menemukan barang dengan cepat.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Backup Otomatis:</strong> Data inventaris ikut ter-backup saat Anda melakukan <span className="text-primary">Export Database</span> dan ikut ter-restore saat Import.</span>
+                </li>
+              </ul>
+              <p className="text-xs text-text-muted pt-0.5 border-l-2 border-primary/30 pl-2 mt-2">
+                Stok yang tersisa ≤ 5 unit akan ditandai dengan warna merah sebagai peringatan stok rendah.
+              </p>
+            </div>
+          </section>
+
+          {/* Divider */}
+          <div className="border-t border-border-subtle" />
+
           {/* Seksi 5: Cara Install PWA */}
           <section>
             <div className="flex items-center gap-2.5 mb-3">

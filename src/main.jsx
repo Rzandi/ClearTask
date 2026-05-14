@@ -30,15 +30,21 @@ if ('serviceWorker' in navigator) {
 }
 
 // ─── PWA: Install Prompt ──────────────────────────────────
-// deferredPrompt is stored for future use (e.g., custom install button)
-let _deferredPrompt;
+// Capture the install prompt for a custom install button
+window.__pwaInstallPrompt = null;
+window.__pwaInstalled = false;
+
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
-  _deferredPrompt = e;
+  window.__pwaInstallPrompt = e;
+  // Dispatch custom event so React components can react
+  window.dispatchEvent(new Event('pwainstallready'));
   console.log('[ClearTask] Install prompt captured');
 });
 
 window.addEventListener('appinstalled', () => {
   console.log('[ClearTask] PWA installed successfully');
-  _deferredPrompt = null;
+  window.__pwaInstallPrompt = null;
+  window.__pwaInstalled = true;
+  window.dispatchEvent(new Event('pwainstalled'));
 });

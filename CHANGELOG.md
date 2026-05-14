@@ -3,6 +3,34 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.0] - 2026-05-15
+
+Versi 2.1.0 memperkenalkan **Modul Inventaris (Master Barang)** untuk pengelolaan stok barang yang terintegrasi penuh dengan sistem database ClearTask, serta penyempurnaan komprehensif pada UI mobile dan standar aksesibilitas.
+
+### 🎉 Added
+- **Master Barang (Inventaris)**: Modul CRUD lengkap untuk mengelola daftar barang dagangan — meliputi Nama Barang, Kategori, Sub-Kategori, Harga Satuan, Satuan, dan Quantity/Stok.
+- **Sub-Tab Database**: Halaman Database kini memiliki dua sub-tab: *Manajemen Data* (backup/restore) dan *Master Barang* (inventaris).
+- **Pencarian & Filter Inventaris**: Cari barang berdasarkan nama/kategori dan filter berdasarkan kategori tertentu.
+- **Statistik Inventaris Real-time**: Kartu statistik menampilkan Total Jenis Barang, Total Stok, dan Nilai Inventaris secara otomatis.
+- **Peringatan Stok Rendah**: Barang dengan stok ≤ 5 unit ditandai dengan warna merah di tabel dan mobile cards.
+- **Inventory Backup Integration**: Data inventaris (`cleartask_inventory`) secara otomatis ikut ter-export dan ter-restore dalam fitur Database Manager (JSON).
+- **Mobile Session Banner**: Banner *"Buka Sesi"* ditampilkan di tampilan mobile saat belum ada sesi aktif.
+- **Mobile FAQ Access**: Tombol Bantuan (FAQ) ditambahkan di *Top Bar* untuk tampilan mobile.
+- **Tab "Sesi" di BottomNav**: Tab navigasi bawah mobile kini menyertakan akses langsung ke *Riwayat Sesi*.
+- **FAQ Section — Master Barang**: Panduan penggunaan fitur Inventaris telah ditambahkan ke dalam modal Bantuan (FAQ).
+
+### 🚀 Changed
+- **Responsive Closing Report**: Layout modal *Closing Report* (saat menutup sesi) kini sepenuhnya responsif di layar mobile dengan stacking layout.
+- **Aksesibilitas (A11y)**: Warna teks *inactive* di BottomNav ditingkatkan dari `#6e7681` → `#8b949e` (`text-text-secondary`) untuk memenuhi standar WCAG 4.5:1 contrast ratio.
+- **BottomNav Icon Colors**: Warna ikon SVG saat *inactive* diperbarui ke `#8b949e` untuk konsistensi kontras visual.
+- **Test Suite Updated**: Test HelpModal disesuaikan dengan judul seksi baru, test SessionBanner diupdate untuk banner mobile, dan async property test di exportCSV diperbaiki.
+
+### 🛠️ Fixed
+- **InventoryModal Form Reset Bug**: Memperbaiki bug kritis di mana `useEffect` terus-menerus mereset formulir input karena dependency `allCategories` menghasilkan referensi array baru setiap render.
+- **Async Property Test**: Memperbaiki unhandled rejection pada property-based test `exportCSV` dengan menambahkan `await` pada `fc.assert(fc.asyncProperty(...))`.
+
+---
+
 ## [2.0.0] - 2026-05-15
 
 Versi 2.0.0 adalah *major update* yang mengubah status ClearTask dari sekadar prototipe MVP menjadi aplikasi *Point-of-Sales* (POS) dan PWA yang mutakhir, profesional, dan kaya fitur.

@@ -2,11 +2,37 @@
    TopBar — ClearTask (Header + Search)
    ═══════════════════════════════════════════════════════════ */
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import NotificationPanel from '../NotificationPanel';
 
 export default function TopBar({ title, searchQuery, onSearchChange, onSettingsOpen, onNotifOpen, showNotif, onNotifClose, allTransactions, onHelpOpen }) {
   const notifRef = useRef(null);
+
+  // PWA Install state
+  const [canInstall, setCanInstall] = useState(!!window.__pwaInstallPrompt);
+
+  useEffect(() => {
+    function onReady() { setCanInstall(true); }
+    function onInstalled() { setCanInstall(false); }
+    window.addEventListener('pwainstallready', onReady);
+    window.addEventListener('pwainstalled', onInstalled);
+    return () => {
+      window.removeEventListener('pwainstallready', onReady);
+      window.removeEventListener('pwainstalled', onInstalled);
+    };
+  }, []);
+
+  const handleInstall = useCallback(async () => {
+    const prompt = window.__pwaInstallPrompt;
+    if (!prompt) return;
+    prompt.prompt();
+    const result = await prompt.userChoice;
+    if (result.outcome === 'accepted') {
+      setCanInstall(false);
+    }
+    window.__pwaInstallPrompt = null;
+  }, []);
+
   return (
     <header className="flex items-center justify-between gap-4 mb-6 lg:mb-8">
       {/* Left: Title (mobile shows ClearTask branding) */}
@@ -40,6 +66,22 @@ export default function TopBar({ title, searchQuery, onSearchChange, onSettingsO
             className="w-48 lg:w-64 pl-10 pr-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
           />
         </div>
+
+        {/* PWA Install Button */}
+        {canInstall && (
+          <button
+            aria-label="Install Aplikasi"
+            onClick={handleInstall}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 transition-all animate-pulse cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span className="hidden sm:inline">Install</span>
+          </button>
+        )}
 
         {/* Help Icon (Mobile Only) */}
         <button aria-label="Bantuan" onClick={onHelpOpen} className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl border border-border-default hover:bg-white/[0.04] transition-colors cursor-pointer">
