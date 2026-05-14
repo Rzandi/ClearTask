@@ -6,6 +6,7 @@ export default function BottomNav({ activeTab, onTabChange }) {
   const tabs = [
     { id: 'input', label: 'Input', icon: InputIcon },
     { id: 'laporan', label: 'Laporan', icon: LaporanIcon },
+    { id: 'database', label: 'Database', icon: DatabaseIcon },
   ];
 
   return (
@@ -52,6 +53,16 @@ function LaporanIcon({ active }) {
       <polyline points="14 2 14 8 20 8" />
       <line x1="16" y1="13" x2="8" y2="13" />
       <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  );
+}
+
+function DatabaseIcon({ active }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? '#00ffa3' : '#6e7681'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
     </svg>
   );
 }

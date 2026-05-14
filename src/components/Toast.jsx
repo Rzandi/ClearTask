@@ -2,9 +2,9 @@
    Toast — ClearTask Notification Component
    ═══════════════════════════════════════════════════════════ */
 
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 
-export default function Toast({ message, type = 'success', onClose, duration = 3000 }) {
+const Toast = memo(function Toast({ message, type = 'success', onClose, duration = 3000 }) {
   const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {
@@ -65,4 +65,6 @@ export default function Toast({ message, type = 'success', onClose, duration = 3
       </div>
     </div>
   );
-}
+});
+
+export default Toast;

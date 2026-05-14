@@ -1,26 +1,19 @@
 /* ═══════════════════════════════════════════════════════════
    InputPenjualan — ClearTask
    Form input transaksi with 2-column layout (desktop)
+   Supports dynamic categories and sub-categories via useCategories
    ═══════════════════════════════════════════════════════════ */
 
 import { useState } from 'react';
 import { getTodayISO } from '../utils/formatters';
-
-const KATEGORI_OPTIONS = [
-  'Elektronik',
-  'Makanan',
-  'Minuman',
-  'Pakaian',
-  'Alat Tulis',
-  'Kesehatan',
-  'Lainnya',
-];
+import { useCategories } from '../hooks/useCategories';
 
 const METODE_OPTIONS = ['Tunai', 'QRIS', 'Kartu Debit', 'Transfer'];
 
 const initialForm = {
   tanggal: getTodayISO(),
   kategori: 'Elektronik',
+  subKategori: '',
   namaBarang: '',
   qty: '',
   hargaSatuan: '',
@@ -29,8 +22,17 @@ const initialForm = {
   kasir: 'Admin',
 };
 
-export default function InputPenjualan({ onSubmit }) {
+export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
   const [form, setForm] = useState(initialForm);
+
+  // ── Inline input state ──
+  const [showKategoriInput, setShowKategoriInput] = useState(false);
+  const [showSubKategoriInput, setShowSubKategoriInput] = useState(false);
+  const [inlineKategoriValue, setInlineKategoriValue] = useState('');
+  const [inlineSubKategoriValue, setInlineSubKategoriValue] = useState('');
+  const [inlineError, setInlineError] = useState('');
+
+  const { allCategories, subCategoriesFor, addCategory, addSubCategory } = useCategories();
 
   const qty = parseInt(form.qty, 10) || 0;
   const harga = parseInt(form.hargaSatuan, 10) || 0;
@@ -40,6 +42,72 @@ export default function InputPenjualan({ onSubmit }) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  // ── Kategori dropdown handler ──
+  const handleKategoriChange = (e) => {
+    const value = e.target.value;
+    if (value === '__ADD_NEW__') {
+      setShowKategoriInput(true);
+      setInlineKategoriValue('');
+      setInlineError('');
+      // Preserve current form.kategori — do not update it
+    } else {
+      setForm((prev) => ({ ...prev, kategori: value, subKategori: '' }));
+      setShowKategoriInput(false);
+      setInlineError('');
+    }
+  };
+
+  const handleKategoriConfirm = () => {
+    const result = addCategory(inlineKategoriValue);
+    if (result.success) {
+      setForm((prev) => ({ ...prev, kategori: inlineKategoriValue.trim(), subKategori: '' }));
+      setShowKategoriInput(false);
+      setInlineKategoriValue('');
+      setInlineError('');
+    } else {
+      setInlineError(result.error || 'Gagal menambah kategori');
+    }
+  };
+
+  const handleKategoriCancel = () => {
+    setShowKategoriInput(false);
+    setInlineKategoriValue('');
+    setInlineError('');
+  };
+
+  // ── Sub-kategori dropdown handler ──
+  const handleSubKategoriChange = (e) => {
+    const value = e.target.value;
+    if (value === '__ADD_NEW__') {
+      setShowSubKategoriInput(true);
+      setInlineSubKategoriValue('');
+      setInlineError('');
+    } else {
+      setForm((prev) => ({ ...prev, subKategori: value }));
+      setShowSubKategoriInput(false);
+      setInlineError('');
+    }
+  };
+
+  const handleSubKategoriConfirm = () => {
+    const result = addSubCategory(form.kategori, inlineSubKategoriValue);
+    if (result.success) {
+      setForm((prev) => ({ ...prev, subKategori: inlineSubKategoriValue.trim() }));
+      setShowSubKategoriInput(false);
+      setInlineSubKategoriValue('');
+      setInlineError('');
+    } else {
+      setInlineError(result.error || 'Gagal menambah sub-kategori');
+    }
+  };
+
+  const handleSubKategoriCancel = () => {
+    setShowSubKategoriInput(false);
+    setInlineSubKategoriValue('');
+    setInlineError('');
+  };
+
+  // ── Submit ──
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.namaBarang.trim() || qty <= 0 || harga <= 0) return;
@@ -49,9 +117,16 @@ export default function InputPenjualan({ onSubmit }) {
       qty,
       hargaSatuan: harga,
       total,
+      subKategori: form.subKategori,
+      sessionId: activeSessionId ?? null,
     });
 
     setForm({ ...initialForm, tanggal: getTodayISO() });
+    setShowKategoriInput(false);
+    setShowSubKategoriInput(false);
+    setInlineKategoriValue('');
+    setInlineSubKategoriValue('');
+    setInlineError('');
   };
 
   const isValid = form.namaBarang.trim() && qty > 0 && harga > 0;
@@ -82,15 +157,55 @@ export default function InputPenjualan({ onSubmit }) {
                 <select
                   id="field-kategori"
                   name="kategori"
-                  value={form.kategori}
-                  onChange={handleChange}
+                  value={showKategoriInput ? '__ADD_NEW__' : form.kategori}
+                  onChange={handleKategoriChange}
                   className="form-input appearance-none"
                 >
-                  {KATEGORI_OPTIONS.map((opt) => (
+                  {allCategories.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
+                  <option value="__ADD_NEW__">+ Tambah Kategori Baru</option>
                 </select>
+                {showKategoriInput && (
+                  <InlineInput
+                    value={inlineKategoriValue}
+                    onChange={setInlineKategoriValue}
+                    onConfirm={handleKategoriConfirm}
+                    onCancel={handleKategoriCancel}
+                    placeholder="Nama kategori baru..."
+                    error={inlineError}
+                  />
+                )}
               </FieldGroup>
+
+              {/* Sub-Kategori — tampil hanya jika kategori dipilih */}
+              {form.kategori && (
+                <FieldGroup label="Sub-Kategori" htmlFor="field-subKategori">
+                  <select
+                    id="field-subKategori"
+                    name="subKategori"
+                    value={showSubKategoriInput ? '__ADD_NEW__' : form.subKategori}
+                    onChange={handleSubKategoriChange}
+                    className="form-input appearance-none"
+                  >
+                    <option value="">— Pilih Sub-Kategori (Opsional) —</option>
+                    {subCategoriesFor(form.kategori).map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                    <option value="__ADD_NEW__">+ Tambah Sub-Kategori Baru</option>
+                  </select>
+                  {showSubKategoriInput && (
+                    <InlineInput
+                      value={inlineSubKategoriValue}
+                      onChange={setInlineSubKategoriValue}
+                      onConfirm={handleSubKategoriConfirm}
+                      onCancel={handleSubKategoriCancel}
+                      placeholder="Nama sub-kategori baru..."
+                      error={inlineError}
+                    />
+                  )}
+                </FieldGroup>
+              )}
 
               {/* Nama Barang */}
               <FieldGroup label="Nama Barang" htmlFor="field-namaBarang">
@@ -134,7 +249,7 @@ export default function InputPenjualan({ onSubmit }) {
                     onChange={handleChange}
                     placeholder="0"
                     min="0"
-                    className="form-input pl-10"
+                    className="form-input form-input-prefixed"
                   />
                 </div>
               </FieldGroup>
@@ -148,7 +263,7 @@ export default function InputPenjualan({ onSubmit }) {
                     id="field-total"
                     value={total > 0 ? total.toLocaleString('id-ID') : '0'}
                     readOnly
-                    className="form-input pl-10 bg-bg-elevated/50 text-text-secondary cursor-not-allowed"
+                    className="form-input form-input-prefixed bg-bg-elevated/50 text-text-secondary cursor-not-allowed"
                   />
                 </div>
               </FieldGroup>
@@ -208,6 +323,54 @@ function FieldGroup({ label, htmlFor, children }) {
         {label}
       </label>
       {children}
+    </div>
+  );
+}
+
+/* ─── InlineInput ─────────────────────────────────────────── */
+function InlineInput({ value, onChange, onConfirm, onCancel, placeholder, error }) {
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onConfirm();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel();
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <div className="flex gap-2 items-center">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="form-input flex-1 text-sm"
+          autoFocus
+        />
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="px-3 py-2 bg-primary text-text-inverse text-sm rounded-lg hover:bg-primary-hover transition-colors cursor-pointer"
+          aria-label="Konfirmasi"
+        >
+          ✓
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-2 bg-bg-elevated text-text-secondary text-sm rounded-lg hover:bg-bg-card transition-colors cursor-pointer"
+          aria-label="Batal"
+        >
+          ✕
+        </button>
+      </div>
+      {error && (
+        <p className="mt-1 text-xs text-red-400">{error}</p>
+      )}
     </div>
   );
 }

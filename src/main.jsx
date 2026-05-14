@@ -6,11 +6,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { SettingsProvider } from './contexts/SettingsContext';
 import './index.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <SettingsProvider>
+      <App />
+    </SettingsProvider>
   </StrictMode>
 );
 
@@ -27,14 +30,15 @@ if ('serviceWorker' in navigator) {
 }
 
 // ─── PWA: Install Prompt ──────────────────────────────────
-let deferredPrompt;
+// deferredPrompt is stored for future use (e.g., custom install button)
+let _deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
-  deferredPrompt = e;
+  _deferredPrompt = e;
   console.log('[ClearTask] Install prompt captured');
 });
 
 window.addEventListener('appinstalled', () => {
   console.log('[ClearTask] PWA installed successfully');
-  deferredPrompt = null;
+  _deferredPrompt = null;
 });

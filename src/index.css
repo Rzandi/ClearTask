@@ -55,6 +55,24 @@
   --shadow-elevated: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
+/* ─── Light Mode Variables ────────────────────────────────── */
+html.light {
+  color-scheme: light;
+  --color-bg-base: #f6f8fa;
+  --color-bg-surface: #ffffff;
+  --color-bg-card: #f0f2f5;
+  --color-bg-elevated: #e8eaed;
+  --color-bg-input: #ffffff;
+  --color-bg-sidebar: #f0f2f5;
+  --color-text-primary: #1c2128;
+  --color-text-secondary: #57606a;
+  --color-text-muted: #8c959f;
+  --color-text-inverse: #ffffff;
+  --color-border-default: rgba(0, 0, 0, 0.08);
+  --color-border-subtle: rgba(0, 0, 0, 0.05);
+  --color-border-strong: rgba(0, 0, 0, 0.15);
+}
+
 /* ─── Base ────────────────────────────────────────────────── */
 html {
   color-scheme: dark;
@@ -163,7 +181,7 @@ body {
 .form-input {
   width: 100%;
   padding: 0.625rem 1rem;
-  font-size: 0.875rem;
+  font-size: 1rem; /* 16px to prevent iOS auto-zoom */
   background-color: var(--color-bg-input);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-xl);
@@ -179,6 +197,11 @@ body {
 .form-input:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(0, 255, 163, 0.1);
+}
+
+/* ─── Form Input with Prefix (e.g., "Rp") ────────────────── */
+.form-input-prefixed {
+  padding-left: 2.5rem; /* 40px — override untuk field dengan prefix absolut */
 }
 
 select.form-input {

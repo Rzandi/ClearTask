@@ -3,9 +3,10 @@
    Shows "Total Pemasukan Hari Ini" with trend indicator
    ═══════════════════════════════════════════════════════════ */
 
+import { memo } from 'react';
 import { formatRupiah, formatTrend } from '../utils/formatters';
 
-export default function MetrikCard({ todayTotal, trendPercent, isFirstDay }) {
+const MetrikCard = memo(function MetrikCard({ todayTotal, trendPercent, isFirstDay }) {
   const trend = formatTrend(isFirstDay ? NaN : trendPercent);
 
   return (
@@ -21,4 +22,6 @@ export default function MetrikCard({ todayTotal, trendPercent, isFirstDay }) {
       </p>
     </div>
   );
-}
+});
+
+export default MetrikCard;

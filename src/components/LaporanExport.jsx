@@ -3,9 +3,11 @@
    Report view: Metrics + Filters + Table + Export
    ═══════════════════════════════════════════════════════════ */
 
+import { useCallback } from 'react';
 import MetrikCard from './MetrikCard';
 import TransactionTable from './TransactionTable';
 import { exportToExcel } from '../utils/exportExcel';
+import { useSettings } from '../contexts/SettingsContext';
 
 export default function LaporanExport({
   transactions,
@@ -17,11 +19,15 @@ export default function LaporanExport({
   setSearchQuery,
   sortOrder,
   setSortOrder,
+  onUpdate,
+  onDelete,
 }) {
-  const handleExport = () => {
+  const { settings } = useSettings();
+
+  const handleExport = useCallback(() => {
     const dataToExport = transactions.length > 0 ? transactions : allTransactions;
-    exportToExcel(dataToExport);
-  };
+    exportToExcel(dataToExport, settings);
+  }, [transactions, allTransactions, settings]);
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -53,7 +59,7 @@ export default function LaporanExport({
             id="filter-date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="pl-10 pr-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+            className="pl-10 pr-4 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
           />
         </div>
 
@@ -69,7 +75,7 @@ export default function LaporanExport({
             placeholder="Cari ID atau Kasir..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+            className="w-full pl-10 pr-4 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
           />
         </div>
 
@@ -80,7 +86,7 @@ export default function LaporanExport({
             id="filter-sort"
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
-            className="px-3 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none appearance-none cursor-pointer"
+            className="px-3 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none appearance-none cursor-pointer"
           >
             <option value="newest">Waktu (Terbaru)</option>
             <option value="oldest">Waktu (Terlama)</option>
@@ -99,7 +105,7 @@ export default function LaporanExport({
       </div>
 
       {/* Transaction Table */}
-      <TransactionTable transactions={transactions} />
+      <TransactionTable transactions={transactions} onUpdate={onUpdate} onDelete={onDelete} />
 
       {/* Export Button */}
       <div className="flex justify-center lg:justify-start pt-2">

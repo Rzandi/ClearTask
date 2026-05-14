@@ -2,10 +2,15 @@
    Sidebar — ClearTask (Desktop Navigation)
    ═══════════════════════════════════════════════════════════ */
 
-export default function Sidebar({ activeTab, onTabChange }) {
+import { useSettings } from '../../contexts/SettingsContext';
+
+export default function Sidebar({ activeTab, onTabChange, onHelpOpen, activeSession = null, onOpenSession }) {
+  const { settings } = useSettings();
   const navItems = [
     { id: 'input', label: 'Input Penjualan', icon: InputIcon },
     { id: 'laporan', label: 'Riwayat Laporan', icon: LaporanIcon },
+    { id: 'riwayat-sesi', label: 'Riwayat Sesi', icon: SessionHistoryIcon },
+    { id: 'database', label: 'Database', icon: DatabaseIcon },
   ];
 
   return (
@@ -23,17 +28,17 @@ export default function Sidebar({ activeTab, onTabChange }) {
             <h1 className="text-lg font-bold text-text-primary tracking-tight">ClearTask</h1>
           </div>
         </div>
-        <p className="text-[11px] text-text-muted ml-12 -mt-1">Pencatatan Penjualan</p>
+        <p className="text-[11px] text-text-muted ml-12 -mt-1">{settings.tokoName || 'Pencatatan Penjualan'}</p>
       </div>
 
       {/* User */}
       <div className="px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
-            A
+            {(settings.kasirName?.charAt(0).toUpperCase()) || 'A'}
           </div>
           <div>
-            <p className="text-sm font-medium text-text-primary">Admin Penjualan</p>
+            <p className="text-sm font-medium text-text-primary">{settings.kasirName || 'Admin'}</p>
             <p className="text-[11px] text-text-muted">Operational Manager</p>
           </div>
         </div>
@@ -41,6 +46,29 @@ export default function Sidebar({ activeTab, onTabChange }) {
 
       {/* Nav */}
       <nav className="flex-1 px-3 mt-2">
+        {/* Session Button */}
+        <div className="mb-3">
+          {activeSession ? (
+            <div className="px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
+                <span className="text-xs font-medium text-primary truncate">
+                  {activeSession.nama || 'Sesi Aktif'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <button
+              id="sidebar-btn-buka-session"
+              onClick={onOpenSession}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all duration-200 cursor-pointer"
+            >
+              <SessionIcon />
+              Buka Session Baru
+            </button>
+          )}
+        </div>
+
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -63,7 +91,7 @@ export default function Sidebar({ activeTab, onTabChange }) {
 
       {/* Footer */}
       <div className="px-3 pb-6 space-y-1">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-text-muted hover:text-text-secondary hover:bg-white/[0.04] transition-colors cursor-pointer">
+        <button onClick={onHelpOpen} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-text-muted hover:text-text-secondary hover:bg-white/[0.04] transition-colors cursor-pointer">
           <HelpIcon />
           Bantuan
         </button>
@@ -98,6 +126,16 @@ function LaporanIcon({ active }) {
   );
 }
 
+function DatabaseIcon({ active }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? '#00ffa3' : '#6e7681'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+    </svg>
+  );
+}
+
 function HelpIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6e7681" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -114,6 +152,24 @@ function LogoutIcon() {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+function SessionIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ffa3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function SessionHistoryIcon({ active }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? '#00ffa3' : '#6e7681'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 8v4l3 3" />
+      <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
     </svg>
   );
 }

@@ -4,7 +4,12 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useCallback, useMemo } from 'react';
-import { getTransactions, addTransaction as addTx } from '../utils/storage';
+import {
+  getTransactions,
+  addTransaction as addTx,
+  updateTransaction as updateTx,
+  deleteTransaction as deleteTx,
+} from '../utils/storage';
 import { getTodayISO } from '../utils/formatters';
 
 export function useTransactions() {
@@ -18,6 +23,18 @@ export function useTransactions() {
     const newTx = addTx(data);
     setTransactions(getTransactions());
     return newTx;
+  }, []);
+
+  // ── Update Transaction ──
+  const updateTransaction = useCallback((id, data) => {
+    updateTx(id, data);
+    setTransactions(getTransactions());
+  }, []);
+
+  // ── Delete Transaction ──
+  const deleteTransaction = useCallback((id) => {
+    deleteTx(id);
+    setTransactions(getTransactions());
   }, []);
 
   // ── Refresh from storage ──
@@ -87,6 +104,8 @@ export function useTransactions() {
     allTransactions: transactions,
     todayMetrics,
     addTransaction,
+    updateTransaction,
+    deleteTransaction,
     refresh,
     searchQuery,
     setSearchQuery,

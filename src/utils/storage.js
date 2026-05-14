@@ -36,12 +36,16 @@ export function saveTransactions(transactions) {
  * Add a new transaction
  * @param {Object} transaction
  * @returns {Object} the saved transaction with generated ID
+ *
+ * Note: The spread `...transaction` ensures all fields from the input object
+ * are passed through, including `sessionId` (string | null). No explicit
+ * handling of `sessionId` is needed here — it is preserved automatically.
  */
 export function addTransaction(transaction) {
   const transactions = getTransactions();
   const seq = getNextSeq();
   const newTx = {
-    ...transaction,
+    ...transaction, // includes sessionId: string | null if present
     id: seq,
     transactionId: `TRX-${String(seq).padStart(5, '0')}`,
     createdAt: new Date().toISOString(),
@@ -65,6 +69,44 @@ function getNextSeq() {
   } catch {
     return Date.now();
   }
+}
+
+/**
+ * Update a transaction by id.
+ * Immutable fields (id, transactionId, createdAt, status) are preserved.
+ * @param {number} id
+ * @param {Object} data - fields to update
+ * @returns {Object|null} updated transaction, or null if not found
+ */
+export function updateTransaction(id, data) {
+  const transactions = getTransactions();
+  const idx = transactions.findIndex((tx) => tx.id === id);
+  if (idx === -1) return null;
+
+  const original = transactions[idx];
+  transactions[idx] = {
+    ...original,
+    ...data,
+    // Preserve immutable fields
+    id: original.id,
+    transactionId: original.transactionId,
+    createdAt: original.createdAt,
+    status: original.status,
+  };
+
+  saveTransactions(transactions);
+  return transactions[idx];
+}
+
+/**
+ * Delete a transaction by id.
+ * No-op if id is not found.
+ * @param {number} id
+ */
+export function deleteTransaction(id) {
+  const transactions = getTransactions();
+  const filtered = transactions.filter((tx) => tx.id !== id);
+  saveTransactions(filtered);
 }
 
 /**
