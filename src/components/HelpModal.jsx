@@ -234,6 +234,10 @@ export default function HelpModal({ isOpen, onClose }) {
             </div>
             <div className="pl-9 space-y-2">
               <div>
+                <p className="text-xs font-medium text-text-secondary mb-1">Tombol Install Otomatis:</p>
+                <p className="text-xs text-text-muted">Jika browser Anda mendukung instalasi, tombol <span className="text-primary font-medium">⬇ Install</span> akan muncul otomatis di pojok kanan atas. Klik untuk menginstall ClearTask ke perangkat Anda. Tombol akan hilang setelah berhasil terinstall.</p>
+              </div>
+              <div>
                 <p className="text-xs font-medium text-text-secondary mb-1">Chrome / Android:</p>
                 <p className="text-xs text-text-muted">Klik ikon install di address bar atau pilih <span className="text-text-secondary">"Install App"</span> dari menu browser.</p>
               </div>

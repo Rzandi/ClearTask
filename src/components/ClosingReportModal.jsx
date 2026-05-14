@@ -39,9 +39,13 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
     exportSessionCSV(transactions, session);
   }
 
+  function handleBackdropClick(e) {
+    if (e.target === e.currentTarget) onClose();
+  }
+
   return (
     /* Backdrop */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={handleBackdropClick}>
       {/* Modal card */}
       <div className="glass-card w-full max-w-lg animate-slide-up flex flex-col max-h-[90vh]">
 
@@ -212,42 +216,41 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-border-default shrink-0">
-          <div className="flex items-center gap-3">
-            {/* 11.9 Tombol Export Excel */}
-            <button
-              onClick={handleExportExcel}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-bg-elevated border border-border-default text-text-primary hover:border-primary/50 hover:text-primary transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="12" y1="18" x2="12" y2="12" />
-                <polyline points="9 15 12 18 15 15" />
-              </svg>
-              Export Excel
-            </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* 11.9 Tombol Export Excel */}
+              <button
+                onClick={handleExportExcel}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-bg-elevated border border-border-default text-text-primary hover:border-primary/50 hover:text-primary transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <polyline points="9 15 12 18 15 15" />
+                </svg>
+                Export Excel
+              </button>
 
-            {/* 11.10 Tombol Export CSV */}
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-bg-elevated border border-border-default text-text-primary hover:border-primary/50 hover:text-primary transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="12" y1="18" x2="12" y2="12" />
-                <polyline points="9 15 12 18 15 15" />
-              </svg>
-              Export CSV
-            </button>
-
-            {/* Spacer */}
-            <div className="flex-1" />
+              {/* 11.10 Tombol Export CSV */}
+              <button
+                onClick={handleExportCSV}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-bg-elevated border border-border-default text-text-primary hover:border-primary/50 hover:text-primary transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <polyline points="9 15 12 18 15 15" />
+                </svg>
+                Export CSV
+              </button>
+            </div>
 
             {/* 11.11 Tombol Selesai memanggil onClose */}
             <button
               onClick={onClose}
-              className="px-6 py-2.5 text-sm font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors"
+              className="w-full sm:w-auto sm:ml-auto px-6 py-2.5 text-sm font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors"
             >
               Selesai
             </button>

@@ -18,16 +18,20 @@ Versi 2.1.0 memperkenalkan **Modul Inventaris (Master Barang)** untuk pengelolaa
 - **Mobile FAQ Access**: Tombol Bantuan (FAQ) ditambahkan di *Top Bar* untuk tampilan mobile.
 - **Tab "Sesi" di BottomNav**: Tab navigasi bawah mobile kini menyertakan akses langsung ke *Riwayat Sesi*.
 - **FAQ Section — Master Barang**: Panduan penggunaan fitur Inventaris telah ditambahkan ke dalam modal Bantuan (FAQ).
+- **PWA Install Button**: Tombol install PWA kustom di TopBar yang muncul otomatis saat browser siap menginstall, dan menghilang setelah aplikasi berhasil diinstall.
 
 ### 🚀 Changed
 - **Responsive Closing Report**: Layout modal *Closing Report* (saat menutup sesi) kini sepenuhnya responsif di layar mobile dengan stacking layout.
 - **Aksesibilitas (A11y)**: Warna teks *inactive* di BottomNav ditingkatkan dari `#6e7681` → `#8b949e` (`text-text-secondary`) untuk memenuhi standar WCAG 4.5:1 contrast ratio.
 - **BottomNav Icon Colors**: Warna ikon SVG saat *inactive* diperbarui ke `#8b949e` untuk konsistensi kontras visual.
 - **Test Suite Updated**: Test HelpModal disesuaikan dengan judul seksi baru, test SessionBanner diupdate untuk banner mobile, dan async property test di exportCSV diperbaiki.
+- **PWA Icon Refresh**: Ikon aplikasi (192x192 & 512x512) diperbarui dengan desain baru bertema *Neon Terminal*.
 
 ### 🛠️ Fixed
 - **InventoryModal Form Reset Bug**: Memperbaiki bug kritis di mana `useEffect` terus-menerus mereset formulir input karena dependency `allCategories` menghasilkan referensi array baru setiap render.
 - **Async Property Test**: Memperbaiki unhandled rejection pada property-based test `exportCSV` dengan menambahkan `await` pada `fc.assert(fc.asyncProperty(...))`.
+- **Modal Z-Index Clipping**: Semua modal (ClosingReport, InventoryModal, ConfirmDialog) kini di-render via `createPortal` ke `document.body`, mengatasi bug di mana modal terpotong oleh container parent yang memiliki CSS `transform` / `animation`.
+- **ClosingReportModal Backdrop**: Menambahkan handler klik backdrop untuk menutup modal saat klik di luar area konten.
 
 ---
 

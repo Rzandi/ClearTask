@@ -26,6 +26,7 @@ ClearTask adalah aplikasi PWA (*Progressive Web App*) super-cepat dan *offline-f
 - 📥 **Enterprise Export**: Ekspor tabel transaksi atau Sesi langsung ke dalam bentuk *Excel (.xlsx)* rapi atau *CSV* (dilengkapi Lazy-loading *ExcelJS*).
 - ⚙️ **Profil Toko**: Personalisasikan nama Toko dan nama Kasir dari *Settings* untuk laporan akhir yang lebih profesional.
 - 📱 **100% PWA**: Beroperasi layaknya aplikasi *Native* (bebas install di HP/Tablet/Desktop), sangat responsif, dan lolos standar *Lighthouse* yang sangat ketat (Termasuk pencegahan *iOS Auto-Zoom*).
+- 📲 **Smart Install Prompt**: Tombol install PWA kustom yang muncul otomatis di *Top Bar* saat browser siap, dan menghilang setelah aplikasi berhasil terinstall.
 
 ---
 

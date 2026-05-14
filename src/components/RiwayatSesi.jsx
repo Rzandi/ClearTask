@@ -5,6 +5,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { formatDate, formatTime } from '../utils/formatters';
 import ClosingReportModal from './ClosingReportModal';
 
@@ -145,13 +146,16 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions }
         </div>
       )}
 
-      {/* 19.4 ClosingReportModal for selected session */}
-      <ClosingReportModal
-        isOpen={showModal}
-        session={selectedSession}
-        transactions={selectedTransactions}
-        onClose={handleModalClose}
-      />
+      {/* 19.4 ClosingReportModal for selected session — portalled to body */}
+      {createPortal(
+        <ClosingReportModal
+          isOpen={showModal}
+          session={selectedSession}
+          transactions={selectedTransactions}
+          onClose={handleModalClose}
+        />,
+        document.body
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useInventory } from '../hooks/useInventory';
 import { formatRupiah } from '../utils/formatters';
 import InventoryModal from './InventoryModal';
@@ -275,22 +276,27 @@ export default function InventoryManager() {
         </>
       )}
 
-      {/* Modals */}
-      <InventoryModal
-        isOpen={showModal}
-        onClose={() => { setShowModal(false); setEditItem(null); }}
-        onSave={handleSave}
-        editItem={editItem}
-      />
+      {/* Modals — portalled to body */}
+      {createPortal(
+        <>
+          <InventoryModal
+            isOpen={showModal}
+            onClose={() => { setShowModal(false); setEditItem(null); }}
+            onSave={handleSave}
+            editItem={editItem}
+          />
 
-      <ConfirmDialog
-        isOpen={!!deleteTarget}
-        title="Hapus Barang"
-        message={`Apakah Anda yakin ingin menghapus "${deleteTarget?.namaBarang}"? Tindakan ini tidak bisa dibatalkan.`}
-        confirmLabel="Hapus"
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteTarget(null)}
-      />
+          <ConfirmDialog
+            isOpen={!!deleteTarget}
+            title="Hapus Barang"
+            message={`Apakah Anda yakin ingin menghapus "${deleteTarget?.namaBarang}"? Tindakan ini tidak bisa dibatalkan.`}
+            confirmLabel="Hapus"
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => setDeleteTarget(null)}
+          />
+        </>,
+        document.body
+      )}
     </div>
   );
 }
