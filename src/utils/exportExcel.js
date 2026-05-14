@@ -3,8 +3,6 @@
    Uses ExcelJS (actively maintained, MIT license)
    ═══════════════════════════════════════════════════════════ */
 
-import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 import { formatDate, formatTime } from './formatters';
 
 /**
@@ -14,6 +12,9 @@ import { formatDate, formatTime } from './formatters';
  * @param {string} filename
  */
 export async function exportToExcel(transactions, settings = {}, filename = 'ClearTask_Laporan') {
+  const { default: ExcelJS } = await import('exceljs');
+  const { saveAs } = await import('file-saver');
+  
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'ClearTask';
   workbook.created = new Date();
@@ -129,6 +130,9 @@ export async function exportToExcel(transactions, settings = {}, filename = 'Cle
  * @param {Object} session - Session object with nama and tanggalTutup fields
  */
 export async function exportSessionExcel(transactions, session) {
+  const { default: ExcelJS } = await import('exceljs');
+  const { saveAs } = await import('file-saver');
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'ClearTask';
   workbook.created = new Date();

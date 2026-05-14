@@ -4,7 +4,7 @@
    and atomic merge application for the full database.
    ═══════════════════════════════════════════════════════════ */
 
-import { saveAs } from 'file-saver';
+
 
 const KEYS = {
   TRANSACTIONS: 'cleartask_transactions',
@@ -37,7 +37,9 @@ function readKey(key, fallback) {
  * Handles empty localStorage gracefully (uses [] / {} defaults).
  * @returns {void}
  */
-export function exportDatabase() {
+export async function exportDatabase() {
+  const { saveAs } = await import('file-saver');
+
   const transactions = readKey(KEYS.TRANSACTIONS, []);
   const sessions = readKey(KEYS.SESSIONS, []);
   const categories = readKey(KEYS.CATEGORIES, { categories: [] });

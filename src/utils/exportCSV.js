@@ -3,7 +3,6 @@
    Exports session transactions to a CSV file (RFC 4180).
    ═══════════════════════════════════════════════════════════ */
 
-import { saveAs } from 'file-saver';
 import { formatTime } from './formatters';
 
 /**
@@ -28,7 +27,9 @@ export function escapeCSVValue(value) {
  * @param {Session} session - The closed session object
  * @returns {void}
  */
-export function exportSessionCSV(transactions, session) {
+export async function exportSessionCSV(transactions, session) {
+  const { saveAs } = await import('file-saver');
+
   const header = [
     'ID Transaksi',
     'Tanggal',

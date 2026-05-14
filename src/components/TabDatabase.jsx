@@ -89,9 +89,9 @@ export default function TabDatabase() {
   }
 
   // ── Export handler ────────────────────────────────────────
-  function handleExport() {
+  async function handleExport() {
     try {
-      exportDatabase();
+      await exportDatabase();
       showToast('Database berhasil diekspor!', 'success');
     } catch {
       showToast('Gagal mengekspor database.', 'error');

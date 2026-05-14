@@ -277,7 +277,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
               {/* Harga Satuan */}
               <FieldGroup label="Harga Satuan" htmlFor="edit-hargaSatuan">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">Rp</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary text-sm">Rp</span>
                   <input
                     type="number"
                     id="edit-hargaSatuan"
@@ -300,7 +300,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
               {/* 4.5 — Total (read-only, kalkulasi reaktif) */}
               <FieldGroup label="Total (Auto-calculated)" htmlFor="edit-total">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">Rp</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary text-sm">Rp</span>
                   <input
                     type="text"
                     id="edit-total"

@@ -240,7 +240,7 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
               {/* Harga Satuan */}
               <FieldGroup label="Harga Satuan" htmlFor="field-hargaSatuan">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">Rp</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary text-sm">Rp</span>
                   <input
                     type="number"
                     id="field-hargaSatuan"
@@ -257,7 +257,7 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
               {/* Total (Auto) */}
               <FieldGroup label="Total (Auto-calculated)" htmlFor="field-total">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">Rp</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary text-sm">Rp</span>
                   <input
                     type="text"
                     id="field-total"

@@ -1,183 +1,105 @@
-# ClearTask — Pencatatan Penjualan Digital
-
-ClearTask adalah aplikasi Progressive Web App (PWA) berbasis React untuk mencatat transaksi penjualan harian. Dirancang dengan antarmuka "Neon Terminal" yang gelap dan modern, aplikasi ini membantu kasir dan pemilik bisnis memantau pemasukan secara real-time dan mengekspor laporan ke format Excel.
-
-## Key Features
-
-- **Pencatatan Transaksi Cepat**: Form 2-kolom responsif dengan kalkulasi total otomatis.
-- **Dashboard Metrik Real-time**: Pantau total pemasukan hari ini beserta persentase tren perbandingan vs kemarin.
-- **Manajemen Riwayat**: Tabel transaksi lengkap dengan fitur pencarian, filter tanggal, dan pengurutan (sorting).
-- **Export to Excel**: Unduh laporan penjualan harian dengan format Excel (.xlsx) yang rapi dengan satu klik.
-- **Progressive Web App (PWA)**: Install di HP atau Desktop sebagai aplikasi native dengan fitur offline fallback.
-- **Penyimpanan Lokal (Offline-first)**: Data disimpan langsung di device pengguna via LocalStorage untuk kecepatan dan privasi.
+<p align="center">
+  <div style="background-color: rgba(0, 255, 163, 0.15); width: 80px; height: 80px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#00ffa3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  </div>
+  <h1 align="center">ClearTask v2.0</h1>
+  <p align="center"><strong>Aesthetic & Robust Point-of-Sale (POS) PWA for Modern Retailers.</strong></p>
+</p>
 
 ---
 
-## Tech Stack
+## 🌟 Tentang ClearTask
 
-- **Language**: JavaScript (ES6+)
-- **Framework**: React 19
-- **Build Tool**: Vite 8
-- **Styling**: Tailwind CSS v4
-- **Export Engine**: ExcelJS (replaces deprecated SheetJS)
-- **File Downloader**: file-saver
-- **Deployment**: Vercel
+ClearTask adalah aplikasi PWA (*Progressive Web App*) super-cepat dan *offline-first* yang dirancang khusus untuk memfasilitasi pencatatan transaksi harian secara modern. Membawakan visualisasi *Neon Terminal* (Dark Mode dengan Aksen Neon Hijau `#00ffa3`), ClearTask v2.0 memastikan performa kasir yang tak kenal kompromi meskipun tanpa koneksi internet.
 
----
+### Fitur Unggulan (v2.0)
 
-## Prerequisites
-
-Pastikan Anda sudah menginstal perangkat lunak berikut sebelum memulai pengembangan:
-
-- Node.js 18 atau lebih baru
-- npm 9 atau lebih baru
-- Git
+- 🛍️ **Smart Transaction Input**: Form dua-kolom dengan perhitungan total otomatis dan manajemen kategori/sub-kategori dinamis.
+- 🕒 **Session & Shift Management**: Kelola sesi kasir harian (*Buka/Tutup Sesi*). Cetak rangkuman performa pada setiap shift yang telah berakhir dengan mudah.
+- 🗄️ **Database Manager (Backup/Restore)**: Lindungi dan migrasikan data Anda menggunakan fitur impor/ekspor (*Smart Merge Validation* menolak duplikasi data secara otomatis).
+- ✏️ **Edit & Delete Transaksi**: Manajemen transaksi tingkat lanjut, cegah kerugian dari *human error*.
+- 📊 **Metrik Real-time**: Papan laporan harian interaktif membandingkan persentase tren pendapatan dengan hari sebelumnya.
+- 📥 **Enterprise Export**: Ekspor tabel transaksi atau Sesi langsung ke dalam bentuk *Excel (.xlsx)* rapi atau *CSV* (dilengkapi Lazy-loading *ExcelJS*).
+- ⚙️ **Profil Toko**: Personalisasikan nama Toko dan nama Kasir dari *Settings* untuk laporan akhir yang lebih profesional.
+- 📱 **100% PWA**: Beroperasi layaknya aplikasi *Native* (bebas install di HP/Tablet/Desktop), sangat responsif, dan lolos standar *Lighthouse* yang sangat ketat (Termasuk pencegahan *iOS Auto-Zoom*).
 
 ---
 
-## Getting Started
+## 🏗️ Arsitektur PWA (Offline First)
 
-Panduan lengkap untuk menjalankan ClearTask di komputer lokal Anda:
+Data dijamin 100% menjadi milik pengguna! ClearTask menggunakan model komputasi sisi klien murni. Segala perhitungan dan penyimpanan terjadi di memori *LocalStorage* browser Anda melalui isolasi arsitektur React Hooks dan State Management. Konsep ini dipadukan bersama *Service Worker Cache-First* untuk mewujudkan latensi `0ms` ke server.
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/Rzandi/ClearTask.git
-cd ClearTask
-```
-
-### 2. Install Dependencies
-
-Install seluruh modul yang dibutuhkan oleh React, Vite, Tailwind, dan ExcelJS:
-
-```bash
-npm install
-```
-
-### 3. Start Development Server
-
-Jalankan Vite development server:
-
-```bash
-npm run dev
-```
-
-Buka [http://localhost:5173](http://localhost:5173) di browser Anda. Server mendukung Hot Module Replacement (HMR) sehingga perubahan kode akan langsung terlihat.
+### Tech Stack
+- **Framework:** React 19 + Vite 8
+- **Styling:** Tailwind CSS v4 (Vanilla CSS untuk estetika Neon)
+- **Persistensi Data:** Native Browser LocalStorage (No DB Config Needed)
+- **Pengujian (Testing):** Vitest (Teruji 278 Unit Test Cases)
+- **Ekspor Dokumen:** ExcelJS + FileSaver (Lazy Loaded)
+- **Deployment:** Vercel
 
 ---
 
-## Architecture Overview
+## 🚀 Memulai (Local Development)
 
-Aplikasi ini menggunakan arsitektur komponen React yang modular dengan styling utilitas dari Tailwind CSS v4.
+### Syarat Pemasangan
+- Node.js versi 18+
+- npm versi 9+
 
-### Directory Structure
+### Instalasi Cepat
 
-```text
-ClearTask/
-├── public/                 # Static assets & PWA files
-│   ├── manifest.json       # PWA app metadata
-│   ├── sw.js               # Service Worker logic
-│   ├── offline.html        # Fallback offline page
-│   └── assets/icons/       # PWA icons (192x192 & 512x512)
-├── src/
-│   ├── components/         # Reusable React components
-│   │   ├── layout/         # Shell, Sidebar, TopBar, BottomNav
-│   │   ├── InputPenjualan  # Form input logic
-│   │   ├── LaporanExport   # Report & export container
-│   │   ├── TransactionTable# Data table display
-│   │   ├── MetrikCard      # Revenue summary widget
-│   │   └── Toast           # Notification system
-│   ├── hooks/              # Custom React hooks
-│   │   └── useTransactions # Core state & business logic
-│   ├── utils/              # Pure utility functions
-│   │   ├── storage.js      # LocalStorage wrapper
-│   │   ├── exportExcel.js  # ExcelJS configuration
-│   │   └── formatters.js   # Currency and date formatters
-│   ├── App.jsx             # Main routing & state provider
-│   ├── main.jsx            # React root & SW registration
-│   └── index.css           # Tailwind tokens & custom CSS
-├── index.html              # App entry point
-├── tailwind.config.js      # Tailwind configuration
-└── vite.config.js          # Vite configuration
-```
+1. **Clone repositori**
+   ```bash
+   git clone https://github.com/Rzandi/ClearTask.git
+   cd ClearTask
+   ```
 
-### Data Flow
+2. **Instal dependensi**
+   *(Note: Repositori ini dilengkapi file `.npmrc` dengan bendera `legacy-peer-deps=true` untuk mencegah masalah ERESOLVE dari plugin React 19)*
+   ```bash
+   npm install
+   ```
 
-```text
-User Input → InputPenjualan Form → useTransactions Hook → storage.js → LocalStorage
-   ↓
-MetrikCard & TransactionTable ← useTransactions Hook ← LocalStorage
-   ↓
-User Clicks Export → exportExcel.js → ExcelJS generates Blob → file-saver downloads .xlsx
-```
-
-### Key Components
-
-**State Management (`useTransactions`)**
-- Mengelola data transaksi global, pencarian, filter, dan sorting.
-- Melakukan perhitungan metrik harian (Total Pemasukan dan persentase tren) secara dinamis menggunakan `useMemo`.
-
-**Persistence (`storage.js`)**
-- Berfungsi sebagai "database" MVP menggunakan LocalStorage browser (`cleartask_transactions`).
-- Meng-generate ID unik sekuensial (e.g. `TRX-00001`) dan menambahkan timestamp pada setiap transaksi.
-
-**PWA Implementation (`sw.js` & `manifest.json`)**
-- **Cache-First**: File statis (CSS, JS, Gambar) diambil dari cache agar performa maksimal.
-- **Network-First**: Dokumen HTML (`index.html`) memprioritaskan jaringan untuk update terbaru.
-- **Offline Fallback**: Jika jaringan terputus, Service Worker akan me-routing pengguna ke `offline.html`.
+3. **Jalankan Development Server**
+   ```bash
+   npm run dev
+   ```
+   Aplikasi dapat diakses melalui `http://localhost:5173`. Server mendukung modul Vite HMR (*Hot Module Replacement*).
 
 ---
 
-## Available Scripts
+## 🧪 Testing & Linting
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Menjalankan Vite development server di port 5173 |
-| `npm run build` | Melakukan compile dan bundle aplikasi untuk production ke folder `dist/` |
-| `npm run preview` | Menjalankan server lokal untuk melakukan test pada hasil build production |
-| `npm run lint` | Menjalankan ESLint untuk mengecek potensi error pada kode |
+Repositori ini mengikuti standar *Code Quality* tingkat produksi.
+
+| Perintah | Deskripsi |
+| --- | --- |
+| `npm test` | Menjalankan seluruh test suite menggunakan **Vitest** di folder `__tests__`. |
+| `npm run lint` | Melakukan audit standar *ESLint* (mendepresiasi *dead-code* dan dependensi yang tidak tervalidasi). |
+| `npm run build` | Menghasilkan bundel produksi. (Termasuk optimasi *Code Splitting* dan *Rollup Visualizer*). |
 
 ---
 
-## Deployment
+## 💡 Panduan Deployment
 
-Aplikasi ini dioptimalkan untuk di-deploy ke Vercel dengan setup *zero-config*.
+Aplikasi ini berorientasi pada kemudahan dan *Zero-config deployment* di **Vercel**. 
 
-### Vercel (Recommended)
+1. **Melalui Vercel Dashboard**:
+   - Buat *New Project* dan impor repositori GitHub ini.
+   - Vercel akan otomatis mendeteksi konfigurasi *Vite* dan mendeploy-nya dalam hitungan detik.
 
-1. Pastikan Anda sudah menginstal Vercel CLI:
+2. **Melalui Vercel CLI**:
    ```bash
    npm i -g vercel
-   ```
-2. Login ke Vercel (jika belum):
-   ```bash
    vercel login
-   ```
-3. Deploy aplikasi:
-   ```bash
-   # Deploy ke environment preview
-   vercel
-
-   # Deploy ke production
    vercel --prod
    ```
 
-Atau, Anda dapat mendeploy langsung dengan menyambungkan repository GitHub ini ke dashboard Vercel (Import Project). Framework (Vite) dan Output Directory (`dist`) akan otomatis terdeteksi.
+> **Perhatian PWA**: Pastikan versi *production* berjalan menggunakan protokol aman **HTTPS** agar instalasi PWA (*Service Worker* dan *Web Manifest*) bekerja sesuai spesifikasi browser.
 
 ---
 
-## Troubleshooting
-
-### Data Tidak Tersimpan / Hilang
-**Solusi:**
-ClearTask menyimpan data di LocalStorage browser. Pastikan browser Anda tidak dalam mode "Incognito/Private" yang akan menghapus LocalStorage saat ditutup.
-
-### Gagal Export ke Excel
-**Solusi:**
-Pastikan browser mengizinkan pengunduhan file (pop-up/download blocker dinonaktifkan). Jika tabel transaksi kosong, tombol export akan dinonaktifkan.
-
-### PWA Tidak Bisa Di-install
-**Solusi:**
-1. Pastikan Anda mengakses aplikasi melalui HTTPS (kecuali `localhost` saat development).
-2. Cek console browser untuk melihat error pada Service Worker (`sw.js`).
-3. Buka Chrome DevTools > Application > Manifest, pastikan tidak ada peringatan (warnings) berwarna kuning.
+## 📄 Changelog & Versioning
+Cek file [`CHANGELOG.md`](./CHANGELOG.md) untuk detail perubahan terbaru pada v2.0.0.
