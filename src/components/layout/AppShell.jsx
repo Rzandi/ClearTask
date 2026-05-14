@@ -32,7 +32,7 @@ export default function AppShell({
       <main className="lg:ml-[260px] min-h-screen">
         <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-24 lg:pb-8 max-w-[1400px]">
           {/* Session Banner — shown above content when a session is active */}
-          <SessionBanner session={activeSession} onClose={onCloseSession} />
+          <SessionBanner session={activeSession} onClose={onCloseSession} onOpen={onOpenSession} />
           {children}
         </div>
       </main>

@@ -10,10 +10,38 @@ import { formatDate, formatTime } from '../utils/formatters';
  * @param {Object|null} props.session - Active session object or null
  * @param {Function} props.onClose - Callback when "Tutup Session" is clicked
  */
-export default function SessionBanner({ session, onClose }) {
-  // 9.1 Render null jika prop session adalah null
-  if (!session) {
-    return null;
+export default function SessionBanner({ session, onClose, onOpen }) {
+  // 9.1 Render banner khusus mobile untuk buka sesi jika tidak ada sesi
+  if (!session || session.status !== 'aktif') {
+    return (
+      <div className="lg:hidden w-full bg-accent-red/10 border border-accent-red/20 rounded-xl px-4 py-3 mb-6 backdrop-blur-sm">
+        <div className="flex flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {/* Warning Icon */}
+            <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-accent-red/20 flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-red">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+
+            {/* Warning Info */}
+            <div className="flex flex-col">
+              <h3 className="text-xs font-semibold text-accent-red">Belum ada sesi</h3>
+              <p className="text-[10px] text-text-secondary">Buka untuk mencatat</p>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpen}
+            className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold text-bg-base bg-accent-red hover:bg-red-500 rounded-lg transition-colors duration-200"
+          >
+            Buka Sesi
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // 9.2 Tampilkan nama sesi atau "Sesi Tanpa Nama" jika session.nama kosong

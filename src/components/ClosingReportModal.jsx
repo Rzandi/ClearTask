@@ -41,9 +41,9 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
 
   return (
     /* Backdrop */
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       {/* Modal card */}
-      <div className="glass-card w-full max-w-2xl mx-4 animate-slide-up flex flex-col max-h-[90vh]">
+      <div className="glass-card w-full max-w-lg animate-slide-up flex flex-col max-h-[90vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border-default shrink-0">
@@ -71,7 +71,7 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
           {/* 11.3 Waktu buka dan tutup sesi */}
           <section>
             <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Informasi Sesi</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-bg-elevated rounded-xl p-4 border border-border-subtle">
                 <p className="text-xs text-text-muted mb-1">Waktu Buka</p>
                 <p className="text-sm font-medium text-text-primary">

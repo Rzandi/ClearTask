@@ -5,7 +5,7 @@
 import { useRef } from 'react';
 import NotificationPanel from '../NotificationPanel';
 
-export default function TopBar({ title, searchQuery, onSearchChange, onSettingsOpen, onNotifOpen, showNotif, onNotifClose, allTransactions }) {
+export default function TopBar({ title, searchQuery, onSearchChange, onSettingsOpen, onNotifOpen, showNotif, onNotifClose, allTransactions, onHelpOpen }) {
   const notifRef = useRef(null);
   return (
     <header className="flex items-center justify-between gap-4 mb-6 lg:mb-8">
@@ -40,6 +40,15 @@ export default function TopBar({ title, searchQuery, onSearchChange, onSettingsO
             className="w-48 lg:w-64 pl-10 pr-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
           />
         </div>
+
+        {/* Help Icon (Mobile Only) */}
+        <button aria-label="Bantuan" onClick={onHelpOpen} className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl border border-border-default hover:bg-white/[0.04] transition-colors cursor-pointer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b949e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </button>
 
         {/* Settings Icon */}
         <button aria-label="Pengaturan" onClick={onSettingsOpen} className="w-10 h-10 flex items-center justify-center rounded-xl border border-border-default hover:bg-white/[0.04] transition-colors cursor-pointer">

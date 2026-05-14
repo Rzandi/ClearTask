@@ -46,7 +46,7 @@ export default function HelpModal({ isOpen, onClose }) {
         {/* Scrollable content */}
         <div className="overflow-y-auto px-6 py-5 space-y-6">
 
-          {/* Seksi 1: Cara Input Transaksi */}
+          {/* Seksi 1: Transaksi & Kategori Dinamis */}
           <section>
             <div className="flex items-center gap-2.5 mb-3">
               <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -55,38 +55,64 @@ export default function HelpModal({ isOpen, onClose }) {
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
               </div>
-              <h3 className="text-sm font-semibold text-text-primary">Cara Input Transaksi</h3>
+              <h3 className="text-sm font-semibold text-text-primary">Transaksi & Kategori</h3>
             </div>
             <div className="pl-9 space-y-1.5">
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Isi form berikut untuk mencatat transaksi penjualan:
+              <p className="text-xs text-text-secondary leading-relaxed mb-1">
+                Cara mengelola pencatatan harian Anda:
               </p>
               <ul className="space-y-1">
-                {[
-                  'Tanggal transaksi',
-                  'Kategori Barang',
-                  'Nama Barang',
-                  'Qty (jumlah)',
-                  'Harga Satuan',
-                  'Metode Pembayaran',
-                  'Catatan (opsional)',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2 text-xs text-text-secondary">
-                    <span className="text-primary mt-0.5 shrink-0">•</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
+                <li className="flex items-start gap-2 text-xs text-text-secondary">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Input Data:</strong> Isi form di halaman Input Penjualan. Total akan terhitung otomatis.</span>
+                </li>
+                <li className="flex items-start gap-2 text-xs text-text-secondary">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Kategori Baru:</strong> Jika kategori yang diinginkan tidak ada, pilih opsi <span className="text-primary font-medium">"Lainnya..."</span> pada dropdown untuk menambahkannya secara permanen.</span>
+                </li>
+                <li className="flex items-start gap-2 text-xs text-text-secondary">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Edit & Hapus:</strong> Transaksi yang sudah tersimpan dapat diubah atau dihapus melalui tabel Riwayat untuk mencegah salah ketik.</span>
+                </li>
               </ul>
-              <p className="text-xs text-text-muted pt-1">
-                Total dihitung otomatis dari <span className="text-text-secondary">Qty × Harga Satuan</span>. Klik tombol <span className="text-primary font-medium">Simpan</span> untuk menyimpan transaksi.
-              </p>
             </div>
           </section>
 
           {/* Divider */}
           <div className="border-t border-border-subtle" />
 
-          {/* Seksi 2: Cara Export Excel */}
+          {/* Seksi 2: Manajemen Sesi (Shift) */}
+          <section>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00ffa3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              <h3 className="text-sm font-semibold text-text-primary">Manajemen Sesi / Shift</h3>
+            </div>
+            <div className="pl-9 space-y-2">
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Fitur ini membantu Anda memisahkan laporan kasir berdasarkan shift harian:
+              </p>
+              <div className="space-y-1.5">
+                <div>
+                  <p className="text-xs font-medium text-text-secondary mb-0.5">Membuka Sesi:</p>
+                  <p className="text-xs text-text-muted">Klik <span className="text-primary font-medium">Buka Sesi</span> di banner atas sebelum mulai menginput transaksi. Masukkan nama shift (contoh: "Shift Pagi - Budi").</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-text-secondary mb-0.5">Menutup Sesi:</p>
+                  <p className="text-xs text-text-muted">Klik <span className="text-accent-red font-medium">Tutup Sesi</span> saat shift berakhir untuk mencetak laporan performa shift tersebut.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Divider */}
+          <div className="border-t border-border-subtle" />
+
+          {/* Seksi 3: Export Laporan */}
           <section>
             <div className="flex items-center gap-2.5 mb-3">
               <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -97,26 +123,64 @@ export default function HelpModal({ isOpen, onClose }) {
                   <polyline points="9 15 12 18 15 15" />
                 </svg>
               </div>
-              <h3 className="text-sm font-semibold text-text-primary">Cara Export Excel</h3>
+              <h3 className="text-sm font-semibold text-text-primary">Export Laporan</h3>
             </div>
-            <div className="pl-9 space-y-1">
-              {[
-                'Buka tab "Riwayat Laporan" di sidebar',
-                'Filter tanggal jika diperlukan',
-                'Klik tombol "Export Excel" untuk mengunduh file .xlsx',
-              ].map((step, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs text-text-secondary">
-                  <span className="text-primary font-semibold shrink-0 w-4">{i + 1}.</span>
-                  <span>{step}</span>
-                </div>
-              ))}
+            <div className="pl-9 space-y-1.5">
+              <p className="text-xs text-text-secondary leading-relaxed mb-1">
+                Laporan bisa diekspor ke <span className="font-semibold text-text-primary">Excel (.xlsx)</span> atau <span className="font-semibold text-text-primary">CSV</span>.
+              </p>
+              <ul className="space-y-1 text-xs text-text-secondary">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Per Sesi:</strong> Di tab Riwayat Sesi, klik ikon download pada sesi yang sudah ditutup untuk mengekspor khusus transaksi di shift tersebut.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">•</span>
+                  <span><strong>Keseluruhan:</strong> Di tab Riwayat Laporan, Anda bisa memfilter tanggal dan mengekspor seluruh transaksi yang tampil.</span>
+                </li>
+              </ul>
+              <p className="text-xs text-text-muted pt-1">
+                <span className="font-medium">Tip:</span> Anda dapat mengubah Nama Toko dan Nama Kasir melalui <span className="text-text-secondary">Settings</span> agar ikut tercetak di dalam file Excel.
+              </p>
             </div>
           </section>
 
           {/* Divider */}
           <div className="border-t border-border-subtle" />
 
-          {/* Seksi 3: Cara Install PWA */}
+          {/* Seksi 4: Database Manager */}
+          <section>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00ffa3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <ellipse cx="12" cy="5" rx="9" ry="3" />
+                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                </svg>
+              </div>
+              <h3 className="text-sm font-semibold text-text-primary">Backup & Migrasi Database</h3>
+            </div>
+            <div className="pl-9 space-y-2">
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Karena data tersimpan murni di perangkat Anda (offline-first), gunakan tab <span className="font-semibold">Database Manager</span> untuk mengamankannya:
+              </p>
+              <div className="space-y-1.5">
+                <div>
+                  <p className="text-xs font-medium text-text-secondary mb-0.5">Export JSON (Backup):</p>
+                  <p className="text-xs text-text-muted">Unduh seluruh file Database (.json) sebagai backup atau untuk dipindahkan ke HP/Laptop lain.</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-text-secondary mb-0.5">Import JSON (Restore):</p>
+                  <p className="text-xs text-text-muted">Masukkan file JSON dari perangkat lain. ClearTask dilengkapi <span className="text-primary">Smart Merge</span> yang otomatis menolak duplikasi saat data digabungkan.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Divider */}
+          <div className="border-t border-border-subtle" />
+
+          {/* Seksi 5: Cara Install PWA */}
           <section>
             <div className="flex items-center gap-2.5 mb-3">
               <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -125,19 +189,19 @@ export default function HelpModal({ isOpen, onClose }) {
                   <line x1="12" y1="18" x2="12.01" y2="18" />
                 </svg>
               </div>
-              <h3 className="text-sm font-semibold text-text-primary">Cara Install PWA</h3>
+              <h3 className="text-sm font-semibold text-text-primary">Cara Install PWA (Offline)</h3>
             </div>
             <div className="pl-9 space-y-2">
               <div>
-                <p className="text-xs font-medium text-text-secondary mb-1">Chrome (Desktop / Android):</p>
-                <p className="text-xs text-text-muted">Klik ikon install di address bar atau pilih dari menu browser.</p>
+                <p className="text-xs font-medium text-text-secondary mb-1">Chrome / Android:</p>
+                <p className="text-xs text-text-muted">Klik ikon install di address bar atau pilih <span className="text-text-secondary">"Install App"</span> dari menu browser.</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-text-secondary mb-1">Safari (iOS):</p>
-                <p className="text-xs text-text-muted">Tap tombol <span className="text-text-secondary">Share</span> → pilih <span className="text-text-secondary">"Add to Home Screen"</span>.</p>
+                <p className="text-xs font-medium text-text-secondary mb-1">Safari iOS:</p>
+                <p className="text-xs text-text-muted">Tap tombol <span className="text-text-secondary">Share</span> di bagian bawah layar → pilih <span className="text-text-secondary">"Add to Home Screen"</span>.</p>
               </div>
-              <p className="text-xs text-text-muted pt-0.5">
-                Setelah install, app bisa dibuka seperti aplikasi native tanpa browser.
+              <p className="text-xs text-text-muted pt-0.5 border-l-2 border-primary/30 pl-2 mt-2">
+                Aplikasi yang terinstall akan beroperasi secara native dan 100% mendukung mode offline.
               </p>
             </div>
           </section>

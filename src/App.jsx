@@ -123,6 +123,7 @@ export default function App() {
           showNotif={showNotif}
           onNotifClose={() => setShowNotif(false)}
           allTransactions={allTransactions}
+          onHelpOpen={() => setShowHelp(true)}
         />
 
         {/* Tab Content */}
