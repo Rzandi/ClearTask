@@ -21,12 +21,17 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    settings: {
+      react: { version: '19.0' },
+    },
     rules: {
       'react/display-name': 'warn',
       // Warn on missing dependencies in useEffect/useCallback/useMemo
       'react-hooks/exhaustive-deps': 'warn',
       // Warn on unused variables and imports (ignore _ prefixed)
       'no-unused-vars': ['warn', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
+      // Allow exporting context providers and custom hooks
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
 ])

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /* ═══════════════════════════════════════════════════════════
    SettingsContext — ClearTask
    Sumber kebenaran tunggal untuk preferensi pengguna.
