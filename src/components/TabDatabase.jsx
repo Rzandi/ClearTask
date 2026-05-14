@@ -10,6 +10,8 @@ import { exportDatabase, validateImport, calculateMerge, applyMerge } from '../u
 import MergePreviewModal from './MergePreviewModal';
 import Toast from './Toast';
 
+import InventoryManager from './InventoryManager';
+
 // ── localStorage helpers ──────────────────────────────────
 
 function readLocalStorage(key, fallback) {
@@ -25,6 +27,7 @@ function readLocalStorage(key, fallback) {
 // ── Main Component ────────────────────────────────────────
 
 export default function TabDatabase() {
+  const [subTab, setSubTab] = useState('data');
   const [filterSesi, setFilterSesi] = useState('all');
   const [importData, setImportData] = useState(null);
   const [mergeResult, setMergeResult] = useState(null);
@@ -157,9 +160,47 @@ export default function TabDatabase() {
       <div>
         <h2 className="text-lg font-bold text-text-primary mb-1">Database</h2>
         <p className="text-sm text-text-muted">
-          Statistik keseluruhan, riwayat transaksi, dan manajemen data.
+          Kelola data transaksi dan inventaris barang Anda.
         </p>
       </div>
+
+      {/* Sub-tab Navigation */}
+      <div className="flex gap-1 p-1 bg-bg-elevated rounded-xl border border-border-subtle">
+        <button
+          onClick={() => setSubTab('data')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+            subTab === 'data'
+              ? 'bg-primary/15 text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary hover:bg-white/[0.04]'
+          }`}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          </svg>
+          Manajemen Data
+        </button>
+        <button
+          onClick={() => setSubTab('inventaris')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+            subTab === 'inventaris'
+              ? 'bg-primary/15 text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary hover:bg-white/[0.04]'
+          }`}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+          Master Barang
+        </button>
+      </div>
+
+      {/* Sub-tab Content */}
+      {subTab === 'inventaris' ? (
+        <InventoryManager />
+      ) : (
+      <>
 
       {/* ── 4.1 DatabaseStats ─────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -320,6 +361,9 @@ export default function TabDatabase() {
           </tbody>
         </table>
       </div>
+
+      </>
+      )}
 
       {/* ── MergePreviewModal ─────────────────────────────── */}
       <MergePreviewModal
