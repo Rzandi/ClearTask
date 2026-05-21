@@ -3,29 +3,24 @@
    Handles export, import validation, merge calculation,
    and atomic merge application for the full database.
    ═══════════════════════════════════════════════════════════ */
-
-
-
-const KEYS = {
-  TRANSACTIONS: 'cleartask_transactions',
-  SESSIONS: 'cleartask_sessions',
-  CATEGORIES: 'cleartask_categories',
-  INVENTORY: 'cleartask_inventory',
-};
+import { toLocalDateString } from './formatters';
+import { STORAGE_KEYS as KEYS } from '../constants/storageKeys';
+import * as storageService from '../services/storageService';
 
 // ── Internal helpers ──────────────────────────────────────
 
 /**
  * Read and parse a localStorage key, returning a fallback on failure.
+ * Uses storageService for consistency.
  * @param {string} key
  * @param {*} fallback
  * @returns {*}
  */
 function readKey(key, fallback) {
   try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
-    return JSON.parse(raw);
+    const val = storageService.getItem(key);
+    if (val === null) return fallback;
+    return val;
   } catch {
     return fallback;
   }
@@ -64,7 +59,7 @@ export async function exportDatabase() {
 
   const jsonString = JSON.stringify(exportData, null, 2);
   const blob = new Blob([jsonString], { type: 'application/json' });
-  const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const dateStr = toLocalDateString(new Date());
   const filename = `ClearTask_DB_${dateStr}.json`;
 
   saveAs(blob, filename);
@@ -98,6 +93,15 @@ export function validateImport(jsonString) {
         error: 'File tidak valid: struktur data tidak dikenali',
       };
     }
+  }
+
+  // 2.5 Strict version check
+  if (parsed.version !== '1.0') {
+    return {
+      valid: false,
+      data: null,
+      error: `File tidak valid: versi database tidak didukung (${parsed.version})`,
+    };
   }
 
   // 3. Check transactions and sessions are arrays
@@ -192,11 +196,10 @@ export function calculateMerge(importData) {
 /**
  * Apply a merge atomically to localStorage.
  * Backs up all keys before writing; rolls back on any failure.
- * @param {object} importData - A validated DatabaseExport object
- * @returns {{ success: boolean, error: string|null }}
  */
-export function applyMerge(importData) {
-  const { transactionsToAdd, sessionsToAdd, categoriesToAdd, inventoryToAdd } = calculateMerge(importData);
+export function applyMerge(data) {
+  const mergeResult = data.transactionsToAdd !== undefined ? data : calculateMerge(data);
+  const { transactionsToAdd, sessionsToAdd, categoriesToAdd, inventoryToAdd } = mergeResult;
 
   // Backup current values (raw strings, may be null)
   const backup = {
@@ -232,10 +235,10 @@ export function applyMerge(importData) {
 
   // Attempt atomic write
   try {
-    localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(mergedTransactions));
-    localStorage.setItem(KEYS.SESSIONS, JSON.stringify(mergedSessions));
-    localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(mergedCategories));
-    localStorage.setItem(KEYS.INVENTORY, JSON.stringify(mergedInventory));
+    storageService.setItem(KEYS.TRANSACTIONS, mergedTransactions);
+    storageService.setItem(KEYS.SESSIONS, mergedSessions);
+    storageService.setItem(KEYS.CATEGORIES, mergedCategories);
+    storageService.setItem(KEYS.INVENTORY, mergedInventory);
     return { success: true, error: null };
   } catch {
     // Rollback: restore all keys from backup

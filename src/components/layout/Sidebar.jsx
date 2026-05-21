@@ -45,7 +45,7 @@ export default function Sidebar({ activeTab, onTabChange, onHelpOpen, activeSess
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 mt-2">
+      <nav className="flex-1 px-3 mt-2" aria-label="Navigasi utama">
         {/* Session Button */}
         <div className="mb-3">
           {activeSession ? (
@@ -75,6 +75,8 @@ export default function Sidebar({ activeTab, onTabChange, onHelpOpen, activeSess
             <button
               key={item.id}
               id={`sidebar-nav-${item.id}`}
+              role="tab"
+              aria-selected={isActive}
               onClick={() => onTabChange(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-1 text-sm font-medium transition-all duration-200 cursor-pointer ${
                 isActive
@@ -95,9 +97,16 @@ export default function Sidebar({ activeTab, onTabChange, onHelpOpen, activeSess
           <HelpIcon />
           Bantuan
         </button>
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-text-muted hover:text-text-secondary hover:bg-white/[0.04] transition-colors cursor-pointer">
+        <button 
+          onClick={() => {
+            if (window.confirm('Yakin ingin memuat ulang aplikasi?')) {
+              window.location.reload();
+            }
+          }}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-text-muted hover:text-text-secondary hover:bg-white/[0.04] transition-colors cursor-pointer"
+        >
           <LogoutIcon />
-          Keluar
+          Muat Ulang
         </button>
       </div>
     </aside>

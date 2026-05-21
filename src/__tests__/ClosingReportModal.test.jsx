@@ -7,10 +7,16 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ClosingReportModal from '../components/ClosingReportModal';
+import { SettingsProvider } from '../contexts/SettingsContext';
 
 // Mock export utilities
 vi.mock('../utils/exportExcel', () => ({ exportSessionExcel: vi.fn() }));
 vi.mock('../utils/exportCSV', () => ({ exportSessionCSV: vi.fn() }));
+
+/** Helper to render with SettingsProvider */
+function renderWithSettings(ui) {
+  return render(<SettingsProvider>{ui}</SettingsProvider>);
+}
 
 // Sample session and transactions for tests
 const mockSession = {
@@ -65,7 +71,7 @@ describe('ClosingReportModal', () => {
 
   // 12.1 Unit test: tidak render ketika isOpen adalah false
   it('tidak render ketika isOpen adalah false', () => {
-    const { container } = render(
+    const { container } = renderWithSettings(
       <ClosingReportModal
         isOpen={false}
         session={mockSession}
@@ -78,7 +84,7 @@ describe('ClosingReportModal', () => {
 
   // 12.2 Unit test: tampilkan "Tidak ada transaksi dalam sesi ini" ketika transaksi kosong
   it('tampilkan pesan tidak ada transaksi ketika transactions kosong', () => {
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -91,7 +97,7 @@ describe('ClosingReportModal', () => {
 
   // 12.2 lanjutan: breakdown tidak ditampilkan ketika transaksi kosong
   it('tidak tampilkan breakdown ketika transactions kosong', () => {
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -106,7 +112,7 @@ describe('ClosingReportModal', () => {
   // 12.3 Unit test: tampilkan "Sesi Tanpa Nama" ketika nama sesi kosong
   it('tampilkan "Sesi Tanpa Nama" ketika session.nama kosong', () => {
     const sessionTanpaNama = { ...mockSession, nama: '' };
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={sessionTanpaNama}
@@ -119,7 +125,7 @@ describe('ClosingReportModal', () => {
 
   // 12.3 lanjutan: tampilkan nama sesi ketika nama terisi
   it('tampilkan nama sesi ketika session.nama terisi', () => {
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -133,7 +139,7 @@ describe('ClosingReportModal', () => {
   // 12.4 Unit test: tombol "Selesai" memanggil onClose
   it('tombol Selesai memanggil onClose saat diklik', () => {
     const onClose = vi.fn();
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -147,7 +153,7 @@ describe('ClosingReportModal', () => {
 
   // 12.5 Unit test: tombol "Export Excel" dan "Export CSV" ada di DOM
   it('tombol Export Excel dan Export CSV ada di DOM', () => {
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -162,7 +168,7 @@ describe('ClosingReportModal', () => {
   // Tambahan: tombol Export Excel memanggil exportSessionExcel
   it('tombol Export Excel memanggil exportSessionExcel dengan argumen yang benar', async () => {
     const { exportSessionExcel } = await import('../utils/exportExcel');
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -171,13 +177,13 @@ describe('ClosingReportModal', () => {
       />
     );
     fireEvent.click(screen.getByText('Export Excel'));
-    expect(exportSessionExcel).toHaveBeenCalledWith(mockTransactions, mockSession);
+    expect(exportSessionExcel).toHaveBeenCalledWith(mockTransactions, mockSession, expect.any(Object));
   });
 
   // Tambahan: tombol Export CSV memanggil exportSessionCSV
   it('tombol Export CSV memanggil exportSessionCSV dengan argumen yang benar', async () => {
     const { exportSessionCSV } = await import('../utils/exportCSV');
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -192,7 +198,7 @@ describe('ClosingReportModal', () => {
   // Tambahan: modal tetap terbuka setelah export (tidak auto-close)
   it('modal tetap terbuka setelah klik Export Excel (tidak memanggil onClose)', () => {
     const onClose = vi.fn();
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -206,7 +212,7 @@ describe('ClosingReportModal', () => {
 
   it('modal tetap terbuka setelah klik Export CSV (tidak memanggil onClose)', () => {
     const onClose = vi.fn();
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -220,7 +226,7 @@ describe('ClosingReportModal', () => {
 
   // Tambahan: tampilkan breakdown ketika ada transaksi
   it('tampilkan breakdown kategori dan metode ketika ada transaksi', () => {
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}
@@ -241,7 +247,7 @@ describe('ClosingReportModal', () => {
 
   // Tambahan: tampilkan total transaksi dan total pemasukan
   it('tampilkan total transaksi dan total pemasukan yang benar', () => {
-    render(
+    renderWithSettings(
       <ClosingReportModal
         isOpen={true}
         session={mockSession}

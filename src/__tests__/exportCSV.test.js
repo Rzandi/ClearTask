@@ -14,6 +14,12 @@ vi.mock('file-saver', () => ({ saveAs: vi.fn() }));
 vi.mock('../utils/formatters', () => ({
   formatDate: (v) => String(v ?? ''),
   formatTime: (v) => String(v ?? ''),
+  toLocalDateString: (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
 }));
 
 import { saveAs } from 'file-saver';
@@ -100,7 +106,7 @@ describe('exportSessionCSV — header row', () => {
     const firstLine = text.split('\n')[0];
 
     expect(firstLine).toBe(
-      'ID Transaksi,Tanggal,Waktu,Kasir,Kategori,Nama Barang,Qty,Harga Satuan,Total,Metode,Catatan,Status'
+      'ID Transaksi,Tanggal,Waktu,Kasir,Kategori,Sub-Kategori,Nama Barang,Qty,Harga Satuan,Total,Metode,Catatan,Status'
     );
   });
 });

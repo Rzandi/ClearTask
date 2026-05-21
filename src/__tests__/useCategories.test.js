@@ -12,17 +12,17 @@ import {
   SUBKATEGORI_PRESET,
   loadStore,
   saveStore,
-  STORAGE_KEY,
 } from '../hooks/useCategories';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 // ── localStorage mock helpers ──
 
 function clearStorage() {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
 }
 
 function setStorage(value) {
-  localStorage.setItem(STORAGE_KEY, value);
+  localStorage.setItem(STORAGE_KEYS.CATEGORIES, value);
 }
 
 // ══════════════════════════════════════════════════════════════

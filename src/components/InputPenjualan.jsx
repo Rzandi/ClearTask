@@ -4,33 +4,42 @@
    Supports dynamic categories and sub-categories via useCategories
    ═══════════════════════════════════════════════════════════ */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getTodayISO } from '../utils/formatters';
 import { useCategories } from '../hooks/useCategories';
+import { useSettings } from '../contexts/SettingsContext';
+import FieldGroup from './ui/FieldGroup';
 
 const METODE_OPTIONS = ['Tunai', 'QRIS', 'Kartu Debit', 'Transfer'];
 
-const initialForm = {
-  tanggal: getTodayISO(),
-  kategori: 'Elektronik',
-  subKategori: '',
-  namaBarang: '',
-  qty: '',
-  hargaSatuan: '',
-  metode: 'Tunai',
-  catatan: '',
-  kasir: 'Admin',
-};
-
 export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
-  const [form, setForm] = useState(initialForm);
+  const { settings } = useSettings();
+  const kasirName = settings?.kasirName || 'Admin';
+
+  const [form, setForm] = useState({
+    tanggal: getTodayISO(),
+    kategori: 'Elektronik',
+    subKategori: '',
+    namaBarang: '',
+    qty: '',
+    hargaSatuan: '',
+    metode: 'Tunai',
+    catatan: '',
+    kasir: kasirName,
+  });
+
+  // Sync kasir when kasirName changes (e.g. user updates settings)
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, kasir: kasirName }));
+  }, [kasirName]);
 
   // ── Inline input state ──
   const [showKategoriInput, setShowKategoriInput] = useState(false);
   const [showSubKategoriInput, setShowSubKategoriInput] = useState(false);
   const [inlineKategoriValue, setInlineKategoriValue] = useState('');
   const [inlineSubKategoriValue, setInlineSubKategoriValue] = useState('');
-  const [inlineError, setInlineError] = useState('');
+  const [inlineKategoriError, setInlineKategoriError] = useState('');
+  const [inlineSubKategoriError, setInlineSubKategoriError] = useState('');
 
   const { allCategories, subCategoriesFor, addCategory, addSubCategory } = useCategories();
 
@@ -48,12 +57,12 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
     if (value === '__ADD_NEW__') {
       setShowKategoriInput(true);
       setInlineKategoriValue('');
-      setInlineError('');
+      setInlineKategoriError('');
       // Preserve current form.kategori — do not update it
     } else {
       setForm((prev) => ({ ...prev, kategori: value, subKategori: '' }));
       setShowKategoriInput(false);
-      setInlineError('');
+      setInlineKategoriError('');
     }
   };
 
@@ -63,16 +72,16 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
       setForm((prev) => ({ ...prev, kategori: inlineKategoriValue.trim(), subKategori: '' }));
       setShowKategoriInput(false);
       setInlineKategoriValue('');
-      setInlineError('');
+      setInlineKategoriError('');
     } else {
-      setInlineError(result.error || 'Gagal menambah kategori');
+      setInlineKategoriError(result.error || 'Gagal menambah kategori');
     }
   };
 
   const handleKategoriCancel = () => {
     setShowKategoriInput(false);
     setInlineKategoriValue('');
-    setInlineError('');
+    setInlineKategoriError('');
   };
 
   // ── Sub-kategori dropdown handler ──
@@ -81,11 +90,11 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
     if (value === '__ADD_NEW__') {
       setShowSubKategoriInput(true);
       setInlineSubKategoriValue('');
-      setInlineError('');
+      setInlineSubKategoriError('');
     } else {
       setForm((prev) => ({ ...prev, subKategori: value }));
       setShowSubKategoriInput(false);
-      setInlineError('');
+      setInlineSubKategoriError('');
     }
   };
 
@@ -95,16 +104,16 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
       setForm((prev) => ({ ...prev, subKategori: inlineSubKategoriValue.trim() }));
       setShowSubKategoriInput(false);
       setInlineSubKategoriValue('');
-      setInlineError('');
+      setInlineSubKategoriError('');
     } else {
-      setInlineError(result.error || 'Gagal menambah sub-kategori');
+      setInlineSubKategoriError(result.error || 'Gagal menambah sub-kategori');
     }
   };
 
   const handleSubKategoriCancel = () => {
     setShowSubKategoriInput(false);
     setInlineSubKategoriValue('');
-    setInlineError('');
+    setInlineSubKategoriError('');
   };
 
   // ── Submit ──
@@ -121,12 +130,23 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
       sessionId: activeSessionId ?? null,
     });
 
-    setForm({ ...initialForm, tanggal: getTodayISO() });
+    setForm({
+      tanggal: getTodayISO(),
+      kategori: 'Elektronik',
+      subKategori: '',
+      namaBarang: '',
+      qty: '',
+      hargaSatuan: '',
+      metode: 'Tunai',
+      catatan: '',
+      kasir: kasirName,
+    });
     setShowKategoriInput(false);
     setShowSubKategoriInput(false);
     setInlineKategoriValue('');
     setInlineSubKategoriValue('');
-    setInlineError('');
+    setInlineKategoriError('');
+    setInlineSubKategoriError('');
   };
 
   const isValid = form.namaBarang.trim() && qty > 0 && harga > 0;
@@ -173,7 +193,8 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
                     onConfirm={handleKategoriConfirm}
                     onCancel={handleKategoriCancel}
                     placeholder="Nama kategori baru..."
-                    error={inlineError}
+                    maxLength={50}
+                    error={inlineKategoriError}
                   />
                 )}
               </FieldGroup>
@@ -201,7 +222,8 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
                       onConfirm={handleSubKategoriConfirm}
                       onCancel={handleSubKategoriCancel}
                       placeholder="Nama sub-kategori baru..."
-                      error={inlineError}
+                      maxLength={50}
+                      error={inlineSubKategoriError}
                     />
                   )}
                 </FieldGroup>
@@ -215,7 +237,8 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
                   name="namaBarang"
                   value={form.namaBarang}
                   onChange={handleChange}
-                  placeholder="Masukkan nama barang"
+                  placeholder="Contoh: Kopi Susu Aren"
+                  maxLength={100}
                   className="form-input"
                 />
               </FieldGroup>
@@ -292,6 +315,7 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
                   onChange={handleChange}
                   placeholder="Opsional"
                   rows={3}
+                  maxLength={200}
                   className="form-input resize-none"
                 />
               </FieldGroup>
@@ -315,20 +339,8 @@ export default function InputPenjualan({ onSubmit, activeSessionId = null }) {
   );
 }
 
-/* ─── Shared Field Group ──────────────────────────────────── */
-function FieldGroup({ label, htmlFor, children }) {
-  return (
-    <div>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-text-secondary mb-2">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
 /* ─── InlineInput ─────────────────────────────────────────── */
-function InlineInput({ value, onChange, onConfirm, onCancel, placeholder, error }) {
+function InlineInput({ value, onChange, onConfirm, onCancel, placeholder, error, maxLength }) {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -348,6 +360,7 @@ function InlineInput({ value, onChange, onConfirm, onCancel, placeholder, error 
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          maxLength={maxLength}
           className="form-input flex-1 text-sm"
           autoFocus
         />

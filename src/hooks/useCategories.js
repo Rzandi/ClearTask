@@ -3,9 +3,10 @@
    Manages dynamic categories and sub-categories with localStorage persistence
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { STORAGE_KEYS } from '../constants/storageKeys';
+import * as storageService from '../services/storageService';
 
-export const STORAGE_KEY = 'cleartask_categories';
 
 export const KATEGORI_DEFAULT = [
   'Elektronik', 'Makanan', 'Minuman', 'Pakaian',
@@ -25,10 +26,8 @@ export const SUBKATEGORI_PRESET = {
  */
 export function loadStore() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { categories: [], subCategories: {} };
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed?.categories)) {
+    const parsed = storageService.getItem(STORAGE_KEYS.CATEGORIES);
+    if (!parsed || !Array.isArray(parsed?.categories)) {
       return { categories: [], subCategories: {} };
     }
     return {
@@ -46,11 +45,7 @@ export function loadStore() {
  * @param {{ categories: string[], subCategories: Record<string, string[]> }} store
  */
 export function saveStore(store) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  } catch (err) {
-    console.error('[useCategories] Failed to save store:', err);
-  }
+  storageService.setItem(STORAGE_KEYS.CATEGORIES, store);
 }
 
 /**
@@ -59,9 +54,21 @@ export function saveStore(store) {
 export function useCategories() {
   const [store, setStore] = useState(() => loadStore());
 
+  useEffect(() => {
+    const refresh = () => setStore(loadStore());
+    window.addEventListener('storage', refresh);
+    window.addEventListener('local-storage-update', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('local-storage-update', refresh);
+    };
+  }, []);
+
   // ── Derived values ──
 
-  const allCategories = [...KATEGORI_DEFAULT, ...store.categories];
+  const allCategories = useMemo(() => {
+    return [...KATEGORI_DEFAULT, ...store.categories];
+  }, [store.categories]);
 
   const subCategoriesFor = useCallback(
     (kategori) => {
@@ -93,7 +100,8 @@ export function useCategories() {
       const trimmed = (name ?? '').trim();
       if (!trimmed) return { success: false };
 
-      const current = [...KATEGORI_DEFAULT, ...store.categories];
+      const currentStore = loadStore();
+      const current = [...KATEGORI_DEFAULT, ...currentStore.categories];
       const isDuplicate = current.some(
         (cat) => cat.toLowerCase() === trimmed.toLowerCase()
       );
@@ -102,14 +110,14 @@ export function useCategories() {
       }
 
       const newStore = {
-        ...store,
-        categories: [...store.categories, trimmed],
+        ...currentStore,
+        categories: [...currentStore.categories, trimmed],
       };
       setStore(newStore);
       saveStore(newStore);
       return { success: true };
     },
-    [store]
+    []
   );
 
   const addSubCategory = useCallback(
@@ -117,11 +125,12 @@ export function useCategories() {
       const trimmed = (name ?? '').trim();
       if (!trimmed) return { success: false };
 
+      const currentStore = loadStore();
       const preset = Object.hasOwn(SUBKATEGORI_PRESET, kategori)
         ? SUBKATEGORI_PRESET[kategori]
         : [];
-      const custom = Object.hasOwn(store.subCategories, kategori)
-        ? store.subCategories[kategori]
+      const custom = Object.hasOwn(currentStore.subCategories, kategori)
+        ? currentStore.subCategories[kategori]
         : [];
       const existing = [...preset, ...custom];
       const isDuplicate = existing.some(
@@ -132,9 +141,9 @@ export function useCategories() {
       }
 
       const newStore = {
-        ...store,
+        ...currentStore,
         subCategories: {
-          ...store.subCategories,
+          ...currentStore.subCategories,
           [kategori]: [...custom, trimmed],
         },
       };
@@ -142,40 +151,44 @@ export function useCategories() {
       saveStore(newStore);
       return { success: true };
     },
-    [store]
+    []
   );
 
   const deleteCategory = useCallback(
     (name) => {
-      const newSubCategories = { ...store.subCategories };
-      delete newSubCategories[name];
+      setStore((prev) => {
+        const newSubCategories = { ...prev.subCategories };
+        delete newSubCategories[name];
 
-      const newStore = {
-        categories: store.categories.filter((cat) => cat !== name),
-        subCategories: newSubCategories,
-      };
-      setStore(newStore);
-      saveStore(newStore);
+        const newStore = {
+          categories: prev.categories.filter((cat) => cat !== name),
+          subCategories: newSubCategories,
+        };
+        saveStore(newStore);
+        return newStore;
+      });
     },
-    [store]
+    []
   );
 
   const deleteSubCategory = useCallback(
     (kategori, name) => {
-      const existing = Object.hasOwn(store.subCategories, kategori)
-        ? store.subCategories[kategori]
-        : [];
-      const newStore = {
-        ...store,
-        subCategories: {
-          ...store.subCategories,
-          [kategori]: existing.filter((sub) => sub !== name),
-        },
-      };
-      setStore(newStore);
-      saveStore(newStore);
+      setStore((prev) => {
+        const existing = Object.hasOwn(prev.subCategories, kategori)
+          ? prev.subCategories[kategori]
+          : [];
+        const newStore = {
+          ...prev,
+          subCategories: {
+            ...prev.subCategories,
+            [kategori]: existing.filter((sub) => sub !== name),
+          },
+        };
+        saveStore(newStore);
+        return newStore;
+      });
     },
-    [store]
+    []
   );
 
   return {

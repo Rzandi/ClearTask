@@ -10,6 +10,7 @@ import { renderHook, act } from '@testing-library/react';
 import * as fc from 'fast-check';
 import { saveTransactions } from '../utils/storage';
 import { useTransactions } from '../hooks/useTransactions';
+import { toLocalDateString } from '../utils/formatters';
 
 // ─── Setup / Teardown ─────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ afterEach(() => localStorage.clear());
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-const today = new Date().toISOString().split('T')[0];
+const today = toLocalDateString(new Date());
 
 function makeTodayTx(overrides = {}) {
   return {

@@ -53,7 +53,7 @@ describe('Bug 1 — CSS Padding Override Gagal (Exploratory)', () => {
   // Class pl-10 telah diganti dengan form-input-prefixed di InputPenjualan.jsx.
   it('Bug 1a: #field-hargaSatuan memiliki class form-input-prefixed dan TIDAK lagi memiliki pl-10 (post-fix verification)', () => {
     const mockSubmit = vi.fn();
-    render(<InputPenjualan onSubmit={mockSubmit} />);
+    render(withSettings(<InputPenjualan onSubmit={mockSubmit} />));
 
     const hargaInput = document.getElementById('field-hargaSatuan');
     expect(hargaInput).not.toBeNull();
@@ -74,7 +74,7 @@ describe('Bug 1 — CSS Padding Override Gagal (Exploratory)', () => {
   // Class pl-10 telah diganti dengan form-input-prefixed di InputPenjualan.jsx.
   it('Bug 1b: #field-total memiliki class form-input-prefixed dan TIDAK lagi memiliki pl-10 (post-fix verification)', () => {
     const mockSubmit = vi.fn();
-    render(<InputPenjualan onSubmit={mockSubmit} />);
+    render(withSettings(<InputPenjualan onSubmit={mockSubmit} />));
 
     const totalInput = document.getElementById('field-total');
     expect(totalInput).not.toBeNull();
@@ -94,7 +94,7 @@ describe('Bug 1 — CSS Padding Override Gagal (Exploratory)', () => {
 
   it('Bug 1c: Field lain (non-prefix) tidak memiliki pl-10 — membuktikan hanya field berprefix yang terdampak', () => {
     const mockSubmit = vi.fn();
-    render(<InputPenjualan onSubmit={mockSubmit} />);
+    render(withSettings(<InputPenjualan onSubmit={mockSubmit} />));
 
     // Field tanpa prefix tidak memiliki pl-10
     const namaBarangInput = document.getElementById('field-namaBarang');

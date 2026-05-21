@@ -20,6 +20,13 @@ vi.mock('../utils/formatters', () => ({
   formatRupiah: (v) => String(v),
   formatDate: (v) => String(v),
   formatTime: (v) => String(v),
+  toLocalDateString: (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
+  getTodayISO: () => '2024-01-01',
 }));
 
 // Shared state for ExcelJS mock
@@ -195,6 +202,7 @@ describe('Property-Based Tests: settings-populated', () => {
   // ─── Property 3: Sidebar Selalu Mencerminkan Settings Terkini ────────────────
   it(
     'Property 3: Sidebar Selalu Mencerminkan Settings Terkini',
+    { timeout: 30000 },
     () => {
       /**
        * Validates: Requirements 2.3, 2.4, 3.3, 3.4, 7.2

@@ -4,22 +4,49 @@
    Integrates session management via useSession hook
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, lazy, Suspense, useEffect } from 'react';
 import AppShell from './components/layout/AppShell';
 import TopBar from './components/layout/TopBar';
 import InputPenjualan from './components/InputPenjualan';
-import LaporanExport from './components/LaporanExport';
-import TabDatabase from './components/TabDatabase';
 import Toast from './components/Toast';
 import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
 import ClosingReportModal from './components/ClosingReportModal';
-import RiwayatSesi from './components/RiwayatSesi';
+import ConfirmDialog from './components/ConfirmDialog';
+import PromptDialog from './components/PromptDialog';
 import { useTransactions } from './hooks/useTransactions';
 import { useSession } from './hooks/useSession';
 
+const LaporanExport = lazy(() => import('./components/LaporanExport'));
+const TabDatabase = lazy(() => import('./components/TabDatabase'));
+const RiwayatSesi = lazy(() => import('./components/RiwayatSesi'));
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('input');
+  const [activeTab, setActiveTab] = useState(() => {
+    return window.location.hash.replace('#', '') || 'input';
+  });
+
+  // Handle browser back/forward buttons (PopState)
+  useEffect(() => {
+    const handlePopState = () => {
+      const hash = window.location.hash.replace('#', '') || 'input';
+      setActiveTab(hash);
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    
+    // Set initial state without adding to history stack if no hash exists
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', '#input');
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleTabChange = useCallback((newTab) => {
+    setActiveTab(newTab);
+    window.history.pushState(null, '', '#' + newTab);
+  }, []);
   const [toast, setToast] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
@@ -28,6 +55,10 @@ export default function App() {
   // ── 18.2 Session state ──
   const [showClosingReport, setShowClosingReport] = useState(false);
   const [closingReportData, setClosingReportData] = useState(null);
+
+  // ── Dialog state ──
+  const [showPromptSession, setShowPromptSession] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   // ── 18.1 useSession hook ──
   const {
@@ -55,20 +86,29 @@ export default function App() {
 
   const handleSubmit = useCallback(
     (data) => {
-      addTransaction(data);
-      setToast({ message: 'Transaksi berhasil disimpan!', type: 'success' });
+      try {
+        addTransaction(data);
+        setToast({ message: 'Transaksi berhasil disimpan!', type: 'success' });
+      } catch (err) {
+        setToast({ message: err.message || 'Gagal menyimpan transaksi', type: 'error' });
+      }
     },
     [addTransaction]
   );
 
   // ── 18.3 handleOpenSession ──
   const handleOpenSession = useCallback(() => {
-    const nama = window.prompt('Nama sesi (opsional):', '');
-    // If user cancelled (pressed Cancel), prompt returns null
-    if (nama === null) return;
+    setShowPromptSession(true);
+  }, []);
+
+  const handleConfirmOpenSession = useCallback((nama) => {
+    setShowPromptSession(false);
+    
+    // T3: Sanitize input (strip HTML tags)
+    const sanitizedNama = (nama || '').replace(/<[^>]*>?/gm, '').trim();
 
     try {
-      openSession(nama || '');
+      openSession(sanitizedNama);
       setToast({ message: 'Sesi berhasil dibuka!', type: 'success' });
     } catch (err) {
       setToast({ message: err.message || 'Gagal membuka sesi', type: 'error' });
@@ -89,10 +129,12 @@ export default function App() {
 
   // ── 18.4 handleCloseSessionRequest ──
   const handleCloseSessionRequest = useCallback(() => {
-    const confirmed = window.confirm('Tutup sesi ini?');
-    if (confirmed) {
-      handleConfirmCloseSession();
-    }
+    setShowConfirmClose(true);
+  }, []);
+
+  const handleConfirmClose = useCallback(() => {
+    setShowConfirmClose(false);
+    handleConfirmCloseSession();
   }, [handleConfirmCloseSession]);
 
   // ── 18.6 handleClosingReportClose ──
@@ -108,7 +150,7 @@ export default function App() {
       {/* 18.7 Pass activeSession to AppShell (which forwards to Sidebar and renders SessionBanner) */}
       <AppShell
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         onHelpOpen={() => setShowHelp(true)}
         activeSession={activeSession}
         onCloseSession={handleCloseSessionRequest}
@@ -127,35 +169,45 @@ export default function App() {
         />
 
         {/* Tab Content */}
-        {activeTab === 'input' ? (
-          /* 18.7 Pass activeSessionId to InputPenjualan */
-          <InputPenjualan
-            onSubmit={handleSubmit}
-            activeSessionId={activeSession?.id ?? null}
-          />
-        ) : activeTab === 'database' ? (
-          <TabDatabase />
-        ) : activeTab === 'riwayat-sesi' ? (
-          /* 19.5 Pass allSessions and getSessionTransactions */
-          <RiwayatSesi
-            allSessions={allSessions}
-            getSessionTransactions={getSessionTransactions}
-          />
-        ) : (
-          <LaporanExport
-            transactions={transactions}
-            allTransactions={allTransactions}
-            todayMetrics={todayMetrics}
-            filterDate={filterDate}
-            setFilterDate={setFilterDate}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-            onUpdate={updateTransaction}
-            onDelete={deleteTransaction}
-          />
-        )}
+        <Suspense fallback={
+          <div className="flex justify-center items-center h-64 text-text-muted">
+            <svg className="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+        }>
+          {activeTab === 'input' ? (
+            /* 18.7 Pass activeSessionId to InputPenjualan */
+            <InputPenjualan
+              onSubmit={handleSubmit}
+              activeSessionId={activeSession?.id ?? null}
+            />
+          ) : activeTab === 'database' ? (
+            <TabDatabase />
+          ) : activeTab === 'riwayat-sesi' ? (
+            /* 19.5 Pass allSessions and getSessionTransactions */
+            <RiwayatSesi
+              allSessions={allSessions}
+              getSessionTransactions={getSessionTransactions}
+              allTransactions={allTransactions}
+            />
+          ) : (
+            <LaporanExport
+              transactions={transactions}
+              allTransactions={allTransactions}
+              todayMetrics={todayMetrics}
+              filterDate={filterDate}
+              setFilterDate={setFilterDate}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+              onUpdate={updateTransaction}
+              onDelete={deleteTransaction}
+            />
+          )}
+        </Suspense>
 
         {/* Toast Notification */}
         {toast && (
@@ -176,6 +228,23 @@ export default function App() {
         session={closingReportData?.session}
         transactions={closingReportData?.transactions ?? []}
         onClose={handleClosingReportClose}
+      />
+
+      <PromptDialog
+        isOpen={showPromptSession}
+        title="Buka Sesi Baru"
+        message="Masukkan nama sesi (opsional):"
+        placeholder="Cth: Shift Pagi"
+        confirmText="Buka Sesi"
+        onConfirm={handleConfirmOpenSession}
+        onCancel={() => setShowPromptSession(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={showConfirmClose}
+        message="Yakin ingin menutup sesi ini? Transaksi baru tidak bisa ditambahkan ke sesi yang sudah ditutup."
+        onConfirm={handleConfirmClose}
+        onCancel={() => setShowConfirmClose(false)}
       />
     </>
   );

@@ -12,13 +12,15 @@ export default function BottomNav({ activeTab, onTabChange }) {
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border-default">
-      <div className="flex items-center justify-around h-16 px-4 max-w-md mx-auto">
+      <div className="flex items-center justify-around h-16 px-4 max-w-md mx-auto" role="tablist">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               id={`bottom-nav-${tab.id}`}
+              role="tab"
+              aria-selected={isActive}
               onClick={() => onTabChange(tab.id)}
               className={`flex flex-col items-center justify-center gap-1 py-2 px-6 rounded-2xl transition-all duration-200 cursor-pointer min-w-[80px] ${
                 isActive

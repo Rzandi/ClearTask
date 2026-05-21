@@ -32,42 +32,42 @@ describe('1. CSS Preservation — Field tanpa prefix tidak memiliki form-input-p
    */
 
   it('1a: #field-namaBarang TIDAK memiliki class form-input-prefixed', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-namaBarang');
     expect(el).not.toBeNull();
     expect(el.className).not.toContain('form-input-prefixed');
   });
 
   it('1b: #field-qty TIDAK memiliki class form-input-prefixed', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-qty');
     expect(el).not.toBeNull();
     expect(el.className).not.toContain('form-input-prefixed');
   });
 
   it('1c: #field-tanggal TIDAK memiliki class form-input-prefixed', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-tanggal');
     expect(el).not.toBeNull();
     expect(el.className).not.toContain('form-input-prefixed');
   });
 
   it('1d: #field-catatan TIDAK memiliki class form-input-prefixed', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-catatan');
     expect(el).not.toBeNull();
     expect(el.className).not.toContain('form-input-prefixed');
   });
 
   it('1e: #field-kategori (select) TIDAK memiliki class form-input-prefixed', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-kategori');
     expect(el).not.toBeNull();
     expect(el.className).not.toContain('form-input-prefixed');
   });
 
   it('1f: #field-metode (select) TIDAK memiliki class form-input-prefixed', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-metode');
     expect(el).not.toBeNull();
     expect(el.className).not.toContain('form-input-prefixed');
@@ -83,28 +83,28 @@ describe('2. CSS Fix — Field berprefix memiliki form-input-prefixed dan tidak 
    */
 
   it('2a: #field-hargaSatuan MEMILIKI class form-input-prefixed (fix sudah diterapkan)', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-hargaSatuan');
     expect(el).not.toBeNull();
     expect(el.className).toContain('form-input-prefixed');
   });
 
   it('2b: #field-total MEMILIKI class form-input-prefixed (fix sudah diterapkan)', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-total');
     expect(el).not.toBeNull();
     expect(el.className).toContain('form-input-prefixed');
   });
 
   it('2c: #field-hargaSatuan TIDAK lagi memiliki class pl-10', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-hargaSatuan');
     expect(el).not.toBeNull();
     expect(el.className).not.toContain('pl-10');
   });
 
   it('2d: #field-total TIDAK lagi memiliki class pl-10', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
     const el = document.getElementById('field-total');
     expect(el).not.toBeNull();
     expect(el.className).not.toContain('pl-10');
@@ -120,7 +120,7 @@ describe('3. Kalkulasi Total tetap akurat', () => {
    */
 
   it('3a: qty=5, hargaSatuan=20000 → total menampilkan "100.000"', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const qtyInput = document.getElementById('field-qty');
     const hargaInput = document.getElementById('field-hargaSatuan');
@@ -133,7 +133,7 @@ describe('3. Kalkulasi Total tetap akurat', () => {
   });
 
   it('3b: qty=0 → total menampilkan "0"', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const qtyInput = document.getElementById('field-qty');
     const totalInput = document.getElementById('field-total');
@@ -144,7 +144,7 @@ describe('3. Kalkulasi Total tetap akurat', () => {
   });
 
   it('3c: qty=3, hargaSatuan=15000 → total menampilkan "45.000"', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const qtyInput = document.getElementById('field-qty');
     const hargaInput = document.getElementById('field-hargaSatuan');
@@ -166,7 +166,7 @@ describe('4. Validasi form tidak berubah', () => {
    */
 
   it('4a: Tombol Simpan disabled ketika namaBarang kosong', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const qtyInput = document.getElementById('field-qty');
     const hargaInput = document.getElementById('field-hargaSatuan');
@@ -180,7 +180,7 @@ describe('4. Validasi form tidak berubah', () => {
   });
 
   it('4b: Tombol Simpan disabled ketika qty=0', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const namaInput = document.getElementById('field-namaBarang');
     const qtyInput = document.getElementById('field-qty');
@@ -195,7 +195,7 @@ describe('4. Validasi form tidak berubah', () => {
   });
 
   it('4c: Tombol Simpan disabled ketika qty kosong', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const namaInput = document.getElementById('field-namaBarang');
     const hargaInput = document.getElementById('field-hargaSatuan');
@@ -209,7 +209,7 @@ describe('4. Validasi form tidak berubah', () => {
   });
 
   it('4d: Tombol Simpan disabled ketika hargaSatuan=0', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const namaInput = document.getElementById('field-namaBarang');
     const qtyInput = document.getElementById('field-qty');
@@ -224,7 +224,7 @@ describe('4. Validasi form tidak berubah', () => {
   });
 
   it('4e: Tombol Simpan disabled ketika hargaSatuan kosong', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const namaInput = document.getElementById('field-namaBarang');
     const qtyInput = document.getElementById('field-qty');
@@ -238,7 +238,7 @@ describe('4. Validasi form tidak berubah', () => {
   });
 
   it('4f: Tombol Simpan enabled ketika semua field valid (namaBarang ada, qty>0, harga>0)', () => {
-    render(<InputPenjualan onSubmit={vi.fn()} />);
+    render(withSettings(<InputPenjualan onSubmit={vi.fn()} />));
 
     const namaInput = document.getElementById('field-namaBarang');
     const qtyInput = document.getElementById('field-qty');
@@ -414,38 +414,7 @@ describe('8. SettingsModal — localStorage persistence', () => {
   });
 });
 
-// ─── 9. Tombol Keluar di Sidebar tidak melakukan aksi ─────────────────────────
 
-describe('9. Tombol Keluar di Sidebar tidak melakukan aksi', () => {
-  /**
-   * Validates: Requirements 3.8
-   * Tombol Keluar adalah placeholder — tidak ada aksi yang terjadi saat diklik.
-   */
-
-  it('9a: Klik tombol Keluar → tidak ada perubahan di DOM (tidak ada modal, tidak ada navigasi)', () => {
-    const onTabChange = vi.fn();
-    const onHelpOpen = vi.fn();
-    render(withSettings(<Sidebar activeTab="input" onTabChange={onTabChange} onHelpOpen={onHelpOpen} />));
-
-    // Cari tombol Keluar berdasarkan teks
-    const keluarButton = screen.getByText('Keluar');
-    expect(keluarButton).not.toBeNull();
-
-    const keluarEl = keluarButton.closest('button') || keluarButton;
-
-    // Klik tombol Keluar
-    fireEvent.click(keluarEl);
-
-    // Assert tidak ada modal atau panel yang muncul
-    expect(document.querySelector('[data-testid="settings-modal"]')).toBeNull();
-    expect(document.querySelector('[data-testid="help-modal"]')).toBeNull();
-    expect(document.querySelector('[data-testid="notification-panel"]')).toBeNull();
-
-    // Assert onTabChange dan onHelpOpen tidak dipanggil
-    expect(onTabChange).not.toHaveBeenCalled();
-    expect(onHelpOpen).not.toHaveBeenCalled();
-  });
-});
 
 // ─── 10. HelpModal — konten seksi ada ─────────────────────────────────────────
 

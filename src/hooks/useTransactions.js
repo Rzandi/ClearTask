@@ -3,14 +3,14 @@
    Custom hook for transaction CRUD, filtering, and metrics
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   getTransactions,
   addTransaction as addTx,
   updateTransaction as updateTx,
   deleteTransaction as deleteTx,
 } from '../utils/storage';
-import { getTodayISO } from '../utils/formatters';
+import { getTodayISO, toLocalDateString } from '../utils/formatters';
 
 export function useTransactions() {
   const [transactions, setTransactions] = useState(() => getTransactions());
@@ -21,26 +21,35 @@ export function useTransactions() {
   // ── Add Transaction ──
   const addTransaction = useCallback((data) => {
     const newTx = addTx(data);
-    setTransactions(getTransactions());
+    setTransactions(prev => [newTx, ...prev]);
     return newTx;
   }, []);
 
   // ── Update Transaction ──
   const updateTransaction = useCallback((id, data) => {
     updateTx(id, data);
-    setTransactions(getTransactions());
+    setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, ...data } : tx));
   }, []);
 
   // ── Delete Transaction ──
   const deleteTransaction = useCallback((id) => {
     deleteTx(id);
-    setTransactions(getTransactions());
+    setTransactions(prev => prev.filter(tx => tx.id !== id));
   }, []);
 
   // ── Refresh from storage ──
   const refresh = useCallback(() => {
     setTransactions(getTransactions());
   }, []);
+
+  useEffect(() => {
+    window.addEventListener('storage', refresh);
+    window.addEventListener('local-storage-update', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('local-storage-update', refresh);
+    };
+  }, [refresh]);
 
   // ── Filtered & Sorted Transactions ──
   const filteredTransactions = useMemo(() => {
@@ -64,9 +73,11 @@ export function useTransactions() {
 
     // Sort
     result.sort((a, b) => {
-      const dateA = new Date(a.createdAt).getTime();
-      const dateB = new Date(b.createdAt).getTime();
-      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+      if (sortOrder === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (sortOrder === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (sortOrder === 'highest') return (b.total || 0) - (a.total || 0);
+      if (sortOrder === 'lowest') return (a.total || 0) - (b.total || 0);
+      return 0;
     });
 
     return result;
@@ -77,7 +88,7 @@ export function useTransactions() {
     const today = getTodayISO();
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayISO = yesterday.toISOString().split('T')[0];
+    const yesterdayISO = toLocalDateString(yesterday);
 
     const todayTxs = transactions.filter((tx) => tx.tanggal === today);
     const yesterdayTxs = transactions.filter((tx) => tx.tanggal === yesterdayISO);

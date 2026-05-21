@@ -4,7 +4,7 @@
    Feature: session-management
    ═══════════════════════════════════════════════════════════ */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { formatDate, formatTime } from '../utils/formatters';
 import ClosingReportModal from './ClosingReportModal';
@@ -14,16 +14,29 @@ import ClosingReportModal from './ClosingReportModal';
  * @param {Object} props
  * @param {Array} props.allSessions - All sessions from SessionStore
  * @param {Function} props.getSessionTransactions - (sessionId) => Transaction[]
+ * @param {Array} props.allTransactions - All transactions
  */
-export default function RiwayatSesi({ allSessions = [], getSessionTransactions }) {
+export default function RiwayatSesi({ allSessions = [], getSessionTransactions, allTransactions = [] }) {
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedTransactions, setSelectedTransactions] = useState([]);
   const [showModal, setShowModal] = useState(false);
 
   // 19.1 Sort sessions newest first
-  const sortedSessions = [...allSessions].sort((a, b) => {
-    return new Date(b.waktuMulai) - new Date(a.waktuMulai);
-  });
+  const sortedSessions = useMemo(() => {
+    return [...allSessions].sort((a, b) => {
+      return new Date(b.waktuMulai) - new Date(a.waktuMulai);
+    });
+  }, [allSessions]);
+
+  const txCountMap = useMemo(() => {
+    const map = {};
+    for (const tx of allTransactions) {
+      if (tx.sessionId) {
+        map[tx.sessionId] = (map[tx.sessionId] || 0) + 1;
+      }
+    }
+    return map;
+  }, [allTransactions]);
 
   // 19.4 Handle click on a closed session — open ClosingReportModal
   function handleSessionClick(session) {
@@ -65,7 +78,7 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions }
         <div className="space-y-3">
           {sortedSessions.map((session) => {
             const isClosed = session.status === 'ditutup';
-            const txCount = getSessionTransactions(session.id).length;
+            const txCount = txCountMap[session.id] || 0;
             const displayName = session.nama || 'Sesi Tanpa Nama';
 
             return (

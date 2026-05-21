@@ -3,12 +3,19 @@
    Paginated table with status badges and action column
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, memo } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { formatRupiah, formatTime } from '../utils/formatters';
 import EditTransactionModal from './EditTransactionModal';
 import ConfirmDialog from './ConfirmDialog';
 
 const ITEMS_PER_PAGE = 10;
+
+function getVisiblePages(current, total) {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 3) return [1, 2, 3, 4, 5];
+  if (current >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
+  return [current - 2, current - 1, current, current + 1, current + 2];
+}
 
 const TransactionTable = memo(function TransactionTable({ transactions, onUpdate, onDelete }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,8 +26,12 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
   const visibleTxs = transactions.slice(startIdx, startIdx + ITEMS_PER_PAGE);
 
-  // Reset to page 1 when data changes
-  if (currentPage > totalPages) setCurrentPage(1);
+  // Reset to page 1 when data changes and current page is out of bounds
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [transactions, totalPages, currentPage]);
 
   return (
     <div className="animate-fade-in">
@@ -31,6 +42,7 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
             <tr className="bg-bg-surface border-b border-border-default">
               <th className="text-left px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">ID Transaksi</th>
               <th className="text-left px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">Waktu</th>
+              <th className="text-left px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">Barang</th>
               <th className="text-left px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">Kasir</th>
               <th className="text-left px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">Metode</th>
               <th className="text-left px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">Sub-Kategori</th>
@@ -45,7 +57,7 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
           <tbody>
             {visibleTxs.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-text-muted">
+                <td colSpan={9} className="text-center py-12 text-text-muted">
                   <div className="flex flex-col items-center gap-2">
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6e7681" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -66,6 +78,9 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
                   </td>
                   <td className="px-4 py-3.5 text-text-secondary">
                     {formatTime(tx.createdAt)}
+                  </td>
+                  <td className="px-4 py-3.5 text-text-primary font-medium max-w-[150px] truncate" title={tx.namaBarang || '-'}>
+                    {tx.namaBarang || '-'}
                   </td>
                   <td className="px-4 py-3.5 text-text-primary flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary">
@@ -131,7 +146,7 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
       {transactions.length > 0 && (
         <div className="flex items-center justify-between mt-4 px-1">
           <p className="text-xs text-text-muted">
-            Menampilkan {startIdx + 1}-{Math.min(startIdx + ITEMS_PER_PAGE, transactions.length)} dari {transactions.length} transaksi
+            Menampilkan {Math.min(startIdx + 1, transactions.length)}-{Math.min(startIdx + ITEMS_PER_PAGE, transactions.length)} dari {transactions.length} transaksi
           </p>
           <div className="flex items-center gap-1">
             <button
@@ -141,7 +156,7 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
             >
               ‹
             </button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((page) => (
+            {getVisiblePages(currentPage, totalPages).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
@@ -171,8 +186,12 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
         isOpen={editingTransaction !== null}
         onClose={() => setEditingTransaction(null)}
         onSave={(id, data) => {
-          onUpdate(id, data);
-          setEditingTransaction(null);
+          try {
+            onUpdate(id, data);
+            setEditingTransaction(null);
+          } catch (err) {
+            alert(err.message || 'Gagal menyimpan perubahan');
+          }
         }}
       />
 
@@ -182,8 +201,12 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
           transactions.find(tx => tx.id === deletingTransactionId)?.transactionId
         }?`}
         onConfirm={() => {
-          onDelete(deletingTransactionId);
-          setDeletingTransactionId(null);
+          try {
+            onDelete(deletingTransactionId);
+            setDeletingTransactionId(null);
+          } catch (err) {
+            alert(err.message || 'Gagal menghapus transaksi');
+          }
         }}
         onCancel={() => setDeletingTransactionId(null)}
       />

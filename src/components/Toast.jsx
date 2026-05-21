@@ -47,6 +47,9 @@ const Toast = memo(function Toast({ message, type = 'success', onClose, duration
   return (
     <div className="fixed top-6 right-6 z-[100]">
       <div
+        role="alert"
+        aria-live={type === 'error' ? 'assertive' : 'polite'}
+        aria-atomic="true"
         className={`flex items-center gap-3 px-5 py-3.5 rounded-xl border backdrop-blur-md shadow-elevated ${
           colors[type]
         } ${isLeaving ? 'animate-toast-out' : 'animate-toast-in'}`}
@@ -56,6 +59,7 @@ const Toast = memo(function Toast({ message, type = 'success', onClose, duration
         <button
           onClick={() => { setIsLeaving(true); setTimeout(onClose, 250); }}
           className="ml-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+          aria-label="Tutup notifikasi"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />

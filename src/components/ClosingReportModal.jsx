@@ -8,6 +8,7 @@ import { calculateSessionStats } from '../utils/sessionStats';
 import { exportSessionExcel } from '../utils/exportExcel';
 import { exportSessionCSV } from '../utils/exportCSV';
 import { formatRupiah, formatDate, formatTime } from '../utils/formatters';
+import { useSettings } from '../contexts/SettingsContext';
 
 /**
  * ClosingReportModal displays session closing statistics and export options
@@ -18,6 +19,8 @@ import { formatRupiah, formatDate, formatTime } from '../utils/formatters';
  * @param {Function} props.onClose - Callback when modal is closed
  */
 export default function ClosingReportModal({ isOpen, session, transactions = [], onClose }) {
+  const { settings } = useSettings();
+
   // 11.1 Render null jika isOpen adalah false
   if (!isOpen) return null;
 
@@ -31,7 +34,7 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
 
   // 11.9 Handler Export Excel — modal tetap terbuka (11.12)
   function handleExportExcel() {
-    exportSessionExcel(transactions, session);
+    exportSessionExcel(transactions, session, settings);
   }
 
   // 11.10 Handler Export CSV — modal tetap terbuka (11.12)
@@ -45,9 +48,13 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
 
   return (
     /* Backdrop */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={handleBackdropClick}>
-      {/* Modal card */}
-      <div className="glass-card w-full max-w-lg animate-slide-up flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={handleBackdropClick}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="closing-report-title"
+        className="glass-card w-full max-w-lg animate-slide-up flex flex-col max-h-[90vh]"
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border-default shrink-0">
@@ -62,11 +69,21 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
               </svg>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-text-primary">Closing Report</h2>
+              <h2 id="closing-report-title" className="text-lg font-semibold text-text-primary">Closing Report</h2>
               {/* 11.2 Nama sesi */}
               <p className="text-sm text-primary font-medium">{displayName}</p>
             </div>
           </div>
+          <button
+            onClick={onClose}
+            aria-label="Tutup laporan penutupan"
+            className="p-2 rounded-lg hover:bg-white/10 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
         {/* Scrollable body */}
@@ -151,26 +168,34 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
               {/* 11.6 Breakdown per metode pembayaran */}
               <section>
                 <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Breakdown per Metode Pembayaran</h3>
-                <div className="bg-bg-elevated rounded-xl border border-border-subtle overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border-subtle">
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted">Metode</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-text-muted">Transaksi</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-text-muted">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stats.breakdownMetode.map((item, idx) => (
-                        <tr key={idx} className="border-b border-border-subtle last:border-0">
-                          <td className="px-4 py-3 text-text-primary font-medium">{item.metode}</td>
-                          <td className="px-4 py-3 text-right text-text-secondary">{item.jumlahTransaksi}</td>
-                          <td className="px-4 py-3 text-right text-text-primary">{formatRupiah(item.totalPemasukan)}</td>
+                {stats.breakdownMetode.length === 1 ? (
+                  <div className="bg-bg-elevated rounded-xl p-4 border border-border-subtle flex items-center justify-center">
+                    <p className="text-sm text-text-secondary font-medium">
+                      Semua transaksi via <strong className="text-text-primary">{stats.breakdownMetode[0].metode}</strong>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-bg-elevated rounded-xl border border-border-subtle overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border-subtle">
+                          <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted">Metode</th>
+                          <th className="text-right px-4 py-3 text-xs font-semibold text-text-muted">Transaksi</th>
+                          <th className="text-right px-4 py-3 text-xs font-semibold text-text-muted">Total</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {stats.breakdownMetode.map((item, idx) => (
+                          <tr key={idx} className="border-b border-border-subtle last:border-0">
+                            <td className="px-4 py-3 text-text-primary font-medium">{item.metode}</td>
+                            <td className="px-4 py-3 text-right text-text-secondary">{item.jumlahTransaksi}</td>
+                            <td className="px-4 py-3 text-right text-text-primary">{formatRupiah(item.totalPemasukan)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
 
               {/* 11.7 Transaksi tertinggi dan terendah */}

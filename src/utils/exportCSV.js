@@ -3,7 +3,7 @@
    Exports session transactions to a CSV file (RFC 4180).
    ═══════════════════════════════════════════════════════════ */
 
-import { formatTime } from './formatters';
+import { formatTime, toLocalDateString } from './formatters';
 
 /**
  * Escape a CSV field value per RFC 4180:
@@ -36,6 +36,7 @@ export async function exportSessionCSV(transactions, session) {
     'Waktu',
     'Kasir',
     'Kategori',
+    'Sub-Kategori',
     'Nama Barang',
     'Qty',
     'Harga Satuan',
@@ -51,6 +52,7 @@ export async function exportSessionCSV(transactions, session) {
     tx.createdAt ? formatTime(tx.createdAt) : '',
     tx.kasir ?? '',
     tx.kategori ?? '',
+    tx.subKategori ?? '',
     tx.namaBarang ?? '',
     tx.qty ?? '',
     tx.hargaSatuan ?? '',
@@ -66,10 +68,10 @@ export async function exportSessionCSV(transactions, session) {
   ];
 
   const csvString = csvLines.join('\n');
-  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8' });
 
   const namaSesi = session?.nama?.trim() || 'NoName';
-  const tanggalTutup = session?.tanggalTutup ?? new Date().toISOString().split('T')[0];
+  const tanggalTutup = session?.tanggalTutup ?? toLocalDateString(new Date());
   const filename = `ClearTask_Session_${namaSesi}_${tanggalTutup}.csv`;
 
   saveAs(blob, filename);

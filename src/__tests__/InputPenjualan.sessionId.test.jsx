@@ -13,6 +13,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import * as fc from 'fast-check';
 import InputPenjualan from '../components/InputPenjualan';
 
+vi.mock('../contexts/SettingsContext', () => ({
+  useSettings: () => ({
+    settings: {
+      kasirName: 'Admin',
+    }
+  }),
+}));
+
 // ── Mock useCategories ────────────────────────────────────
 
 vi.mock('../hooks/useCategories', () => ({

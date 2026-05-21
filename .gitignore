@@ -6,8 +6,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-test-setup.js
-__tests__
 node_modules
 dist
 dist-ssr
@@ -23,3 +21,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+MYspec

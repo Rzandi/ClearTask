@@ -24,10 +24,14 @@ export default function LaporanExport({
 }) {
   const { settings } = useSettings();
 
+  const isFilterActive = !!(filterDate || searchQuery?.trim());
+  const dataToExport = isFilterActive ? transactions : allTransactions;
+  const hasData = dataToExport.length > 0;
+
   const handleExport = useCallback(() => {
-    const dataToExport = transactions.length > 0 ? transactions : allTransactions;
+    if (!hasData) return;
     exportToExcel(dataToExport, settings);
-  }, [transactions, allTransactions, settings]);
+  }, [dataToExport, hasData, settings]);
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -72,7 +76,7 @@ export default function LaporanExport({
           <input
             type="text"
             id="filter-search"
-            placeholder="Cari ID atau Kasir..."
+            placeholder="Cari ID, Kasir, atau Nama Barang..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
@@ -90,6 +94,8 @@ export default function LaporanExport({
           >
             <option value="newest">Waktu (Terbaru)</option>
             <option value="oldest">Waktu (Terlama)</option>
+            <option value="highest">Nominal Tertinggi</option>
+            <option value="lowest">Nominal Terendah</option>
           </select>
         </div>
 
@@ -104,6 +110,13 @@ export default function LaporanExport({
         )}
       </div>
 
+      {isFilterActive && (
+        <div className="flex justify-between items-end mb-2">
+          <p className="text-sm text-text-muted">
+            Menampilkan <strong className="text-text-primary">{transactions.length}</strong> dari <strong className="text-text-primary">{allTransactions.length}</strong> transaksi
+          </p>
+        </div>
+      )}
       {/* Transaction Table */}
       <TransactionTable transactions={transactions} onUpdate={onUpdate} onDelete={onDelete} />
 
@@ -112,7 +125,7 @@ export default function LaporanExport({
         <button
           id="btn-export"
           onClick={handleExport}
-          disabled={allTransactions.length === 0}
+          disabled={!hasData}
           className="inline-flex items-center gap-2 px-6 py-3 bg-bg-surface border border-border-default rounded-xl text-sm font-semibold text-text-primary hover:bg-bg-elevated hover:border-border-strong disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -120,7 +133,7 @@ export default function LaporanExport({
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          Export to Excel
+          {isFilterActive ? `Export Hasil Filter (${dataToExport.length})` : `Export Semua (${dataToExport.length})`}
         </button>
       </div>
     </div>

@@ -43,12 +43,27 @@ export function formatTime(date) {
 }
 
 /**
+ * Convert Date to YYYY-MM-DD string using LOCAL timezone (not UTC).
+ * Prevents timezone shift bugs where e.g. 2024-01-15 00:30 WIB becomes 2024-01-14 in UTC.
+ * @param {Date} date
+ * @returns {string} e.g. "2024-01-15"
+ */
+export function toLocalDateString(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    throw new TypeError('toLocalDateString expects a valid Date object');
+  }
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Get today's date in YYYY-MM-DD format for input[type=date]
  * @returns {string}
  */
 export function getTodayISO() {
-  const d = new Date();
-  return d.toISOString().split('T')[0];
+  return toLocalDateString(new Date());
 }
 
 /**

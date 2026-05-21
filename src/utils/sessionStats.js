@@ -26,7 +26,7 @@ export function calculateSessionStats(session, transactions) {
 
   // Calculate totals
   const totalTransaksi = transactions.length;
-  const totalPemasukan = transactions.reduce((sum, tx) => sum + tx.total, 0);
+  const totalPemasukan = transactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
 
   // Calculate breakdown by kategori
   const kategoriMap = new Map();
@@ -37,7 +37,7 @@ export function calculateSessionStats(session, transactions) {
       totalPemasukan: 0,
     };
     existing.jumlahTransaksi += 1;
-    existing.totalPemasukan += tx.total;
+    existing.totalPemasukan += (Number(tx.total) || 0);
     kategoriMap.set(tx.kategori, existing);
   });
   const breakdownKategori = Array.from(kategoriMap.values());
@@ -51,7 +51,7 @@ export function calculateSessionStats(session, transactions) {
       totalPemasukan: 0,
     };
     existing.jumlahTransaksi += 1;
-    existing.totalPemasukan += tx.total;
+    existing.totalPemasukan += (Number(tx.total) || 0);
     metodeMap.set(tx.metode, existing);
   });
   const breakdownMetode = Array.from(metodeMap.values());
@@ -61,13 +61,17 @@ export function calculateSessionStats(session, transactions) {
   let transaksiTerendah = transactions[0];
 
   transactions.forEach((tx) => {
-    if (tx.total > transaksiTertinggi.total) {
+    const total = Number(tx.total) || 0;
+    if (total > (Number(transaksiTertinggi.total) || 0)) {
       transaksiTertinggi = tx;
     }
-    if (tx.total < transaksiTerendah.total) {
+    if (total < (Number(transaksiTerendah.total) || 0)) {
       transaksiTerendah = tx;
     }
   });
+
+  // Detect if all transactions have the same total
+  const allSameTotal = (Number(transaksiTertinggi.total) || 0) === (Number(transaksiTerendah.total) || 0);
 
   return {
     session,
@@ -77,5 +81,6 @@ export function calculateSessionStats(session, transactions) {
     breakdownMetode,
     transaksiTertinggi,
     transaksiTerendah,
+    allSameTotal,
   };
 }

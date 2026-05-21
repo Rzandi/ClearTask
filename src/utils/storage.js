@@ -3,7 +3,9 @@
    MVP: All data persisted in localStorage
    ═══════════════════════════════════════════════════════════ */
 
-const STORAGE_KEY = 'cleartask_transactions';
+import { STORAGE_KEYS } from '../constants/storageKeys';
+import * as storageService from '../services/storageService';
+
 const SEQ_KEY = 'cleartask_seq';
 
 /**
@@ -11,13 +13,8 @@ const SEQ_KEY = 'cleartask_seq';
  * @returns {Array}
  */
 export function getTransactions() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    console.error('[Storage] Failed to parse transactions');
-    return [];
-  }
+  const data = storageService.getItem(STORAGE_KEYS.TRANSACTIONS);
+  return Array.isArray(data) ? data : [];
 }
 
 /**
@@ -25,11 +22,7 @@ export function getTransactions() {
  * @param {Array} transactions
  */
 export function saveTransactions(transactions) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
-  } catch (err) {
-    console.error('[Storage] Failed to save:', err);
-  }
+  storageService.setItem(STORAGE_KEYS.TRANSACTIONS, transactions);
 }
 
 /**
@@ -42,6 +35,19 @@ export function saveTransactions(transactions) {
  * handling of `sessionId` is needed here — it is preserved automatically.
  */
 export function addTransaction(transaction) {
+  if (!transaction || typeof transaction !== 'object') {
+    throw new Error('Data transaksi tidak valid');
+  }
+  if (!transaction.namaBarang || typeof transaction.namaBarang !== 'string') {
+    throw new Error('Nama barang harus diisi');
+  }
+  if (typeof transaction.qty !== 'number' || transaction.qty <= 0) {
+    throw new Error('Kuantitas harus berupa angka lebih dari 0');
+  }
+  if (typeof transaction.hargaSatuan !== 'number' || transaction.hargaSatuan <= 0) {
+    throw new Error('Harga satuan harus berupa angka lebih dari 0');
+  }
+
   const transactions = getTransactions();
   const seq = getNextSeq();
   const newTx = {
@@ -112,7 +118,8 @@ export function deleteTransaction(id) {
 /**
  * Clear all transactions (dev utility)
  */
-export function clearAllTransactions() {
-  localStorage.removeItem(STORAGE_KEY);
+export function clearAllTransactions(confirmedByUser = false) {
+  if (!confirmedByUser) return;
+  storageService.removeItem(STORAGE_KEYS.TRANSACTIONS);
   localStorage.removeItem(SEQ_KEY);
 }

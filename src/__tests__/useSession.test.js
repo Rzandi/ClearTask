@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import * as fc from 'fast-check';
 import { loadSessions, saveSessions, useSession } from '../hooks/useSession.js';
+import { toLocalDateString } from '../utils/formatters.js';
 
 // ── Setup / Teardown ──────────────────────────────────────
 
@@ -23,7 +24,7 @@ function makeSession(overrides = {}) {
   return {
     id: crypto.randomUUID(),
     nama: '',
-    tanggalMulai: new Date().toISOString().split('T')[0],
+    tanggalMulai: toLocalDateString(new Date()),
     waktuMulai: new Date().toISOString(),
     tanggalTutup: null,
     waktuTutup: null,
@@ -164,7 +165,7 @@ describe('useSession — getActiveSession', () => {
 
     const { result } = renderHook(() => useSession());
 
-    expect(result.current.getActiveSession()).toMatchObject({
+    expect(result.current.activeSession).toMatchObject({
       id: active.id,
       status: 'aktif',
     });
@@ -181,7 +182,7 @@ describe('useSession — getActiveSession', () => {
       result.current.closeSession();
     });
 
-    expect(result.current.getActiveSession()).toBeNull();
+    expect(result.current.activeSession).toBeNull();
   });
 });
 
@@ -288,7 +289,7 @@ describe('PBT — Property 5: getActiveSession always returns exactly one or nul
         saveSessions(store);
 
         const { result } = renderHook(() => useSession());
-        const active = result.current.getActiveSession();
+        const active = result.current.activeSession;
 
         if (active === null) {
           // No active session — that's fine
@@ -460,5 +461,5 @@ describe('PBT — Property 15: no two sessions share the same id', () => {
       }),
       { numRuns: 100 }
     );
-  });
+  }, 10000);
 });

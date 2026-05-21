@@ -5,6 +5,8 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { STORAGE_KEYS } from '../constants/storageKeys';
+import * as storageService from '../services/storageService';
 
 // ─── Konstanta ────────────────────────────────────────────────────────────────
 
@@ -25,14 +27,12 @@ export const VALID_ACCENT_COLORS = ['#00ffa3', '#58a6ff', '#bc8cff', '#f0b429'];
  */
 export function loadFromStorage() {
   try {
-    const raw = localStorage.getItem('cleartask_settings');
-    if (!raw) return { ...defaultSettings };
+    const parsed = storageService.getItem(STORAGE_KEYS.SETTINGS);
+    if (!parsed) return { ...defaultSettings };
 
-    const parsed = JSON.parse(raw);
-
-    // Validasi accentColor
+    // Validasi accentColor — hanya reset accentColor, pertahankan field lain
     if (!VALID_ACCENT_COLORS.includes(parsed.accentColor)) {
-      return { ...defaultSettings };
+      return { ...defaultSettings, ...parsed, accentColor: defaultSettings.accentColor };
     }
 
     return { ...defaultSettings, ...parsed };
@@ -87,8 +87,13 @@ export function SettingsProvider({ children }) {
    * Simpan settings ke localStorage dan update state.
    */
   function saveSettings(newSettings) {
-    localStorage.setItem('cleartask_settings', JSON.stringify(newSettings));
-    setSettings(newSettings);
+    try {
+      storageService.setItem(STORAGE_KEYS.SETTINGS, newSettings);
+      setSettings(newSettings);
+    } catch (e) {
+      console.error('[Settings] Gagal menyimpan pengaturan:', e);
+      throw e;
+    }
   }
 
   /**

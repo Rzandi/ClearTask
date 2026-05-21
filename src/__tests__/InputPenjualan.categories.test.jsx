@@ -15,6 +15,14 @@ import InputPenjualan from '../components/InputPenjualan';
 const mockAddCategory = vi.fn();
 const mockAddSubCategory = vi.fn();
 
+vi.mock('../contexts/SettingsContext', () => ({
+  useSettings: () => ({
+    settings: {
+      kasirName: 'Admin',
+    }
+  }),
+}));
+
 vi.mock('../hooks/useCategories', () => ({
   useCategories: () => ({
     allCategories: [

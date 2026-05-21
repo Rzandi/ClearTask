@@ -5,7 +5,7 @@
       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
     </svg>
   </div>
-  <h1 align="center">ClearTask v2.1</h1>
+  <h1 align="center">ClearTask v2.5</h1>
   <p align="center"><strong>Aesthetic & Robust Point-of-Sale (POS) PWA for Modern Retailers.</strong></p>
 </p>
 
@@ -13,9 +13,9 @@
 
 ## 🌟 Tentang ClearTask
 
-ClearTask adalah aplikasi PWA (*Progressive Web App*) super-cepat dan *offline-first* yang dirancang khusus untuk memfasilitasi pencatatan transaksi harian secara modern. Membawakan visualisasi *Neon Terminal* (Dark Mode dengan Aksen Neon Hijau `#00ffa3`), ClearTask v2.1 memastikan performa kasir yang tak kenal kompromi meskipun tanpa koneksi internet.
+ClearTask adalah aplikasi PWA (*Progressive Web App*) super-cepat dan *offline-first* yang dirancang khusus untuk memfasilitasi pencatatan transaksi harian secara modern. Membawakan visualisasi *Neon Terminal* (Dark Mode dengan Aksen Neon Hijau `#00ffa3`), ClearTask v2.5 memastikan performa kasir yang tak kenal kompromi meskipun tanpa koneksi internet.
 
-### Fitur Unggulan (v2.1)
+### Fitur Unggulan (v2.5)
 
 - 🛍️ **Smart Transaction Input**: Form dua-kolom dengan perhitungan total otomatis dan manajemen kategori/sub-kategori dinamis.
 - 🕒 **Session & Shift Management**: Kelola sesi kasir harian (*Buka/Tutup Sesi*). Cetak rangkuman performa pada setiap shift yang telah berakhir dengan mudah.
@@ -114,3 +114,21 @@ Aplikasi ini berorientasi pada kemudahan dan *Zero-config deployment* di **Verce
 
 ## 📄 Changelog & Versioning
 Cek file [`CHANGELOG.md`](./CHANGELOG.md) untuk detail perubahan terbaru pada v2.1.0.
+
+---
+
+## ❓ FAQ (Frequently Asked Questions)
+
+### Q: Apakah aplikasi ini masih bisa dipakai jika sedang offline (tidak ada sinyal internet)?
+**A: Ya, 100% bisa!** ClearTask dirancang sebagai aplikasi *Offline-First*. Semua transaksi dan master data barang akan tersimpan dengan aman di dalam *localStorage* browser Anda. Anda tetap dapat memasukkan data dan melakukan penutupan sesi secara lancar meskipun sedang offline.
+
+### Q: Apa yang terjadi jika saya tidak sengaja melakukan "Clear Cache" pada browser?
+**A: Data Anda berpotensi hilang.** Karena ClearTask menyimpan data secara lokal di perangkat Anda (melalui *localStorage*), melakukan *Clear Cache / Clear Data* browser akan menghapus seluruh transaksi dan riwayat sesi yang ada. 
+**Penanganan & Pencegahan:** 
+Sangat disarankan untuk **rutin mem-backup data** menggunakan fitur "Database Manager" (ekspor ke file `.json`) atau mengekspor laporan akhir hari ke format Excel. Jika sewaktu-waktu data Anda terhapus secara tidak sengaja, Anda dapat menggunakan file `.json` tersebut untuk melakukan "Restore".
+
+### Q: Bagaimana cara memunculkan kembali notifikasi install PWA jika sebelumnya terlewat?
+**A: Tombol "Install" akan selalu muncul di Top Bar** selama Anda membuka aplikasi dari browser yang mendukung (misal: Chrome/Safari) dan aplikasi belum terinstall. Jika aplikasi sudah terinstall ke layar utama (*Home Screen*), tombol tersebut akan secara otomatis disembunyikan.
+
+### Q: Bagaimana tampilan aplikasi di perangkat Mobile/HP?
+**A: Sangat Responsif.** Seluruh antarmuka (termasuk *Closing Report Modal*, *Sidebar* yang diubah menjadi *Bottom Navigation*, dsb) telah didesain secara adaptif. Navigasi untuk pengguna HP sangat mudah diakses melalui tab bagian bawah, yang telah diperbarui dengan kontras warna aksesibilitas standar tinggi.

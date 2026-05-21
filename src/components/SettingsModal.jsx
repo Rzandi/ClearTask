@@ -44,8 +44,12 @@ export default function SettingsModal({ isOpen, onClose }) {
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   function handleSave() {
-    saveSettings({ ...settings, kasirName: localKasirName, tokoName: localTokoName });
-    onClose();
+    try {
+      saveSettings({ ...settings, kasirName: localKasirName, tokoName: localTokoName });
+      onClose();
+    } catch (err) {
+      alert(err.message || 'Gagal menyimpan pengaturan');
+    }
   }
 
   function handleCancel() {

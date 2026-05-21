@@ -14,6 +14,12 @@ vi.mock('../utils/formatters', () => ({
   formatRupiah: (v) => String(v),
   formatDate: (v) => String(v),
   formatTime: (v) => String(v),
+  toLocalDateString: (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
 }));
 
 // Shared state for the mock — accessible across tests

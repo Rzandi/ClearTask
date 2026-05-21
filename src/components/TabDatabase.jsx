@@ -9,20 +9,11 @@ import { formatRupiah, formatDate } from '../utils/formatters';
 import { exportDatabase, validateImport, calculateMerge, applyMerge } from '../utils/databaseManager';
 import MergePreviewModal from './MergePreviewModal';
 import Toast from './Toast';
-
+import { useTransactions } from '../hooks/useTransactions';
+import { useSession } from '../hooks/useSession';
 import InventoryManager from './InventoryManager';
 
-// ── localStorage helpers ──────────────────────────────────
 
-function readLocalStorage(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
 
 // ── Main Component ────────────────────────────────────────
 
@@ -33,13 +24,12 @@ export default function TabDatabase() {
   const [mergeResult, setMergeResult] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const fileInputRef = useRef(null);
 
-  // ── Read data from localStorage (re-reads on refreshKey change) ──
-  const transactions = readLocalStorage('cleartask_transactions', []);
-  const sessions = readLocalStorage('cleartask_sessions', []);
+  // ── Read data from hooks (auto-updates via storage listener) ──
+  const { allTransactions: transactions } = useTransactions();
+  const { allSessions: sessions } = useSession();
 
   // ── DatabaseStats calculations ────────────────────────────
   const { totalTransaksi, totalSesi, totalPemasukan } = useMemo(() => {
@@ -133,13 +123,13 @@ export default function TabDatabase() {
 
   // ── Merge confirm handler ─────────────────────────────────
   function handleMergeConfirm() {
-    if (!importData) return;
-    const result = applyMerge(importData);
+    if (!mergeResult) return;
+    const result = applyMerge(mergeResult);
     if (result.success) {
       setIsModalOpen(false);
       setImportData(null);
       setMergeResult(null);
-      setRefreshKey((k) => k + 1);
+      // Removed refreshKey, hooks will auto-update via local-storage-update event
       showToast('Merge berhasil diterapkan!', 'success');
     } else {
       showToast(result.error || 'Merge gagal.', 'error');
@@ -154,7 +144,7 @@ export default function TabDatabase() {
 
   // ── Render ────────────────────────────────────────────────
   return (
-    <div className="space-y-6 animate-slide-up" key={refreshKey}>
+    <div className="space-y-6 animate-slide-up">
 
       {/* Page Header */}
       <div>
@@ -165,8 +155,11 @@ export default function TabDatabase() {
       </div>
 
       {/* Sub-tab Navigation */}
-      <div className="flex gap-1 p-1 bg-bg-elevated rounded-xl border border-border-subtle">
+      <div className="flex gap-1 p-1 bg-bg-elevated rounded-xl border border-border-subtle" role="tablist" aria-label="Sub-tab database">
         <button
+          role="tab"
+          aria-selected={subTab === 'data'}
+          aria-controls="panel-data"
           onClick={() => setSubTab('data')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
             subTab === 'data'
@@ -182,6 +175,9 @@ export default function TabDatabase() {
           Manajemen Data
         </button>
         <button
+          role="tab"
+          aria-selected={subTab === 'inventaris'}
+          aria-controls="panel-inventaris"
           onClick={() => setSubTab('inventaris')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
             subTab === 'inventaris'
@@ -198,9 +194,11 @@ export default function TabDatabase() {
 
       {/* Sub-tab Content */}
       {subTab === 'inventaris' ? (
-        <InventoryManager />
+        <div role="tabpanel" id="panel-inventaris">
+          <InventoryManager />
+        </div>
       ) : (
-      <>
+      <div role="tabpanel" id="panel-data">
 
       {/* ── 4.1 DatabaseStats ─────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -362,7 +360,7 @@ export default function TabDatabase() {
         </table>
       </div>
 
-      </>
+      </div>
       )}
 
       {/* ── MergePreviewModal ─────────────────────────────── */}

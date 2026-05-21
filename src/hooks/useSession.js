@@ -4,10 +4,11 @@
    All data stored in localStorage key 'cleartask_sessions'.
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { toLocalDateString } from '../utils/formatters';
+import { STORAGE_KEYS } from '../constants/storageKeys';
+import * as storageService from '../services/storageService';
 
-const SESSIONS_KEY = 'cleartask_sessions';
-const TRANSACTIONS_KEY = 'cleartask_transactions';
 
 // ── Internal helpers ──────────────────────────────────────
 
@@ -37,14 +38,12 @@ function generateUUID() {
  */
 export function loadSessions() {
   try {
-    const raw = localStorage.getItem(SESSIONS_KEY);
-    if (raw === null) return [];
+    const raw = storageService.getItem(STORAGE_KEYS.SESSIONS);
 
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(raw)) return [];
 
     // Filter out invalid objects
-    const valid = parsed.filter(
+    const valid = raw.filter(
       (s) => s && typeof s.id === 'string' && typeof s.status === 'string'
     );
 
@@ -56,11 +55,14 @@ export function loadSessions() {
         (a, b) => new Date(b.waktuMulai).getTime() - new Date(a.waktuMulai).getTime()
       );
       const keepId = activeSessions[0].id;
-      return valid.map((s) =>
+      const fixed = valid.map((s) =>
         s.status === 'aktif' && s.id !== keepId
-          ? { ...s, status: 'ditutup', waktuTutup: s.waktuTutup ?? new Date().toISOString(), tanggalTutup: s.tanggalTutup ?? new Date().toISOString().split('T')[0] }
+          ? { ...s, status: 'ditutup', waktuTutup: s.waktuTutup ?? new Date().toISOString(), tanggalTutup: s.tanggalTutup ?? toLocalDateString(new Date()) }
           : s
       );
+      // Persist fix so corruption doesn't recur
+      try { storageService.setItem(STORAGE_KEYS.SESSIONS, fixed); } catch { /* best-effort */ }
+      return fixed;
     }
 
     return valid;
@@ -75,7 +77,7 @@ export function loadSessions() {
  */
 export function saveSessions(sessions) {
   try {
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    storageService.setItem(STORAGE_KEYS.SESSIONS, sessions);
   } catch (e) {
     console.error('[useSession] Failed to save sessions:', e);
   }
@@ -86,13 +88,18 @@ export function saveSessions(sessions) {
 export function useSession() {
   const [sessions, setSessions] = useState(() => loadSessions());
 
+  useEffect(() => {
+    const refresh = () => setSessions(loadSessions());
+    window.addEventListener('storage', refresh);
+    window.addEventListener('local-storage-update', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('local-storage-update', refresh);
+    };
+  }, []);
+
   // ── Derived: active session ───────────────────────────
   const activeSession = sessions.find((s) => s.status === 'aktif') ?? null;
-
-  // ── getActiveSession ──────────────────────────────────
-  const getActiveSession = useCallback(() => {
-    return sessions.find((s) => s.status === 'aktif') ?? null;
-  }, [sessions]);
 
   // ── openSession ───────────────────────────────────────
   const openSession = useCallback(
@@ -106,7 +113,7 @@ export function useSession() {
       const newSession = {
         id: generateUUID(),
         nama: typeof nama === 'string' ? nama : '',
-        tanggalMulai: now.toISOString().split('T')[0],
+        tanggalMulai: toLocalDateString(now),
         waktuMulai: now.toISOString(),
         tanggalTutup: null,
         waktuTutup: null,
@@ -132,7 +139,7 @@ export function useSession() {
     const closed = {
       ...active,
       waktuTutup: now.toISOString(),
-      tanggalTutup: now.toISOString().split('T')[0],
+      tanggalTutup: toLocalDateString(now),
       status: 'ditutup',
     };
 
@@ -145,9 +152,7 @@ export function useSession() {
   // ── getSessionTransactions ────────────────────────────
   const getSessionTransactions = useCallback((sessionId) => {
     try {
-      const raw = localStorage.getItem(TRANSACTIONS_KEY);
-      if (!raw) return [];
-      const all = JSON.parse(raw);
+      const all = storageService.getItem(STORAGE_KEYS.TRANSACTIONS);
       if (!Array.isArray(all)) return [];
       return all.filter((tx) => tx.sessionId === sessionId);
     } catch {
@@ -160,7 +165,6 @@ export function useSession() {
     allSessions: sessions,
     openSession,
     closeSession,
-    getActiveSession,
     getSessionTransactions,
   };
 }

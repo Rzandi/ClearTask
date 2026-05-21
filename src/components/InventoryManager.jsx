@@ -6,18 +6,24 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useInventory } from '../hooks/useInventory';
+import { useTransactions } from '../hooks/useTransactions';
 import { formatRupiah } from '../utils/formatters';
 import InventoryModal from './InventoryModal';
 import ConfirmDialog from './ConfirmDialog';
 
+const LOW_STOCK_THRESHOLD = 5;
+
 export default function InventoryManager() {
   const { inventory, addInventoryItem, updateInventoryItem, deleteInventoryItem } = useInventory();
+  const { allTransactions } = useTransactions();
 
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterKategori, setFilterKategori] = useState('all');
+
+  const isFilterActive = filterKategori !== 'all' || searchQuery.trim().length > 0;
 
   // Unique categories from inventory
   const categories = useMemo(() => {
@@ -59,17 +65,81 @@ export default function InventoryManager() {
   }
 
   function handleSave(data) {
-    if (editItem) {
-      updateInventoryItem(editItem.id, data);
-    } else {
-      addInventoryItem(data);
+    try {
+      if (editItem) {
+        updateInventoryItem(editItem.id, data);
+      } else {
+        addInventoryItem(data);
+      }
+      setShowModal(false);
+    } catch (err) {
+      alert(err.message || 'Gagal menyimpan barang');
     }
   }
 
   function handleDeleteConfirm() {
     if (deleteTarget) {
-      deleteInventoryItem(deleteTarget.id);
-      setDeleteTarget(null);
+      try {
+        deleteInventoryItem(deleteTarget.id);
+        setDeleteTarget(null);
+      } catch (err) {
+        alert(err.message || 'Gagal menghapus barang');
+      }
+    }
+  }
+
+  function handleSyncFromHistory() {
+    if (!allTransactions || allTransactions.length === 0) {
+      alert('Tidak ada data transaksi untuk disinkronisasi.');
+      return;
+    }
+
+    const itemsMap = new Map();
+    const uniqueItems = [];
+
+    // Reverse iterate to get the latest price and category for each item
+    for (let i = allTransactions.length - 1; i >= 0; i--) {
+      const tx = allTransactions[i];
+      if (!tx.namaBarang) continue;
+
+      const key = tx.namaBarang.toLowerCase().trim();
+      if (!itemsMap.has(key)) {
+        itemsMap.set(key, true);
+        
+        // Cek apakah barang sudah ada di inventaris (jangan ditambah jika sudah ada)
+        const alreadyExists = inventory.some(item => 
+          item.namaBarang?.toLowerCase().trim() === key
+        );
+
+        if (!alreadyExists) {
+          uniqueItems.push({
+            id: `INV-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            namaBarang: tx.namaBarang.trim(),
+            kategori: tx.kategori || '',
+            subKategori: tx.subKategori || '',
+            harga: tx.hargaSatuan || 0,
+            quantity: 0,
+            satuan: 'Pcs',
+            createdAt: tx.createdAt
+          });
+        }
+      }
+    }
+
+    if (uniqueItems.length === 0) {
+      alert('Semua barang unik dari riwayat transaksi sudah ada di Master Barang.');
+      return;
+    }
+
+    const confirmSync = window.confirm(
+      `Ditemukan ${uniqueItems.length} barang baru dari riwayat transaksi.\nTambahkan ke Master Barang dengan stok 0?`
+    );
+
+    if (confirmSync) {
+      uniqueItems.forEach(item => {
+        addInventoryItem(item);
+      });
+      alert(`${uniqueItems.length} barang berhasil disinkronisasi.`);
     }
   }
 
@@ -81,32 +151,47 @@ export default function InventoryManager() {
           <h2 className="text-lg font-bold text-text-primary mb-1">Master Barang</h2>
           <p className="text-sm text-text-muted">Kelola daftar barang inventaris Anda.</p>
         </div>
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors shrink-0"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Tambah Barang
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleSyncFromHistory}
+            title="Tarik barang unik dari riwayat transaksi"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-primary hover:border-primary/50 transition-colors shrink-0"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 2v6h-6"></path>
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+              <path d="M3 22v-6h6"></path>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+            </svg>
+            <span className="hidden sm:inline">Sinkronisasi Riwayat</span>
+          </button>
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors shrink-0"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span className="hidden sm:inline">Tambah Barang</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="glass-card p-4">
-          <p className="text-xs text-text-muted mb-1">Total Jenis</p>
+          <p className="text-xs text-text-muted mb-1">Total Jenis {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}</p>
           <p className="text-2xl font-bold text-text-primary">{filteredInventory.length}</p>
         </div>
         <div className="glass-card p-4">
-          <p className="text-xs text-text-muted mb-1">Total Stok</p>
+          <p className="text-xs text-text-muted mb-1">Total Stok {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}</p>
           <p className="text-2xl font-bold text-text-primary">
             {filteredInventory.reduce((sum, item) => sum + (item.quantity || 0), 0)}
           </p>
         </div>
         <div className="glass-card p-4 col-span-2 sm:col-span-1">
-          <p className="text-xs text-text-muted mb-1">Nilai Inventaris</p>
+          <p className="text-xs text-text-muted mb-1">Nilai Inventaris {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}</p>
           <p className="text-xl font-bold text-primary">{formatRupiah(totalValue)}</p>
         </div>
       </div>
@@ -121,6 +206,7 @@ export default function InventoryManager() {
           <input
             type="text"
             placeholder="Cari barang..."
+            aria-label="Cari produk"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
@@ -129,6 +215,7 @@ export default function InventoryManager() {
         <select
           value={filterKategori}
           onChange={(e) => setFilterKategori(e.target.value)}
+          aria-label="Filter berdasarkan kategori"
           className="px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
         >
           <option value="all">Semua Kategori</option>
@@ -181,7 +268,7 @@ export default function InventoryManager() {
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-text-primary">{formatRupiah(item.harga)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`font-bold ${item.quantity <= 5 ? 'text-accent-red' : 'text-text-primary'}`}>
+                        <span className={`font-bold ${item.quantity <= LOW_STOCK_THRESHOLD ? 'text-accent-red' : 'text-text-primary'}`}>
                           {item.quantity}
                         </span>
                       </td>

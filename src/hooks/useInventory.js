@@ -4,26 +4,16 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useEffect, useCallback } from 'react';
-
-const STORAGE_KEY = 'cleartask_inventory';
+import { STORAGE_KEYS } from '../constants/storageKeys';
+import * as storageService from '../services/storageService';
 
 function loadInventory() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (error) {
-    console.error('Failed to load inventory from localStorage:', error);
-    return [];
-  }
+  const data = storageService.getItem(STORAGE_KEYS.INVENTORY);
+  return Array.isArray(data) ? data : [];
 }
 
 function saveInventory(inventory) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(inventory));
-  } catch (error) {
-    console.error('Failed to save inventory to localStorage:', error);
-    throw new Error('Gagal menyimpan data inventaris ke penyimpanan lokal.');
-  }
+  storageService.setItem(STORAGE_KEYS.INVENTORY, inventory);
 }
 
 export function useInventory() {
@@ -32,22 +22,32 @@ export function useInventory() {
   // Sync state if localStorage changes from another tab
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === STORAGE_KEY) {
+      if (!e.key || e.key === STORAGE_KEYS.INVENTORY || e.type === 'local-storage-update') {
         setInventory(loadInventory());
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('local-storage-update', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('local-storage-update', handleStorageChange);
+    };
   }, []);
 
   const addInventoryItem = useCallback((itemData) => {
+    const newItem = {
+      ...itemData,
+      id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          }),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
     setInventory((prev) => {
-      const newItem = {
-        ...itemData,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
       const updated = [newItem, ...prev];
       saveInventory(updated);
       return updated;

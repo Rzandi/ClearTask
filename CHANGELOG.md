@@ -3,6 +3,43 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.5.0] - 2026-05-21
+
+Versi 2.5.0 merupakan penyelesaian audit menyeluruh dari `master-saran.md` untuk meningkatkan keamanan data, UX, struktur UI form, optimasi re-render, hingga performa bundel PWA.
+
+### 🎉 Added
+- **Content Security Policy (CSP)**: Peningkatan keamanan lapisan depan aplikasi.
+- **Batas Karkater (Max Length)**: Pembatasan panjang input (`namaBarang`, `catatan`, dll) mencegah input tidak wajar.
+- **Informasi Pagination Dinamis**: Menambahkan label "Menampilkan N dari M transaksi" dan "Terfilter" saat pencarian aktif.
+
+### 🚀 Changed
+- **Optimasi React.lazy & Suspense**: Memisahkan komponen berat (`LaporanExport`, `TabDatabase`, `RiwayatSesi`) untuk mempercepat inisialisasi aplikasi.
+- **Vite Build Optimization**: Ekstraksi vendor (React/React-DOM) ke `manualChunks` dan menambahkan alias `@/` di Vite.
+- **Custom UI Dialog**: Menghapus `window.confirm` dan `window.prompt` yang bersifat memblokir (blocking), diganti dengan `ConfirmDialog` dan `PromptDialog` yang responsif dan selaras dengan tema.
+- **Optimasi Local Storage Merge**: Fungsi `applyMerge` kini mengirimkan hasil kalkulasi secara utuh tanpa membaca local storage dua kali (Task #81).
+
+### 🛠️ Fixed
+- **Stale Closure di custom Hooks**: Memperbaiki fungsi modifikasi kategori dan manajemen inventori dengan pola *functional updates*.
+- **Safe State Updates & Try-Catch Storage**: Menangkap eror penuhnya *local storage* (`QuotaExceededError`) dan memunculkan notifikasi kepada kasir, menghindari kegagalan simpan yang senyap (silent fail).
+
+---
+
+## [2.1.1] - 2026-05-20
+
+### 🎉 Added
+- **PWA Auto-Prompt Handle**: Menambahkan *event listener* `beforeinstallprompt` untuk meng-capture PWA instalasi dengan tombol kustom yang responsif. Tombol ini otomatis menghilang apabila aplikasi sudah berhasil diinstall (`appinstalled` event).
+- **Offline / Cache Support**: Data tersimpan dengan aman melalui `localStorage` sehingga ClearTask tetap 100% fungsional tanpa koneksi internet.
+
+### 🚀 Changed
+- **Aksesibilitas (A11y)**: Mengimplementasi peran ARIA seperti `role="dialog"`, `aria-modal="true"`, `role="tablist"` pada berbagai komponen UI kritis untuk dukungan *Screen Reader* yang lebih baik.
+
+### 🛠️ Fixed
+- **ClosingReportModal Overlay**: Memperbaiki bug z-index di mana form modal tertutup oleh *TopBar* dan *BottomNav* saat layar sedang meninjau riwayat sesi. Z-index modal ditingkatkan ke `100`.
+- **Property-based tests Timeout**: Memperbaiki false-negative property test yang gagal akibat *test timeout*, dengan simulasi mock untuk `SettingsContext`.
+- **CSV BOM Encoding**: Menambahkan UTF-8 BOM pada export file `.csv` sehingga karakter khusus langsung terbaca dengan format yang tepat pada Excel.
+
+---
+
 ## [2.1.0] - 2026-05-15
 
 Versi 2.1.0 memperkenalkan **Modul Inventaris (Master Barang)** untuk pengelolaan stok barang yang terintegrasi penuh dengan sistem database ClearTask, serta penyempurnaan komprehensif pada UI mobile dan standar aksesibilitas.
