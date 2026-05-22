@@ -7,9 +7,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fc from 'fast-check';
 
-// ── Mocks ─────────────────────────────────────────────────
+// ── Mock downloadHelper so triggerDownload is interceptable in ESM ──
+let capturedBlob = null;
+let capturedFilename = null;
 
-vi.mock('file-saver', () => ({ saveAs: vi.fn() }));
+vi.mock('../utils/downloadHelper', () => ({
+  triggerDownload: vi.fn((blob, filename) => {
+    capturedBlob = blob;
+    capturedFilename = filename;
+  }),
+}));
 
 vi.mock('../utils/formatters', () => ({
   formatDate: (v) => String(v ?? ''),
@@ -22,8 +29,12 @@ vi.mock('../utils/formatters', () => ({
   },
 }));
 
-import { saveAs } from 'file-saver';
 import { escapeCSVValue, exportSessionCSV } from '../utils/exportCSV';
+
+// Helper
+function getCapturedDownload() {
+  return [capturedBlob, capturedFilename];
+}
 
 // ── Fixtures ──────────────────────────────────────────────
 
@@ -56,7 +67,7 @@ const sampleTransaction = {
 // ── Helper: parse CSV blob text ───────────────────────────
 
 async function getBlobText() {
-  const [blob] = saveAs.mock.calls[0];
+  const [blob] = getCapturedDownload();
   return await blob.text();
 }
 
@@ -96,8 +107,11 @@ describe('escapeCSVValue', () => {
 });
 
 describe('exportSessionCSV — header row', () => {
-  beforeEach(() => vi.clearAllMocks());
-
+  beforeEach(() => {
+    vi.clearAllMocks();
+    capturedBlob = null;
+    capturedFilename = null;
+  });
   // 5.1 — Output contains the correct header row as the first line
   it('first line is the correct CSV header', async () => {
     await exportSessionCSV([sampleTransaction], sampleSession);
@@ -112,14 +126,18 @@ describe('exportSessionCSV — header row', () => {
 });
 
 describe('exportSessionCSV — filename', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    capturedBlob = null;
+    capturedFilename = null;
+  });
 
   // 5.2 — Session with empty nama uses "NoName" in the filename
   it('uses "NoName" in filename when session nama is empty', async () => {
     const emptyNameSession = { ...sampleSession, nama: '' };
     await exportSessionCSV([], emptyNameSession);
 
-    const [, filename] = saveAs.mock.calls[0];
+    const [, filename] = getCapturedDownload();
     expect(filename).toContain('NoName');
     expect(filename).toMatch(/^ClearTask_Session_NoName_.*\.csv$/);
   });
@@ -127,7 +145,7 @@ describe('exportSessionCSV — filename', () => {
   it('uses session nama in filename when provided', async () => {
     await exportSessionCSV([], sampleSession);
 
-    const [, filename] = saveAs.mock.calls[0];
+    const [, filename] = getCapturedDownload();
     expect(filename).toContain('Shift Pagi');
     expect(filename).toMatch(/^ClearTask_Session_Shift Pagi_.*\.csv$/);
   });
@@ -135,7 +153,7 @@ describe('exportSessionCSV — filename', () => {
   it('includes tanggalTutup in filename', async () => {
     await exportSessionCSV([], sampleSession);
 
-    const [, filename] = saveAs.mock.calls[0];
+    const [, filename] = getCapturedDownload();
     expect(filename).toContain('2025-07-14');
   });
 });
@@ -152,7 +170,8 @@ describe('PBT — Property 11: escapeCSVValue RFC 4180 compliance', () => {
         fc.constantFrom(',', '"', '\n', '\r'),
         fc.string({ minLength: 0, maxLength: 20 })
       )
-      .map(([a, special, b]) => a + special + b);
+      .map(([a, special, b]) => a + special + b)
+      .filter((s) => !/^[ \t]*[=\-+@]/.test(s));
 
     fc.assert(
       fc.property(arbSpecialString, (value) => {
@@ -187,7 +206,14 @@ describe('PBT — Property 11: escapeCSVValue RFC 4180 compliance', () => {
     // Strings that do NOT contain , " \n \r
     const arbSafeString = fc
       .string({ minLength: 0, maxLength: 30 })
-      .filter((s) => !s.includes(',') && !s.includes('"') && !s.includes('\n') && !s.includes('\r'));
+      .filter(
+        (s) =>
+          !s.includes(',') &&
+          !s.includes('"') &&
+          !s.includes('\n') &&
+          !s.includes('\r') &&
+          !/^[ \t]*[=\-+@]/.test(s)
+      );
 
     fc.assert(
       fc.property(arbSafeString, (value) => {
@@ -217,6 +243,8 @@ describe('PBT — Property 12: filename format always correct', () => {
     await fc.assert(
       fc.asyncProperty(arbSessionName, arbDate, async (nama, tanggalTutup) => {
         vi.clearAllMocks();
+        capturedBlob = null;
+        capturedFilename = null;
 
         const session = {
           ...sampleSession,
@@ -226,8 +254,7 @@ describe('PBT — Property 12: filename format always correct', () => {
 
         await exportSessionCSV([], session);
 
-        const calls = saveAs.mock.calls;
-        const [, filename] = calls[calls.length - 1];
+        const [, filename] = getCapturedDownload();
         const expectedNama = nama.trim() || 'NoName';
         const expectedFilename = `ClearTask_Session_${expectedNama}_${tanggalTutup}.csv`;
 
@@ -246,7 +273,7 @@ describe('PBT — Property 11 (round-trip): CSV rows parse back to original valu
       fc.stringMatching(new RegExp(`^[A-Za-z0-9 ]{0,${maxLength}}$`));
 
     const arbTransaction = fc.record({
-      transactionId: fc.stringMatching(/^[A-Za-z0-9-]{1,12}$/),
+      transactionId: fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,11}$/),
       tanggal: fc.constant('2025-01-01'),
       createdAt: fc.constant('2025-01-01T00:00:00.000Z'),
       kasir: arbSafeString(10),
@@ -266,10 +293,12 @@ describe('PBT — Property 11 (round-trip): CSV rows parse back to original valu
         fc.array(arbTransaction, { minLength: 1, maxLength: 5 }),
         async (transactions) => {
           vi.clearAllMocks();
+          capturedBlob = null;
+          capturedFilename = null;
 
           await exportSessionCSV(transactions, sampleSession);
 
-          const [blob] = saveAs.mock.calls[0];
+          const [blob] = getCapturedDownload();
           const text = await blob.text();
           const lines = text.split('\n');
 

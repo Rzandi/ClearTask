@@ -3,10 +3,10 @@
    Dropdown panel untuk menampilkan 5 transaksi terbaru
    ═══════════════════════════════════════════════════════════ */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 
-function getRelativeTime(isoString) {
-  const diff = Date.now() - new Date(isoString).getTime();
+function getRelativeTime(isoString, nowMs) {
+  const diff = nowMs - new Date(isoString).getTime();
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return 'Baru saja';
   if (minutes < 60) return `${minutes} menit lalu`;
@@ -33,12 +33,25 @@ export default function NotificationPanel({ isOpen, onClose, transactions }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
 
   // Sort by createdAt descending and take 5 most recent
-  const recentTransactions = [...transactions]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
+  const recentTransactions = useMemo(() => {
+    if (!transactions) return [];
+    return [...transactions]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5);
+  }, [transactions]);
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -50,9 +63,7 @@ export default function NotificationPanel({ isOpen, onClose, transactions }) {
       <div className="px-4 py-3 border-b border-border-default">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-text-primary">Notifikasi Transaksi</h3>
-          <span className="text-xs text-text-muted">
-            {recentTransactions.length} transaksi
-          </span>
+          <span className="text-xs text-text-muted">{recentTransactions.length} transaksi</span>
         </div>
       </div>
 
@@ -84,11 +95,9 @@ export default function NotificationPanel({ isOpen, onClose, transactions }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">
-                    {tx.namaBarang}
-                  </p>
+                  <p className="text-sm font-medium text-text-primary truncate">{tx.namaBarang}</p>
                   <p className="text-xs text-text-muted mt-0.5">
-                    {getRelativeTime(tx.createdAt)}
+                    {getRelativeTime(tx.createdAt, nowMs)}
                   </p>
                 </div>
                 <div className="text-sm font-semibold text-primary whitespace-nowrap">

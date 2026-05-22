@@ -1,134 +1,181 @@
 <p align="center">
-  <div style="background-color: rgba(0, 255, 163, 0.15); width: 80px; height: 80px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#00ffa3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 11l3 3L22 4" />
-      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-    </svg>
-  </div>
-  <h1 align="center">ClearTask v2.5</h1>
-  <p align="center"><strong>Aesthetic & Robust Point-of-Sale (POS) PWA for Modern Retailers.</strong></p>
+  <h1 align="center">ClearTask v2.9.5</h1>
+  <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Aman, Cepat, dan Bisa Dipakai Tanpa Internet.</strong></p>
 </p>
 
 ---
 
-## 🌟 Tentang ClearTask
+## Tentang ClearTask
 
-ClearTask adalah aplikasi PWA (*Progressive Web App*) super-cepat dan *offline-first* yang dirancang khusus untuk memfasilitasi pencatatan transaksi harian secara modern. Membawakan visualisasi *Neon Terminal* (Dark Mode dengan Aksen Neon Hijau `#00ffa3`), ClearTask v2.5 memastikan performa kasir yang tak kenal kompromi meskipun tanpa koneksi internet.
+ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk kasir dan pemilik usaha kecil. Semua data tersimpan **100% lokal** di perangkat pengguna menggunakan IndexedDB — tidak ada server, tidak ada akun, tidak ada biaya langganan.
 
-### Fitur Unggulan (v2.5)
+### Fitur Utama
 
-- 🛍️ **Smart Transaction Input**: Form dua-kolom dengan perhitungan total otomatis dan manajemen kategori/sub-kategori dinamis.
-- 🕒 **Session & Shift Management**: Kelola sesi kasir harian (*Buka/Tutup Sesi*). Cetak rangkuman performa pada setiap shift yang telah berakhir dengan mudah.
-- 📦 **Master Barang (Inventaris)**: Modul CRUD lengkap untuk mengelola daftar barang dagangan — nama, kategori, sub-kategori, harga, satuan, dan stok. Dilengkapi pencarian, filter, dan peringatan stok rendah.
-- 🗄️ **Database Manager (Backup/Restore)**: Lindungi dan migrasikan data Anda (termasuk inventaris) menggunakan fitur impor/ekspor (*Smart Merge Validation* menolak duplikasi data secara otomatis).
-- ✏️ **Edit & Delete Transaksi**: Manajemen transaksi tingkat lanjut, cegah kerugian dari *human error*.
-- 📊 **Metrik Real-time**: Papan laporan harian interaktif membandingkan persentase tren pendapatan dengan hari sebelumnya.
-- 📥 **Enterprise Export**: Ekspor tabel transaksi atau Sesi langsung ke dalam bentuk *Excel (.xlsx)* rapi atau *CSV* (dilengkapi Lazy-loading *ExcelJS*).
-- ⚙️ **Profil Toko**: Personalisasikan nama Toko dan nama Kasir dari *Settings* untuk laporan akhir yang lebih profesional.
-- 📱 **100% PWA**: Beroperasi layaknya aplikasi *Native* (bebas install di HP/Tablet/Desktop), sangat responsif, dan lolos standar *Lighthouse* yang sangat ketat (Termasuk pencegahan *iOS Auto-Zoom*).
-- 📲 **Smart Install Prompt**: Tombol install PWA kustom yang muncul otomatis di *Top Bar* saat browser siap, dan menghilang setelah aplikasi berhasil terinstall.
+- **Input Transaksi** — Form dua-kolom dengan kalkulasi total otomatis, kategori & sub-kategori dinamis
+- **Manajemen Sesi/Shift** — Buka/tutup sesi kasir, closing report otomatis per shift
+- **Master Barang (Inventaris)** — CRUD lengkap dengan peringatan stok rendah
+- **Laporan & Export** — Export ke Excel (.xlsx) dan CSV, filter tanggal & pencarian
+- **Database Manager** — Backup/restore via JSON, Smart Merge (tolak duplikasi otomatis)
+- **PWA Installable** — Bisa diinstall di Android/iOS/Desktop, 100% offline
 
 ---
 
-## 🏗️ Arsitektur PWA (Offline First)
+## Tech Stack
 
-Data dijamin 100% menjadi milik pengguna! ClearTask menggunakan model komputasi sisi klien murni. Segala perhitungan dan penyimpanan terjadi di memori *LocalStorage* browser Anda melalui isolasi arsitektur React Hooks dan State Management. Konsep ini dipadukan bersama *Service Worker Cache-First* untuk mewujudkan latensi `0ms` ke server.
-
-### Tech Stack
-- **Framework:** React 19 + Vite 8
-- **Styling:** Tailwind CSS v4 (Vanilla CSS untuk estetika Neon)
-- **Persistensi Data:** Native Browser LocalStorage (No DB Config Needed)
-- **Pengujian (Testing):** Vitest (Teruji 291 Unit Test Cases)
-- **Ekspor Dokumen:** ExcelJS + FileSaver (Lazy Loaded)
-- **Deployment:** Vercel
-
-### Data Storage Keys
-| Key | Deskripsi |
-| --- | --- |
-| `cleartask_transactions` | Seluruh transaksi penjualan |
-| `cleartask_sessions` | Riwayat sesi/shift kasir |
-| `cleartask_categories` | Kategori & sub-kategori kustom |
-| `cleartask_inventory` | Master data barang (inventaris) |
-| `cleartask_settings` | Pengaturan profil toko & kasir |
+| Layer     | Teknologi                                          |
+| --------- | -------------------------------------------------- |
+| Framework | React 19 + Vite 8                                  |
+| Styling   | Tailwind CSS v4                                    |
+| Database  | IndexedDB via Dexie.js v4                          |
+| Enkripsi  | Web Crypto API (AES-GCM 256 + PBKDF2)              |
+| Export    | ExcelJS (lazy-loaded)                              |
+| Testing   | Vitest + @testing-library/react + fast-check (PBT) |
+| E2E       | Playwright                                         |
+| DX        | Husky + Commitlint + lint-staged + Prettier        |
 
 ---
 
-## 🚀 Memulai (Local Development)
+## Arsitektur
 
-### Syarat Pemasangan
-- Node.js versi 18+
-- npm versi 9+
+```
+src/
+├── components/         # UI components (Atomic Design)
+│   └── ui/             # Base atoms: Button, Input, Card, Modal, Badge, Typography
+├── contexts/           # React contexts
+│   └── SettingsContext.jsx   # Theme, kasir name, preferences
+├── hooks/              # Custom hooks
+│   ├── useTransactions.js      # Wrapper — composes 3 sub-hooks
+│   ├── useTransactionData.js   # CRUD + Dexie transactions
+│   ├── useTransactionFilter.js # Search, sort, date filter
+│   ├── useTransactionMetrics.js# Daily analytics (todayTotal, trend)
+│   ├── useCategories.js        # Dynamic categories & sub-categories
+│   ├── useInventory.js         # Master barang CRUD
+│   └── useSession.js           # Sesi kasir (buka/tutup)
+├── services/           # External integrations
+│   ├── db.js                   # Dexie schema (v1 → v2 migration)
+│   └── databaseManager.js      # Export/import/merge database
+├── utils/              # Pure utility functions
+│   ├── formatters.js           # formatRupiah, formatDate, toLocalDateString
+│   ├── exportExcel.js          # ExcelJS export
+│   ├── exportCSV.js            # CSV export (RFC 4180)
+│   ├── downloadHelper.js       # Native browser File API download
+│   └── migration.js            # localStorage → IndexedDB migration
+└── __tests__/          # Unit + PBT test suite
+```
 
-### Instalasi Cepat
+**Provider nesting:**
 
-1. **Clone repositori**
-   ```bash
-   git clone https://github.com/Rzandi/ClearTask.git
-   cd ClearTask
-   ```
-
-2. **Instal dependensi**
-   *(Note: Repositori ini dilengkapi file `.npmrc` dengan bendera `legacy-peer-deps=true` untuk mencegah masalah ERESOLVE dari plugin React 19)*
-   ```bash
-   npm install
-   ```
-
-3. **Jalankan Development Server**
-   ```bash
-   npm run dev
-   ```
-   Aplikasi dapat diakses melalui `http://localhost:5173`. Server mendukung modul Vite HMR (*Hot Module Replacement*).
-
----
-
-## 🧪 Testing & Linting
-
-Repositori ini mengikuti standar *Code Quality* tingkat produksi.
-
-| Perintah | Deskripsi |
-| --- | --- |
-| `npm test` | Menjalankan seluruh test suite menggunakan **Vitest** di folder `__tests__`. |
-| `npm run lint` | Melakukan audit standar *ESLint* (mendepresiasi *dead-code* dan dependensi yang tidak tervalidasi). |
-| `npm run build` | Menghasilkan bundel produksi. (Termasuk optimasi *Code Splitting* dan *Rollup Visualizer*). |
-
----
-
-## 💡 Panduan Deployment
-
-Aplikasi ini berorientasi pada kemudahan dan *Zero-config deployment* di **Vercel**. 
-
-1. **Melalui Vercel Dashboard**:
-   - Buat *New Project* dan impor repositori GitHub ini.
-   - Vercel akan otomatis mendeteksi konfigurasi *Vite* dan mendeploy-nya dalam hitungan detik.
-
-2. **Melalui Vercel CLI**:
-   ```bash
-   npm i -g vercel
-   vercel login
-   vercel --prod
-   ```
-
-> **Perhatian PWA**: Pastikan versi *production* berjalan menggunakan protokol aman **HTTPS** agar instalasi PWA (*Service Worker* dan *Web Manifest*) bekerja sesuai spesifikasi browser.
+```
+ErrorBoundary
+└── AppBootstrap (migration)
+    └── SettingsProvider
+        └── App
+```
 
 ---
 
-## 📄 Changelog & Versioning
-Cek file [`CHANGELOG.md`](./CHANGELOG.md) untuk detail perubahan terbaru pada v2.1.0.
+## Quick Start
+
+### Prasyarat
+
+- Node.js ≥ 20
+- npm ≥ 10
+
+### Instalasi
+
+```bash
+# Clone
+git clone https://github.com/<username>/ClearTask.git
+cd ClearTask
+
+# Install dependencies
+npm install
+
+# Copy env (tidak ada nilai yang wajib diisi untuk dev lokal)
+cp .env.example .env
+
+# Jalankan dev server
+npm run dev
+# → http://localhost:5173
+```
 
 ---
 
-## ❓ FAQ (Frequently Asked Questions)
+## Testing
 
-### Q: Apakah aplikasi ini masih bisa dipakai jika sedang offline (tidak ada sinyal internet)?
-**A: Ya, 100% bisa!** ClearTask dirancang sebagai aplikasi *Offline-First*. Semua transaksi dan master data barang akan tersimpan dengan aman di dalam *localStorage* browser Anda. Anda tetap dapat memasukkan data dan melakukan penutupan sesi secara lancar meskipun sedang offline.
+```bash
+# Jalankan semua unit test (single run)
+npm run test:run
 
-### Q: Apa yang terjadi jika saya tidak sengaja melakukan "Clear Cache" pada browser?
-**A: Data Anda berpotensi hilang.** Karena ClearTask menyimpan data secara lokal di perangkat Anda (melalui *localStorage*), melakukan *Clear Cache / Clear Data* browser akan menghapus seluruh transaksi dan riwayat sesi yang ada. 
-**Penanganan & Pencegahan:** 
-Sangat disarankan untuk **rutin mem-backup data** menggunakan fitur "Database Manager" (ekspor ke file `.json`) atau mengekspor laporan akhir hari ke format Excel. Jika sewaktu-waktu data Anda terhapus secara tidak sengaja, Anda dapat menggunakan file `.json` tersebut untuk melakukan "Restore".
+# Watch mode (development)
+npm run test
 
-### Q: Bagaimana cara memunculkan kembali notifikasi install PWA jika sebelumnya terlewat?
-**A: Tombol "Install" akan selalu muncul di Top Bar** selama Anda membuka aplikasi dari browser yang mendukung (misal: Chrome/Safari) dan aplikasi belum terinstall. Jika aplikasi sudah terinstall ke layar utama (*Home Screen*), tombol tersebut akan secara otomatis disembunyikan.
+# Coverage report → coverage/
+npm run test:coverage
 
-### Q: Bagaimana tampilan aplikasi di perangkat Mobile/HP?
-**A: Sangat Responsif.** Seluruh antarmuka (termasuk *Closing Report Modal*, *Sidebar* yang diubah menjadi *Bottom Navigation*, dsb) telah didesain secara adaptif. Navigasi untuk pengguna HP sangat mudah diakses melalui tab bagian bawah, yang telah diperbarui dengan kontras warna aksesibilitas standar tinggi.
+# E2E tests (butuh dev server aktif)
+npm run test:e2e
+```
+
+### Coverage Targets
+
+| Metric     | Target |
+| ---------- | ------ |
+| Statements | ≥ 80%  |
+| Branches   | ≥ 75%  |
+| Functions  | ≥ 80%  |
+| Lines      | ≥ 80%  |
+
+---
+
+## Scripts
+
+| Perintah                     | Deskripsi                           |
+| ---------------------------- | ----------------------------------- |
+| `npm run dev`                | Dev server (port 5173, strictPort)  |
+| `npm run build`              | Production build → `dist/`          |
+| `npm run preview`            | Preview production build            |
+| `npm run lint`               | ESLint check                        |
+| `npm run format`             | Prettier format (write)             |
+| `npm run format:check`       | Prettier check (CI mode)            |
+| `npm run test:run`           | Unit tests (single run)             |
+| `npm run test:coverage`      | Unit tests + coverage               |
+| `npm run test:e2e`           | Playwright E2E                      |
+| `ANALYZE=true npm run build` | Bundle analyzer → `dist/stats.html` |
+
+---
+
+## Keamanan
+
+- **Data Lokal:** Semua data tersimpan di IndexedDB browser — tidak ada server, tidak ada transmisi data
+- **CSP:** Content Security Policy meta tag di `index.html`
+- **Logging:** `console.error` hanya aktif di DEV mode
+- **Service Worker:** Otomatis di-unregister di DEV mode untuk mencegah stale cache
+
+---
+
+## Deployment
+
+### Vercel (Recommended)
+
+```bash
+npm i -g vercel
+vercel login
+vercel --prod
+```
+
+Atau import repo langsung dari Vercel Dashboard — Vite terdeteksi otomatis.
+
+> **Catatan PWA:** Pastikan production berjalan di HTTPS agar Service Worker dan Web Manifest berfungsi.
+
+---
+
+## Kontribusi
+
+Lihat [CONTRIBUTING.md](./CONTRIBUTING.md) untuk panduan lengkap.
+
+---
+
+## Changelog
+
+Lihat [CHANGELOG.md](./CHANGELOG.md) untuk riwayat perubahan.

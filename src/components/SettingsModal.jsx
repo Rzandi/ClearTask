@@ -6,12 +6,18 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useCategories, KATEGORI_DEFAULT } from '../hooks/useCategories';
+import Button from './ui/Button';
+import Input from './ui/Input';
+import Modal from './ui/Modal';
+import Toast from './Toast';
+import db from '../services/db';
 
 // ─── Konfigurasi swatch accent color ─────────────────────────────────────────
 
 const ACCENT_SWATCHES = [
-  { value: '#00ffa3', label: 'Hijau Neon' },
-  { value: '#58a6ff', label: 'Biru' },
+  { value: '#00f0ff', label: 'Cyan Neon' },
+  { value: '#00ff88', label: 'Hijau Neon' },
+  { value: '#ff3366', label: 'Pink Neon' },
   { value: '#bc8cff', label: 'Ungu' },
   { value: '#f0b429', label: 'Oranye' },
 ];
@@ -22,19 +28,43 @@ export default function SettingsModal({ isOpen, onClose }) {
   const { settings, updateSettings, saveSettings, openSettingsSnapshot, rollbackSettings } =
     useSettings();
 
-  const { customCategories, customSubCategoriesFor, deleteCategory, deleteSubCategory } = useCategories();
+  const { customCategories, customSubCategoriesFor, deleteCategory, deleteSubCategory } =
+    useCategories();
 
   const [localKasirName, setLocalKasirName] = useState('');
   const [localTokoName, setLocalTokoName] = useState('');
+  const [localAppName, setLocalAppName] = useState('');
+  const [localAppSubtitle, setLocalAppSubtitle] = useState('');
+  const [toast, setToast] = useState(null);
+  const [daysSinceBackup, setDaysSinceBackup] = useState(null);
+
+  // Cek kapan terakhir backup saat modal dibuka
+  useEffect(() => {
+    if (!isOpen) return;
+    db.meta
+      .get({ key: 'lastBackupAt' })
+      .then((record) => {
+        if (!record?.value) {
+          setDaysSinceBackup(null); // belum pernah backup
+          return;
+        }
+        const last = new Date(record.value);
+        const diffMs = Date.now() - last.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        setDaysSinceBackup(diffDays);
+      })
+      .catch(() => setDaysSinceBackup(null));
+  }, [isOpen]);
 
   // Saat modal dibuka: ambil snapshot dan inisialisasi state lokal dari settings
   useEffect(() => {
     if (isOpen) {
       openSettingsSnapshot();
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalKasirName(settings.kasirName);
-       
-      setLocalTokoName(settings.tokoName);
+      setLocalKasirName(settings.kasirName || '');
+      setLocalTokoName(settings.tokoName || '');
+      setLocalAppName(settings.appName || 'ClearTask');
+      setLocalAppSubtitle(settings.appSubtitle || 'Pencatatan Penjualan');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -45,7 +75,13 @@ export default function SettingsModal({ isOpen, onClose }) {
 
   function handleSave() {
     try {
-      saveSettings({ ...settings, kasirName: localKasirName, tokoName: localTokoName });
+      saveSettings({
+        ...settings,
+        kasirName: localKasirName,
+        tokoName: localTokoName,
+        appName: localAppName,
+        appSubtitle: localAppSubtitle,
+      });
       onClose();
     } catch (err) {
       alert(err.message || 'Gagal menyimpan pengaturan');
@@ -62,133 +98,215 @@ export default function SettingsModal({ isOpen, onClose }) {
     onClose();
   }
 
-  function handleBackdropClick(e) {
-    if (e.target === e.currentTarget) handleClose();
+  async function handleDeleteCategory(name) {
+    const result = await deleteCategory(name);
+    if (result && !result.success) {
+      setToast({ message: result.error, type: 'error' });
+    }
+  }
+
+  async function handleDeleteSubCategory(kat, sub) {
+    const result = await deleteSubCategory(kat, sub);
+    if (result && !result.success) {
+      setToast({ message: result.error, type: 'error' });
+    }
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    /* Backdrop */
-    <div
-      data-testid="settings-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={handleBackdropClick}
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Pengaturan"
+      size="sm"
+      footer={
+        <div className="flex gap-3">
+          <Button onClick={handleCancel} variant="outline" className="flex-1">
+            Batal
+          </Button>
+          <Button onClick={handleSave} variant="primary" className="flex-1">
+            Simpan
+          </Button>
+        </div>
+      }
     >
-      {/* Modal card */}
-      <div className="glass-card w-full max-w-sm mx-4 p-6 animate-slide-up">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-text-primary">Pengaturan</h2>
-          <button
-            onClick={handleClose}
-            aria-label="Tutup pengaturan"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-white/[0.06] transition-colors"
-          >
+      {/* Inline toast for category errors */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      <div data-testid="settings-modal">
+        {/* ── Backup Reminder Banner (W5-2) ─────────────────────── */}
+        {(daysSinceBackup === null || daysSinceBackup >= 7) && (
+          <div className="mb-5 flex items-start gap-3 rounded-xl bg-warning/8 border border-warning/25 px-4 py-3">
             <svg
               width="16"
               height="16"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
+              stroke="#f0b429"
+              strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              className="shrink-0 mt-0.5"
+              aria-hidden="true"
             >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
-          </button>
-        </div>
+            <div>
+              <p className="text-xs font-semibold text-warning">
+                {daysSinceBackup === null
+                  ? 'Belum pernah backup data'
+                  : `Backup terakhir: ${daysSinceBackup} hari lalu`}
+              </p>
+              <p className="text-xs text-text-muted mt-0.5">
+                Backup rutin via{' '}
+                <strong className="text-text-secondary">Database → Export JSON</strong> untuk
+                mencegah kehilangan data.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
-        <div className="space-y-5">
+        <div className="space-y-6">
+          {/* Seksi Profil Usaha */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-text-primary border-b border-border-subtle pb-2">
+              Profil Usaha
+            </h3>
 
-          {/* Nama Kasir */}
-          <div>
-            <label
-              htmlFor="kasir-name-input"
-              className="block text-sm font-medium text-text-secondary mb-1.5"
-            >
-              Nama Kasir
-            </label>
-            <input
-              id="kasir-name-input"
-              type="text"
-              value={localKasirName}
-              onChange={(e) => setLocalKasirName(e.target.value)}
-              placeholder="Masukkan nama kasir"
-              className="form-input"
-            />
-          </div>
+            {/* Nama Kasir */}
+            <div>
+              <label
+                htmlFor="kasir-name-input"
+                className="block text-sm font-medium text-text-secondary mb-1.5"
+              >
+                Nama Kasir
+              </label>
+              <Input
+                id="kasir-name-input"
+                type="text"
+                value={localKasirName}
+                onChange={(e) => setLocalKasirName(e.target.value)}
+                placeholder="Masukkan nama kasir"
+                maxLength={50}
+              />
+            </div>
 
-          {/* Nama Toko/Usaha */}
-          <div>
-            <label
-              htmlFor="toko-name-input"
-              className="block text-sm font-medium text-text-secondary mb-1.5"
-            >
-              Nama Toko/Usaha
-            </label>
-            <input
-              id="toko-name-input"
-              type="text"
-              value={localTokoName}
-              onChange={(e) => setLocalTokoName(e.target.value)}
-              placeholder="Masukkan nama toko/usaha"
-              className="form-input"
-            />
-          </div>
-
-          {/* Mode Tampilan */}
-          <div>
-            <p className="text-sm font-medium text-text-secondary mb-2">Mode Tampilan</p>
-            <div className="flex gap-2 p-1 rounded-xl bg-bg-input border border-border-default w-fit">
-              {['dark', 'light'].map((themeValue) => (
-                <button
-                  key={themeValue}
-                  onClick={() => updateSettings({ theme: themeValue })}
-                  aria-pressed={settings.theme === themeValue}
-                  className={[
-                    'px-4 py-1.5 text-sm font-medium rounded-lg transition-colors capitalize',
-                    settings.theme === themeValue
-                      ? 'bg-primary text-text-inverse'
-                      : 'text-text-secondary hover:text-text-primary',
-                  ].join(' ')}
-                >
-                  {themeValue === 'dark' ? 'Dark' : 'Light'}
-                </button>
-              ))}
+            {/* Nama Toko/Usaha */}
+            <div>
+              <label
+                htmlFor="toko-name-input"
+                className="block text-sm font-medium text-text-secondary mb-1.5"
+              >
+                Nama Toko/Usaha
+              </label>
+              <Input
+                id="toko-name-input"
+                type="text"
+                value={localTokoName}
+                onChange={(e) => setLocalTokoName(e.target.value)}
+                placeholder="Masukkan nama toko/usaha"
+                maxLength={100}
+              />
             </div>
           </div>
 
-          {/* Accent Color */}
-          <div>
-            <p className="text-sm font-medium text-text-secondary mb-2">Warna Aksen</p>
-            <div className="flex gap-3">
-              {ACCENT_SWATCHES.map(({ value, label }) => {
-                const isActive = settings.accentColor === value;
-                return (
+          {/* Seksi Personalisasi Aplikasi */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-text-primary border-b border-border-subtle pb-2">
+              Personalisasi Aplikasi
+            </h3>
+
+            {/* Nama Aplikasi */}
+            <div>
+              <label
+                htmlFor="app-name-input"
+                className="block text-sm font-medium text-text-secondary mb-1.5"
+              >
+                Nama Aplikasi
+              </label>
+              <Input
+                id="app-name-input"
+                type="text"
+                value={localAppName}
+                onChange={(e) => setLocalAppName(e.target.value)}
+                placeholder="Cth: ClearTask"
+                maxLength={30}
+              />
+            </div>
+
+            {/* Slogan / Deskripsi Pendek */}
+            <div>
+              <label
+                htmlFor="app-subtitle-input"
+                className="block text-sm font-medium text-text-secondary mb-1.5"
+              >
+                Slogan / Deskripsi Pendek
+              </label>
+              <Input
+                id="app-subtitle-input"
+                type="text"
+                value={localAppSubtitle}
+                onChange={(e) => setLocalAppSubtitle(e.target.value)}
+                placeholder="Cth: Pencatatan Penjualan"
+                maxLength={50}
+              />
+            </div>
+
+            {/* Mode Tampilan */}
+            <div>
+              <p className="text-sm font-medium text-text-secondary mb-2">Mode Tampilan</p>
+              <div className="flex gap-2 p-1 rounded-xl bg-bg-input border border-border-default w-fit shadow-inner">
+                {['dark', 'light'].map((themeValue) => (
                   <button
-                    key={value}
-                    onClick={() => updateSettings({ accentColor: value })}
-                    aria-label={label}
-                    aria-pressed={isActive}
-                    title={label}
-                    style={{ backgroundColor: value, outline: isActive ? `3px solid ${value}` : 'none', outlineOffset: '2px' }}
+                    key={themeValue}
+                    onClick={() => updateSettings({ theme: themeValue })}
+                    aria-pressed={settings.theme === themeValue}
                     className={[
-                      'w-8 h-8 rounded-full transition-all',
-                      isActive
-                        ? 'scale-110'
-                        : 'opacity-70 hover:opacity-100 hover:scale-105',
+                      'px-4 py-1.5 text-sm font-medium rounded-lg transition-colors capitalize',
+                      settings.theme === themeValue
+                        ? 'bg-primary text-text-inverse shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.3)]'
+                        : 'text-text-secondary hover:text-text-primary',
                     ].join(' ')}
-                  />
-                );
-              })}
+                  >
+                    {themeValue === 'dark' ? 'Dark' : 'Light'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Accent Color */}
+            <div>
+              <p className="text-sm font-medium text-text-secondary mb-2">Warna Aksen</p>
+              <div className="flex gap-3">
+                {ACCENT_SWATCHES.map(({ value, label }) => {
+                  const isActive = settings.accentColor === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => updateSettings({ accentColor: value })}
+                      aria-label={label}
+                      aria-pressed={isActive}
+                      title={label}
+                      style={{
+                        backgroundColor: value,
+                        outline: isActive ? `3px solid ${value}` : 'none',
+                        outlineOffset: '2px',
+                      }}
+                      className={[
+                        'w-8 h-8 rounded-full transition-all',
+                        isActive
+                          ? 'scale-110 shadow-[0_0_15px_rgba(255,255,255,0.2)]'
+                          : 'opacity-70 hover:opacity-100 hover:scale-105 shadow-inner',
+                      ].join(' ')}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
-
         </div>
 
         {/* Kelola Kategori */}
@@ -202,11 +320,21 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <li key={name} className="flex items-center justify-between gap-2">
                   <span className="text-xs text-text-secondary">{name}</span>
                   <button
-                    onClick={() => deleteCategory(name)}
+                    onClick={() => handleDeleteCategory(name)}
                     aria-label={`Hapus kategori ${name}`}
-                    className="w-6 h-6 flex items-center justify-center rounded text-text-muted hover:text-red-400 hover:bg-white/[0.06] transition-colors"
+                    className="w-11 h-11 flex items-center justify-center rounded text-text-muted hover:text-red-400 hover:bg-white/[0.06] transition-colors"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
                       <polyline points="3 6 5 6 21 6" />
                       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                       <path d="M10 11v6" />
@@ -224,34 +352,27 @@ export default function SettingsModal({ isOpen, onClose }) {
         <SubKategoriSection
           allCategories={[...KATEGORI_DEFAULT, ...customCategories]}
           customSubCategoriesFor={customSubCategoriesFor}
-          deleteSubCategory={deleteSubCategory}
+          deleteSubCategory={handleDeleteSubCategory}
         />
-
-        {/* Actions */}
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleCancel}
-            className="flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border border-border-default text-text-secondary hover:text-text-primary hover:bg-white/[0.04] transition-colors"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 py-2.5 px-4 text-sm font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors"
-          >
-            Simpan
-          </button>
-        </div>
-
       </div>
-    </div>
+    </Modal>
   );
 }
 
 /* ─── Sub-components ──────────────────────────────────────── */
 
 const TrashIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
     <polyline points="3 6 5 6 21 6" />
     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
     <path d="M10 11v6" />
@@ -280,7 +401,7 @@ function SubKategoriSection({ allCategories, customSubCategoriesFor, deleteSubCa
                     <button
                       onClick={() => deleteSubCategory(kat, sub)}
                       aria-label={`Hapus sub-kategori ${sub}`}
-                      className="w-6 h-6 flex items-center justify-center rounded text-text-muted hover:text-red-400 hover:bg-white/[0.06] transition-colors"
+                      className="w-11 h-11 flex items-center justify-center rounded text-text-muted hover:text-red-400 hover:bg-white/[0.06] transition-colors"
                     >
                       <TrashIcon />
                     </button>

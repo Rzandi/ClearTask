@@ -3,43 +3,23 @@
    Handles export, import validation, merge calculation,
    and atomic merge application for the full database.
    ═══════════════════════════════════════════════════════════ */
-import { toLocalDateString } from './formatters';
-import { STORAGE_KEYS as KEYS } from '../constants/storageKeys';
-import * as storageService from '../services/storageService';
-
-// ── Internal helpers ──────────────────────────────────────
-
-/**
- * Read and parse a localStorage key, returning a fallback on failure.
- * Uses storageService for consistency.
- * @param {string} key
- * @param {*} fallback
- * @returns {*}
- */
-function readKey(key, fallback) {
-  try {
-    const val = storageService.getItem(key);
-    if (val === null) return fallback;
-    return val;
-  } catch {
-    return fallback;
-  }
-}
+import db from './db.js';
+import { toLocalDateString } from '../utils/formatters.js';
+import { triggerDownload } from '../utils/downloadHelper.js';
 
 // ── Exported functions ────────────────────────────────────
 
 /**
- * Read all data from localStorage and trigger a JSON file download.
- * Handles empty localStorage gracefully (uses [] / {} defaults).
- * @returns {void}
+ * Read all data from IndexedDB and trigger a JSON file download.
+ * Handles empty database gracefully.
+ * @returns {Promise<void>}
  */
 export async function exportDatabase() {
-  const { saveAs } = await import('file-saver');
-
-  const transactions = readKey(KEYS.TRANSACTIONS, []);
-  const sessions = readKey(KEYS.SESSIONS, []);
-  const categories = readKey(KEYS.CATEGORIES, { categories: [] });
-  const inventory = readKey(KEYS.INVENTORY, []);
+  const transactions = await db.transactions.toArray();
+  const sessions = await db.sessions.toArray();
+  const categoriesDb = await db.categories.toArray();
+  const categories = categoriesDb.length > 0 ? categoriesDb[0] : { categories: [] };
+  const inventory = await db.inventory.toArray();
 
   /** @type {import('./databaseManager').DatabaseExport} */
   const exportData = {
@@ -62,7 +42,14 @@ export async function exportDatabase() {
   const dateStr = toLocalDateString(new Date());
   const filename = `ClearTask_DB_${dateStr}.json`;
 
-  saveAs(blob, filename);
+  triggerDownload(blob, filename);
+
+  // Record backup timestamp so SettingsModal can show the reminder (W5-2)
+  try {
+    await db.meta.put({ key: 'lastBackupAt', value: new Date().toISOString() });
+  } catch {
+    // Non-fatal — reminder will just show "belum pernah backup"
+  }
 }
 
 /**
@@ -117,31 +104,25 @@ export function validateImport(jsonString) {
 }
 
 /**
- * Calculate what would be added by a merge, without modifying localStorage.
+ * Calculate what would be added by a merge, without modifying the database.
  * @param {object} importData - A validated DatabaseExport object
- * @returns {object} MergeResult
+ * @returns {Promise<object>} MergeResult
  */
-export function calculateMerge(importData) {
+export async function calculateMerge(importData) {
   // Read existing data
-  const existingTransactions = readKey(KEYS.TRANSACTIONS, []);
-  const existingSessions = readKey(KEYS.SESSIONS, []);
-  const existingCategories = readKey(KEYS.CATEGORIES, { categories: [] });
-  const existingInventory = readKey(KEYS.INVENTORY, []);
+  const existingTransactions = await db.transactions.toArray();
+  const existingSessions = await db.sessions.toArray();
+  const existingCategoriesDb = await db.categories.toArray();
+  const existingCategories =
+    existingCategoriesDb.length > 0 ? existingCategoriesDb[0] : { categories: [] };
+  const existingInventory = await db.inventory.toArray();
 
-  const existingTxIds = new Set(
-    (Array.isArray(existingTransactions) ? existingTransactions : []).map(
-      (tx) => tx.transactionId
-    )
-  );
-  const existingSessionIds = new Set(
-    (Array.isArray(existingSessions) ? existingSessions : []).map((s) => s.id)
-  );
+  const existingTxIds = new Set(existingTransactions.map((tx) => tx.transactionId));
+  const existingSessionIds = new Set(existingSessions.map((s) => s.id));
   const existingCategoryNames = new Set(
-    (existingCategories?.categories ?? []).map((c) => c.toLowerCase())
+    (existingCategories.categories ?? []).map((c) => c.toLowerCase())
   );
-  const existingInventoryIds = new Set(
-    (Array.isArray(existingInventory) ? existingInventory : []).map((item) => item.id)
-  );
+  const existingInventoryIds = new Set(existingInventory.map((item) => item.id));
 
   // Identify new items
   const importTransactions = Array.isArray(importData.transactions) ? importData.transactions : [];
@@ -149,16 +130,12 @@ export function calculateMerge(importData) {
   const importCategories = importData.categories?.categories ?? [];
   const importInventory = Array.isArray(importData.inventory) ? importData.inventory : [];
 
-  const transactionsToAdd = importTransactions.filter(
-    (tx) => !existingTxIds.has(tx.transactionId)
-  );
+  const transactionsToAdd = importTransactions.filter((tx) => !existingTxIds.has(tx.transactionId));
   const sessionsToAdd = importSessions.filter((s) => !existingSessionIds.has(s.id));
   const categoriesToAdd = importCategories.filter(
     (name) => !existingCategoryNames.has(name.toLowerCase())
   );
-  const inventoryToAdd = importInventory.filter(
-    (item) => !existingInventoryIds.has(item.id)
-  );
+  const inventoryToAdd = importInventory.filter((item) => !existingInventoryIds.has(item.id));
 
   // Build the full set of session IDs after merge (existing + new)
   const allSessionIdsAfterMerge = new Set([
@@ -169,7 +146,10 @@ export function calculateMerge(importData) {
   // Count orphan transactions: new transactions with a non-null sessionId
   // that won't exist in the merged session set
   const orphanTransactions = transactionsToAdd.filter(
-    (tx) => tx.sessionId !== null && tx.sessionId !== undefined && !allSessionIdsAfterMerge.has(tx.sessionId)
+    (tx) =>
+      tx.sessionId !== null &&
+      tx.sessionId !== undefined &&
+      !allSessionIdsAfterMerge.has(tx.sessionId)
   ).length;
 
   // Count skipped (duplicates)
@@ -180,6 +160,7 @@ export function calculateMerge(importData) {
   const skipped = skippedTransactions + skippedSessions + skippedCategories + skippedInventory;
 
   return {
+    __isMergeResult: true,
     newTransactions: transactionsToAdd.length,
     newSessions: sessionsToAdd.length,
     newCategories: categoriesToAdd.length,
@@ -194,65 +175,49 @@ export function calculateMerge(importData) {
 }
 
 /**
- * Apply a merge atomically to localStorage.
- * Backs up all keys before writing; rolls back on any failure.
+ * Apply a merge atomically to IndexedDB using Dexie transaction.
+ * Rolls back on any failure.
+ * @param {object} data - Either a raw DatabaseExport OR a pre-calculated MergeResult
+ *   (from calculateMerge). Pass the MergeResult directly to avoid re-reading the DB.
  */
-export function applyMerge(data) {
-  const mergeResult = data.transactionsToAdd !== undefined ? data : calculateMerge(data);
+export async function applyMerge(data) {
+  // Explicit flag is more reliable than duck-typing on transactionsToAdd
+  const mergeResult = data.__isMergeResult === true ? data : await calculateMerge(data);
   const { transactionsToAdd, sessionsToAdd, categoriesToAdd, inventoryToAdd } = mergeResult;
 
-  // Backup current values (raw strings, may be null)
-  const backup = {
-    [KEYS.TRANSACTIONS]: localStorage.getItem(KEYS.TRANSACTIONS),
-    [KEYS.SESSIONS]: localStorage.getItem(KEYS.SESSIONS),
-    [KEYS.CATEGORIES]: localStorage.getItem(KEYS.CATEGORIES),
-    [KEYS.INVENTORY]: localStorage.getItem(KEYS.INVENTORY),
-  };
-
-  // Build merged arrays
-  const existingTransactions = readKey(KEYS.TRANSACTIONS, []);
-  const existingSessions = readKey(KEYS.SESSIONS, []);
-  const existingCategories = readKey(KEYS.CATEGORIES, { categories: [] });
-  const existingInventory = readKey(KEYS.INVENTORY, []);
-
-  const mergedTransactions = [
-    ...(Array.isArray(existingTransactions) ? existingTransactions : []),
-    ...transactionsToAdd,
-  ];
-  const mergedSessions = [
-    ...(Array.isArray(existingSessions) ? existingSessions : []),
-    ...sessionsToAdd,
-  ];
-  const existingCatList = existingCategories?.categories ?? [];
-  const mergedCategories = {
-    ...existingCategories,
-    categories: [...existingCatList, ...categoriesToAdd],
-  };
-  const mergedInventory = [
-    ...(Array.isArray(existingInventory) ? existingInventory : []),
-    ...inventoryToAdd,
-  ];
-
-  // Attempt atomic write
   try {
-    storageService.setItem(KEYS.TRANSACTIONS, mergedTransactions);
-    storageService.setItem(KEYS.SESSIONS, mergedSessions);
-    storageService.setItem(KEYS.CATEGORIES, mergedCategories);
-    storageService.setItem(KEYS.INVENTORY, mergedInventory);
-    return { success: true, error: null };
-  } catch {
-    // Rollback: restore all keys from backup
-    for (const [key, value] of Object.entries(backup)) {
-      if (value === null) {
-        localStorage.removeItem(key);
-      } else {
-        try {
-          localStorage.setItem(key, value);
-        } catch {
-          // Best-effort rollback
+    await db.transaction(
+      'rw',
+      db.transactions,
+      db.sessions,
+      db.categories,
+      db.inventory,
+      async () => {
+        if (transactionsToAdd.length > 0) {
+          await db.transactions.bulkAdd(transactionsToAdd);
+        }
+        if (sessionsToAdd.length > 0) {
+          await db.sessions.bulkAdd(sessionsToAdd);
+        }
+        if (categoriesToAdd.length > 0) {
+          const existingDb = await db.categories.toArray();
+          if (existingDb.length > 0) {
+            const existing = existingDb[0];
+            await db.categories.put({
+              ...existing,
+              categories: [...(existing.categories || []), ...categoriesToAdd],
+            });
+          } else {
+            await db.categories.put({ id: 1, categories: categoriesToAdd, subCategories: {} });
+          }
+        }
+        if (inventoryToAdd.length > 0) {
+          await db.inventory.bulkAdd(inventoryToAdd);
         }
       }
-    }
-    return { success: false, error: 'Merge gagal: penyimpanan tidak mencukupi' };
+    );
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: 'Merge gagal: ' + error.message };
   }
 }

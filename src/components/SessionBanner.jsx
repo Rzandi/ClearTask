@@ -14,12 +14,22 @@ export default function SessionBanner({ session, onClose, onOpen }) {
   // 9.1 Render banner khusus mobile untuk buka sesi jika tidak ada sesi
   if (!session || session.status !== 'aktif') {
     return (
-      <div className="lg:hidden w-full bg-accent-red/10 border border-accent-red/20 rounded-xl px-4 py-3 mb-6 backdrop-blur-sm">
+      <div className="lg:hidden w-full bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6 backdrop-blur-sm">
         <div className="flex flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {/* Warning Icon */}
-            <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-accent-red/20 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-red">
+            <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-red-500"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -28,14 +38,14 @@ export default function SessionBanner({ session, onClose, onOpen }) {
 
             {/* Warning Info */}
             <div className="flex flex-col">
-              <h3 className="text-xs font-semibold text-accent-red">Belum ada sesi</h3>
-              <p className="text-[10px] text-text-secondary">Buka untuk mencatat</p>
+              <h3 className="text-xs font-semibold text-text-primary">Belum ada sesi</h3>
+              <p className="text-[10px] text-text-muted">Buka untuk mencatat</p>
             </div>
           </div>
 
           <button
             onClick={onOpen}
-            className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold text-bg-base bg-accent-red hover:bg-red-500 rounded-lg transition-colors duration-200"
+            className="flex-shrink-0 px-4 py-2 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all duration-200 cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] active:scale-95"
           >
             Buka Sesi
           </button>
@@ -76,12 +86,8 @@ export default function SessionBanner({ session, onClose, onOpen }) {
 
           {/* Session Info */}
           <div className="flex flex-col">
-            <h3 className="text-base font-semibold text-primary">
-              {displayName}
-            </h3>
-            <p className="text-sm text-text-secondary">
-              {startTimeDisplay}
-            </p>
+            <h3 className="text-base font-semibold text-primary">{displayName}</h3>
+            <p className="text-sm text-text-secondary">{startTimeDisplay}</p>
           </div>
         </div>
 

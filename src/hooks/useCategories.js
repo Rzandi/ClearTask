@@ -1,68 +1,42 @@
 /* ═══════════════════════════════════════════════════════════
    useCategories Hook — ClearTask
-   Manages dynamic categories and sub-categories with localStorage persistence
+   Manages dynamic categories and sub-categories with Dexie
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { STORAGE_KEYS } from '../constants/storageKeys';
-import * as storageService from '../services/storageService';
-
+import { useCallback, useMemo } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import db from '../services/db';
 
 export const KATEGORI_DEFAULT = [
-  'Elektronik', 'Makanan', 'Minuman', 'Pakaian',
-  'Alat Tulis', 'Kesehatan', 'Lainnya',
+  'Elektronik',
+  'Makanan',
+  'Minuman',
+  'Pakaian',
+  'Alat Tulis',
+  'Kesehatan',
+  'Lainnya',
 ];
 
 export const SUBKATEGORI_PRESET = {
-  Makanan:    ['Makanan Berat', 'Snack', 'Dessert'],
-  Minuman:    ['Minuman Panas', 'Minuman Dingin', 'Jus'],
+  Makanan: ['Makanan Berat', 'Snack', 'Dessert'],
+  Minuman: ['Minuman Panas', 'Minuman Dingin', 'Jus'],
   Elektronik: ['Gadget', 'Aksesoris', 'Komponen'],
 };
-
-/**
- * Load category store from localStorage.
- * Falls back to empty default if missing, corrupt, or invalid.
- * @returns {{ categories: string[], subCategories: Record<string, string[]> }}
- */
-export function loadStore() {
-  try {
-    const parsed = storageService.getItem(STORAGE_KEYS.CATEGORIES);
-    if (!parsed || !Array.isArray(parsed?.categories)) {
-      return { categories: [], subCategories: {} };
-    }
-    return {
-      categories: parsed.categories,
-      subCategories: parsed.subCategories ?? {},
-    };
-  } catch {
-    return { categories: [], subCategories: {} };
-  }
-}
-
-/**
- * Save category store to localStorage.
- * Logs errors to console without throwing.
- * @param {{ categories: string[], subCategories: Record<string, string[]> }} store
- */
-export function saveStore(store) {
-  storageService.setItem(STORAGE_KEYS.CATEGORIES, store);
-}
 
 /**
  * Hook for managing dynamic categories and sub-categories.
  */
 export function useCategories() {
-  const [store, setStore] = useState(() => loadStore());
+  // useLiveQuery will return undefined while loading
+  const rawStore = useLiveQuery(() => db.categories.get({ key: 'main' }));
 
-  useEffect(() => {
-    const refresh = () => setStore(loadStore());
-    window.addEventListener('storage', refresh);
-    window.addEventListener('local-storage-update', refresh);
-    return () => {
-      window.removeEventListener('storage', refresh);
-      window.removeEventListener('local-storage-update', refresh);
-    };
-  }, []);
+  const store =
+    rawStore === undefined
+      ? { categories: [], subCategories: {} } // fallback while loading
+      : {
+          categories: rawStore?.categories || [],
+          subCategories: rawStore?.subCategories || {},
+        };
 
   // ── Derived values ──
 
@@ -87,109 +61,129 @@ export function useCategories() {
 
   const customSubCategoriesFor = useCallback(
     (kategori) =>
-      Object.hasOwn(store.subCategories, kategori)
-        ? store.subCategories[kategori]
-        : [],
+      Object.hasOwn(store.subCategories, kategori) ? store.subCategories[kategori] : [],
     [store.subCategories]
   );
 
   // ── Mutations ──
+  // All mutations read fresh state from DB before writing to prevent
+  // stale-closure lost-update bugs on concurrent calls (bug #9 fix).
 
-  const addCategory = useCallback(
-    (name) => {
-      const trimmed = (name ?? '').trim();
-      if (!trimmed) return { success: false };
+  const addCategory = useCallback(async (name) => {
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) return { success: false, error: 'Nama kategori tidak boleh kosong.' };
 
-      const currentStore = loadStore();
-      const current = [...KATEGORI_DEFAULT, ...currentStore.categories];
-      const isDuplicate = current.some(
-        (cat) => cat.toLowerCase() === trimmed.toLowerCase()
-      );
-      if (isDuplicate) {
-        return { success: false, error: 'Kategori sudah ada' };
-      }
+    // Read fresh state from DB to avoid stale closure
+    const current = await db.categories.get({ key: 'main' });
+    const currentCategories = current?.categories || [];
 
-      const newStore = {
-        ...currentStore,
-        categories: [...currentStore.categories, trimmed],
-      };
-      setStore(newStore);
-      saveStore(newStore);
-      return { success: true };
-    },
-    []
-  );
+    const exists = [...KATEGORI_DEFAULT, ...currentCategories].some(
+      (c) => c.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) return { success: false, error: 'Kategori sudah ada.' };
 
-  const addSubCategory = useCallback(
-    (kategori, name) => {
-      const trimmed = (name ?? '').trim();
-      if (!trimmed) return { success: false };
+    await db.categories.put({
+      key: 'main',
+      ...(current || {}),
+      id: current?.id || 1,
+      categories: [...currentCategories, trimmed],
+      subCategories: current?.subCategories || {},
+    });
+    return { success: true };
+  }, []);
 
-      const currentStore = loadStore();
-      const preset = Object.hasOwn(SUBKATEGORI_PRESET, kategori)
-        ? SUBKATEGORI_PRESET[kategori]
-        : [];
-      const custom = Object.hasOwn(currentStore.subCategories, kategori)
-        ? currentStore.subCategories[kategori]
-        : [];
-      const existing = [...preset, ...custom];
-      const isDuplicate = existing.some(
-        (sub) => sub.toLowerCase() === trimmed.toLowerCase()
-      );
-      if (isDuplicate) {
-        return { success: false, error: 'Sub-kategori sudah ada' };
-      }
+  const deleteCategory = useCallback(async (name) => {
+    if (KATEGORI_DEFAULT.includes(name)) {
+      return { success: false, error: 'Kategori bawaan tidak dapat dihapus.' };
+    }
 
-      const newStore = {
-        ...currentStore,
-        subCategories: {
-          ...currentStore.subCategories,
-          [kategori]: [...custom, trimmed],
-        },
-      };
-      setStore(newStore);
-      saveStore(newStore);
-      return { success: true };
-    },
-    []
-  );
+    const current = await db.categories.get({ key: 'main' });
+    const currentCategories = current?.categories || [];
 
-  const deleteCategory = useCallback(
-    (name) => {
-      setStore((prev) => {
-        const newSubCategories = { ...prev.subCategories };
-        delete newSubCategories[name];
+    if (!currentCategories.includes(name)) {
+      return { success: false, error: 'Kategori tidak ditemukan.' };
+    }
 
-        const newStore = {
-          categories: prev.categories.filter((cat) => cat !== name),
-          subCategories: newSubCategories,
-        };
-        saveStore(newStore);
-        return newStore;
-      });
-    },
-    []
-  );
+    const newSubCategories = { ...(current?.subCategories || {}) };
+    if (Object.hasOwn(newSubCategories, name)) {
+      delete newSubCategories[name];
+    }
 
-  const deleteSubCategory = useCallback(
-    (kategori, name) => {
-      setStore((prev) => {
-        const existing = Object.hasOwn(prev.subCategories, kategori)
-          ? prev.subCategories[kategori]
-          : [];
-        const newStore = {
-          ...prev,
-          subCategories: {
-            ...prev.subCategories,
-            [kategori]: existing.filter((sub) => sub !== name),
-          },
-        };
-        saveStore(newStore);
-        return newStore;
-      });
-    },
-    []
-  );
+    await db.categories.put({
+      key: 'main',
+      ...(current || {}),
+      id: current?.id || 1,
+      categories: currentCategories.filter((c) => c !== name),
+      subCategories: newSubCategories,
+    });
+    return { success: true };
+  }, []);
+
+  const addSubCategory = useCallback(async (kategori, subName) => {
+    if (!kategori) return { success: false, error: 'Pilih kategori utama.' };
+
+    const trimmedSub = (subName ?? '').trim();
+    if (!trimmedSub) return { success: false, error: 'Nama sub-kategori tidak boleh kosong.' };
+
+    const current = await db.categories.get({ key: 'main' });
+    const currentSubCategories = current?.subCategories || {};
+
+    // Combine preset + custom for duplicate check
+    const presetSubs = Object.hasOwn(SUBKATEGORI_PRESET, kategori)
+      ? SUBKATEGORI_PRESET[kategori]
+      : [];
+    const customSubs = currentSubCategories[kategori] || [];
+    const allSubs = [...presetSubs, ...customSubs];
+
+    if (allSubs.some((s) => s.toLowerCase() === trimmedSub.toLowerCase())) {
+      return { success: false, error: 'Sub-kategori sudah ada di kategori ini.' };
+    }
+
+    await db.categories.put({
+      key: 'main',
+      ...(current || {}),
+      id: current?.id || 1,
+      categories: current?.categories || [],
+      subCategories: {
+        ...currentSubCategories,
+        [kategori]: [...customSubs, trimmedSub],
+      },
+    });
+    return { success: true };
+  }, []);
+
+  const deleteSubCategory = useCallback(async (kategori, subName) => {
+    const isPreset =
+      Object.hasOwn(SUBKATEGORI_PRESET, kategori) && SUBKATEGORI_PRESET[kategori].includes(subName);
+    if (isPreset) {
+      return { success: false, error: 'Sub-kategori bawaan tidak dapat dihapus.' };
+    }
+
+    const current = await db.categories.get({ key: 'main' });
+    const currentSubCategories = current?.subCategories || {};
+    const currentCustomSubs = currentSubCategories[kategori] || [];
+
+    if (!currentCustomSubs.includes(subName)) {
+      return { success: false, error: 'Sub-kategori tidak ditemukan.' };
+    }
+
+    const updatedSubs = currentCustomSubs.filter((s) => s !== subName);
+    const newSubCategories = { ...currentSubCategories };
+    if (updatedSubs.length === 0) {
+      delete newSubCategories[kategori];
+    } else {
+      newSubCategories[kategori] = updatedSubs;
+    }
+
+    await db.categories.put({
+      key: 'main',
+      ...(current || {}),
+      id: current?.id || 1,
+      categories: current?.categories || [],
+      subCategories: newSubCategories,
+    });
+    return { success: true };
+  }, []);
 
   return {
     allCategories,
@@ -197,8 +191,8 @@ export function useCategories() {
     customCategories,
     customSubCategoriesFor,
     addCategory,
-    addSubCategory,
     deleteCategory,
+    addSubCategory,
     deleteSubCategory,
   };
 }

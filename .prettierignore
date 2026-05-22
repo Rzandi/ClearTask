@@ -1,0 +1,6 @@
+dist/
+node_modules/
+android-build/
+public/
+*.min.js
+package-lock.json

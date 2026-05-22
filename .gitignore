@@ -22,3 +22,16 @@ dist-ssr
 *.sln
 *.sw?
 MYspec
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Test output
+test_report.json
+coverage/
+
+# Android / TWA build artifacts
+# NEVER commit keystore, APK, or AAB files — they contain signing keys
+android-build/

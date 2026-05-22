@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { formatTime, toLocalDateString } from './formatters';
+import { triggerDownload } from './downloadHelper';
 
 /**
  * Escape a CSV field value per RFC 4180:
@@ -13,7 +14,13 @@ import { formatTime, toLocalDateString } from './formatters';
  * @returns {string}
  */
 export function escapeCSVValue(value) {
-  const str = value === null || value === undefined ? '' : String(value);
+  let str = value === null || value === undefined ? '' : String(value);
+
+  // Prevent CSV Injection (DDE) by prepending a single quote to dangerous characters
+  if (/^[ \t]*[=\-+@]/.test(str)) {
+    str = "'" + str;
+  }
+
   // Must wrap if contains comma, double-quote, or newline
   if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
     return '"' + str.replace(/"/g, '""') + '"';
@@ -28,8 +35,6 @@ export function escapeCSVValue(value) {
  * @returns {void}
  */
 export async function exportSessionCSV(transactions, session) {
-  const { saveAs } = await import('file-saver');
-
   const header = [
     'ID Transaksi',
     'Tanggal',
@@ -46,21 +51,44 @@ export async function exportSessionCSV(transactions, session) {
     'Status',
   ];
 
-  const rows = transactions.map((tx) => [
-    tx.transactionId ?? '',
-    tx.tanggal ?? '',
-    tx.createdAt ? formatTime(tx.createdAt) : '',
-    tx.kasir ?? '',
-    tx.kategori ?? '',
-    tx.subKategori ?? '',
-    tx.namaBarang ?? '',
-    tx.qty ?? '',
-    tx.hargaSatuan ?? '',
-    tx.total ?? '',
-    tx.metode ?? '',
-    tx.catatan ?? '',
-    tx.status ?? '',
-  ]);
+  const rows = [];
+  transactions.forEach((tx) => {
+    if (tx.items && Array.isArray(tx.items)) {
+      tx.items.forEach((item) => {
+        rows.push([
+          tx.transactionId ?? '',
+          tx.tanggal ?? '',
+          tx.createdAt ? formatTime(tx.createdAt) : '',
+          tx.kasir ?? '',
+          item.kategori ?? '',
+          item.subKategori ?? '',
+          item.namaBarang ?? '',
+          item.qty ?? '',
+          item.hargaSatuan ?? '',
+          item.total ?? '',
+          tx.metode ?? '',
+          tx.catatan ?? '',
+          tx.status ?? '',
+        ]);
+      });
+    } else {
+      rows.push([
+        tx.transactionId ?? '',
+        tx.tanggal ?? '',
+        tx.createdAt ? formatTime(tx.createdAt) : '',
+        tx.kasir ?? '',
+        tx.kategori ?? '',
+        tx.subKategori ?? '',
+        tx.namaBarang ?? '',
+        tx.qty ?? '',
+        tx.hargaSatuan ?? '',
+        tx.total ?? '',
+        tx.metode ?? '',
+        tx.catatan ?? '',
+        tx.status ?? '',
+      ]);
+    }
+  });
 
   const csvLines = [
     header.map(escapeCSVValue).join(','),
@@ -74,5 +102,5 @@ export async function exportSessionCSV(transactions, session) {
   const tanggalTutup = session?.tanggalTutup ?? toLocalDateString(new Date());
   const filename = `ClearTask_Session_${namaSesi}_${tanggalTutup}.csv`;
 
-  saveAs(blob, filename);
+  triggerDownload(blob, filename);
 }

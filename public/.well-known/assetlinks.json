@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.cleartask",
+      "sha256_cert_fingerprints": [
+        "56:E6:16:BF:5F:CA:20:07:FC:C4:E5:D6:66:11:B0:0D:9A:B2:1C:B4:33:B0:B7:FC:50:0D:3D:A5:4D:3A:36:6C"
+      ]
+    }
+  }
+]

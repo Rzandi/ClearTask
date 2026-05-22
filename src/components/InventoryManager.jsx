@@ -6,16 +6,15 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useInventory } from '../hooks/useInventory';
-import { useTransactions } from '../hooks/useTransactions';
 import { formatRupiah } from '../utils/formatters';
 import InventoryModal from './InventoryModal';
 import ConfirmDialog from './ConfirmDialog';
+import db from '../services/db';
 
 const LOW_STOCK_THRESHOLD = 5;
 
 export default function InventoryManager() {
   const { inventory, addInventoryItem, updateInventoryItem, deleteInventoryItem } = useInventory();
-  const { allTransactions } = useTransactions();
 
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -51,7 +50,10 @@ export default function InventoryManager() {
 
   // Total value
   const totalValue = useMemo(() => {
-    return filteredInventory.reduce((sum, item) => sum + (item.harga || 0) * (item.quantity || 0), 0);
+    return filteredInventory.reduce(
+      (sum, item) => sum + (item.harga || 0) * (item.quantity || 0),
+      0
+    );
   }, [filteredInventory]);
 
   function handleAdd() {
@@ -88,40 +90,48 @@ export default function InventoryManager() {
     }
   }
 
-  function handleSyncFromHistory() {
-    if (!allTransactions || allTransactions.length === 0) {
+  async function handleSyncFromHistory() {
+    // Ambil daftar transaksi dari database langsung (On-Demand)
+    // Supaya tidak membebani RAM selama app jalan
+    const totalTx = await db.transactions.count();
+    if (totalTx === 0) {
       alert('Tidak ada data transaksi untuk disinkronisasi.');
       return;
     }
 
+    const allTransactions = await db.transactions.orderBy('createdAt').reverse().toArray();
+
     const itemsMap = new Map();
     const uniqueItems = [];
 
-    // Reverse iterate to get the latest price and category for each item
-    for (let i = allTransactions.length - 1; i >= 0; i--) {
-      const tx = allTransactions[i];
-      if (!tx.namaBarang) continue;
+    // Karena sudah di-reverse oleh Dexie, kita iterate dari awal ke akhir
+    for (const tx of allTransactions) {
+      if (!tx.items || !Array.isArray(tx.items)) continue;
 
-      const key = tx.namaBarang.toLowerCase().trim();
-      if (!itemsMap.has(key)) {
-        itemsMap.set(key, true);
-        
-        // Cek apakah barang sudah ada di inventaris (jangan ditambah jika sudah ada)
-        const alreadyExists = inventory.some(item => 
-          item.namaBarang?.toLowerCase().trim() === key
-        );
+      for (const item of tx.items) {
+        if (!item.namaBarang) continue;
 
-        if (!alreadyExists) {
-          uniqueItems.push({
-            id: `INV-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-            namaBarang: tx.namaBarang.trim(),
-            kategori: tx.kategori || '',
-            subKategori: tx.subKategori || '',
-            harga: tx.hargaSatuan || 0,
-            quantity: 0,
-            satuan: 'Pcs',
-            createdAt: tx.createdAt
-          });
+        const key = item.namaBarang.toLowerCase().trim();
+        if (!itemsMap.has(key)) {
+          itemsMap.set(key, true);
+
+          // Cek apakah barang sudah ada di inventaris
+          const alreadyExists = inventory.some(
+            (invItem) => invItem.namaBarang?.toLowerCase().trim() === key
+          );
+
+          if (!alreadyExists) {
+            uniqueItems.push({
+              id: `INV-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              namaBarang: item.namaBarang.trim(),
+              kategori: item.kategori || '',
+              subKategori: item.subKategori || '',
+              harga: item.hargaSatuan || 0,
+              quantity: 0,
+              satuan: 'Pcs',
+              createdAt: tx.createdAt,
+            });
+          }
         }
       }
     }
@@ -136,7 +146,7 @@ export default function InventoryManager() {
     );
 
     if (confirmSync) {
-      uniqueItems.forEach(item => {
+      uniqueItems.forEach((item) => {
         addInventoryItem(item);
       });
       alert(`${uniqueItems.length} barang berhasil disinkronisasi.`);
@@ -157,7 +167,16 @@ export default function InventoryManager() {
             title="Tarik barang unik dari riwayat transaksi"
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-primary hover:border-primary/50 transition-colors shrink-0"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M21 2v6h-6"></path>
               <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
               <path d="M3 22v-6h6"></path>
@@ -169,7 +188,16 @@ export default function InventoryManager() {
             onClick={handleAdd}
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors shrink-0"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
@@ -181,17 +209,24 @@ export default function InventoryManager() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="glass-card p-4">
-          <p className="text-xs text-text-muted mb-1">Total Jenis {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}</p>
+          <p className="text-xs text-text-muted mb-1">
+            Total Jenis {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}
+          </p>
           <p className="text-2xl font-bold text-text-primary">{filteredInventory.length}</p>
         </div>
         <div className="glass-card p-4">
-          <p className="text-xs text-text-muted mb-1">Total Stok {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}</p>
+          <p className="text-xs text-text-muted mb-1">
+            Total Stok {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}
+          </p>
           <p className="text-2xl font-bold text-text-primary">
             {filteredInventory.reduce((sum, item) => sum + (item.quantity || 0), 0)}
           </p>
         </div>
         <div className="glass-card p-4 col-span-2 sm:col-span-1">
-          <p className="text-xs text-text-muted mb-1">Nilai Inventaris {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}</p>
+          <p className="text-xs text-text-muted mb-1">
+            Nilai Inventaris{' '}
+            {isFilterActive && <span className="text-primary italic">(Terfilter)</span>}
+          </p>
           <p className="text-xl font-bold text-primary">{formatRupiah(totalValue)}</p>
         </div>
       </div>
@@ -199,7 +234,17 @@ export default function InventoryManager() {
       {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -220,7 +265,9 @@ export default function InventoryManager() {
         >
           <option value="all">Semua Kategori</option>
           {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
       </div>
@@ -229,12 +276,24 @@ export default function InventoryManager() {
       {filteredInventory.length === 0 ? (
         <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
           <div className="w-14 h-14 rounded-full bg-bg-elevated flex items-center justify-center mb-4">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-text-muted"
+            >
               <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
           <p className="text-sm font-medium text-text-secondary mb-1">Belum ada barang</p>
-          <p className="text-xs text-text-muted">Klik "Tambah Barang" untuk mulai mendaftarkan barang inventaris.</p>
+          <p className="text-xs text-text-muted">
+            Klik "Tambah Barang" untuk mulai mendaftarkan barang inventaris.
+          </p>
         </div>
       ) : (
         <>
@@ -244,12 +303,24 @@ export default function InventoryManager() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border-default">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Nama Barang</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Kategori</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Harga</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Stok</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Satuan</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Aksi</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      Nama Barang
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      Kategori
+                    </th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      Harga
+                    </th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      Stok
+                    </th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      Satuan
+                    </th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      Aksi
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle">
@@ -266,9 +337,13 @@ export default function InventoryManager() {
                           {item.kategori}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-text-primary">{formatRupiah(item.harga)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-text-primary">
+                        {formatRupiah(item.harga)}
+                      </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`font-bold ${item.quantity <= LOW_STOCK_THRESHOLD ? 'text-accent-red' : 'text-text-primary'}`}>
+                        <span
+                          className={`font-bold ${item.quantity <= LOW_STOCK_THRESHOLD ? 'text-accent-red' : 'text-text-primary'}`}
+                        >
                           {item.quantity}
                         </span>
                       </td>
@@ -280,7 +355,16 @@ export default function InventoryManager() {
                             aria-label="Edit"
                             className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
                           >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                             </svg>
@@ -290,7 +374,16 @@ export default function InventoryManager() {
                             aria-label="Hapus"
                             className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors"
                           >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <polyline points="3 6 5 6 21 6" />
                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                             </svg>
@@ -310,7 +403,9 @@ export default function InventoryManager() {
               <div key={item.id} className="glass-card p-4">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-text-primary truncate">{item.namaBarang}</h3>
+                    <h3 className="text-sm font-semibold text-text-primary truncate">
+                      {item.namaBarang}
+                    </h3>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
                         {item.kategori}
@@ -326,7 +421,16 @@ export default function InventoryManager() {
                       aria-label="Edit"
                       className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                       </svg>
@@ -336,7 +440,16 @@ export default function InventoryManager() {
                       aria-label="Hapus"
                       className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <polyline points="3 6 5 6 21 6" />
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                       </svg>
@@ -346,11 +459,17 @@ export default function InventoryManager() {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <p className="text-[10px] text-text-muted">Harga</p>
-                    <p className="text-sm font-semibold text-text-primary">{formatRupiah(item.harga)}</p>
+                    <p className="text-sm font-semibold text-text-primary">
+                      {formatRupiah(item.harga)}
+                    </p>
                   </div>
                   <div className="text-center">
                     <p className="text-[10px] text-text-muted">Stok</p>
-                    <p className={`text-sm font-bold ${item.quantity <= 5 ? 'text-accent-red' : 'text-text-primary'}`}>{item.quantity}</p>
+                    <p
+                      className={`text-sm font-bold ${item.quantity <= 5 ? 'text-accent-red' : 'text-text-primary'}`}
+                    >
+                      {item.quantity}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-text-muted">Satuan</p>
@@ -368,7 +487,10 @@ export default function InventoryManager() {
         <>
           <InventoryModal
             isOpen={showModal}
-            onClose={() => { setShowModal(false); setEditItem(null); }}
+            onClose={() => {
+              setShowModal(false);
+              setEditItem(null);
+            }}
             onSave={handleSave}
             editItem={editItem}
           />

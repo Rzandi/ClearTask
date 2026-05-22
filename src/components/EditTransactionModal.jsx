@@ -69,7 +69,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
     if (isOpen && transaction) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm(buildInitialForm(transaction));
-       
+
       setErrors({});
     }
   }, [isOpen, transaction]);
@@ -111,7 +111,16 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
   // ── Handlers ──
 
   function handleChange(e) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    // Clear the specific field's error as the user types (bug #7 fix)
+    if (errors[name]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   }
 
   // 4.8 — Klik overlay menutup modal tanpa menyimpan
@@ -152,12 +161,11 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
       onClick={handleOverlayClick}
       data-testid="edit-transaction-modal"
     >
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      {/* Overlay — single click handler via parent's handleOverlayClick (bug #16 fix) */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       {/* Modal card */}
       <div className="relative glass-card w-full max-w-2xl mx-4 p-6 lg:p-8 max-h-[90vh] overflow-y-auto animate-slide-up">
-
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -165,10 +173,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
             {/* 4.4 — transactionId sebagai teks read-only */}
             <p className="text-sm text-text-muted mt-0.5">
               ID:{' '}
-              <span
-                className="font-mono text-text-secondary"
-                data-testid="transaction-id-display"
-              >
+              <span className="font-mono text-text-secondary" data-testid="transaction-id-display">
                 {transaction?.transactionId}
               </span>
             </p>
@@ -199,10 +204,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
         <form onSubmit={handleSubmit} id="form-edit-transaksi">
           {/* 4.3 — Layout 2-kolom seperti InputPenjualan */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
-
             {/* ── Kolom Kiri ── */}
             <div className="space-y-5">
-
               {/* Tanggal */}
               <FieldGroup label="Tanggal" htmlFor="edit-tanggal">
                 <input
@@ -225,7 +228,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
                   className="form-input appearance-none"
                 >
                   {allCategories.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
                   ))}
                 </select>
               </FieldGroup>
@@ -268,16 +273,16 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
                   </p>
                 )}
               </FieldGroup>
-
             </div>
 
             {/* ── Kolom Kanan ── */}
             <div className="space-y-5">
-
               {/* Harga Satuan */}
               <FieldGroup label="Harga Satuan" htmlFor="edit-hargaSatuan">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary text-sm">Rp</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary text-sm">
+                    Rp
+                  </span>
                   <input
                     type="number"
                     id="edit-hargaSatuan"
@@ -300,7 +305,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
               {/* 4.5 — Total (read-only, kalkulasi reaktif) */}
               <FieldGroup label="Total (Auto-calculated)" htmlFor="edit-total">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary text-sm">Rp</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary text-sm">
+                    Rp
+                  </span>
                   <input
                     type="text"
                     id="edit-total"
@@ -322,7 +329,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
                   className="form-input appearance-none"
                 >
                   {METODE_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
                   ))}
                 </select>
               </FieldGroup>
@@ -339,7 +348,6 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
                   className="form-input resize-none"
                 />
               </FieldGroup>
-
             </div>
           </div>
 

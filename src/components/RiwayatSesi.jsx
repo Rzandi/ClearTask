@@ -4,19 +4,19 @@
    Feature: session-management
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { formatDate, formatTime } from '../utils/formatters';
 import ClosingReportModal from './ClosingReportModal';
+import db from '../services/db';
 
 /**
  * RiwayatSesi displays a list of all sessions (active + closed)
  * @param {Object} props
  * @param {Array} props.allSessions - All sessions from SessionStore
  * @param {Function} props.getSessionTransactions - (sessionId) => Transaction[]
- * @param {Array} props.allTransactions - All transactions
  */
-export default function RiwayatSesi({ allSessions = [], getSessionTransactions, allTransactions = [] }) {
+export default function RiwayatSesi({ allSessions = [], getSessionTransactions }) {
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedTransactions, setSelectedTransactions] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -28,15 +28,22 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions, 
     });
   }, [allSessions]);
 
-  const txCountMap = useMemo(() => {
-    const map = {};
-    for (const tx of allTransactions) {
-      if (tx.sessionId) {
-        map[tx.sessionId] = (map[tx.sessionId] || 0) + 1;
-      }
+  const [txCountMap, setTxCountMap] = useState({});
+
+  useEffect(() => {
+    async function loadCounts() {
+      const map = {};
+      await Promise.all(
+        allSessions.map(async (session) => {
+          map[session.id] = await db.transactions.where('sessionId').equals(session.id).count();
+        })
+      );
+      setTxCountMap(map);
     }
-    return map;
-  }, [allTransactions]);
+    if (allSessions.length > 0) {
+      loadCounts();
+    }
+  }, [allSessions]);
 
   // 19.4 Handle click on a closed session — open ClosingReportModal
   function handleSessionClick(session) {
@@ -65,13 +72,25 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions, 
       {sortedSessions.length === 0 ? (
         <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
           <div className="w-14 h-14 rounded-full bg-bg-elevated flex items-center justify-center mb-4">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-text-muted"
+            >
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </div>
           <p className="text-sm font-medium text-text-secondary mb-1">Belum ada sesi yang dibuat</p>
-          <p className="text-xs text-text-muted">Buka sesi baru dari sidebar untuk mulai mencatat transaksi.</p>
+          <p className="text-xs text-text-muted">
+            Buka sesi baru dari sidebar untuk mulai mencatat transaksi.
+          </p>
         </div>
       ) : (
         /* 19.2 Session list */
@@ -95,16 +114,36 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions, 
                   {/* Left: session info */}
                   <div className="flex items-start gap-4 min-w-0">
                     {/* Status indicator */}
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
-                      isClosed ? 'bg-bg-elevated' : 'bg-primary/15'
-                    }`}>
+                    <div
+                      className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
+                        isClosed ? 'bg-bg-elevated' : 'bg-primary/15'
+                      }`}
+                    >
                       {isClosed ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6e7681" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#6e7681"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                           <polyline points="14 2 14 8 20 8" />
                         </svg>
                       ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00ffa3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#00ffa3"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
@@ -114,13 +153,17 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions, 
                     {/* Session details */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-semibold text-text-primary truncate">{displayName}</h3>
+                        <h3 className="text-sm font-semibold text-text-primary truncate">
+                          {displayName}
+                        </h3>
                         {/* Status badge */}
-                        <span className={`flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                          isClosed
-                            ? 'bg-bg-elevated text-text-muted'
-                            : 'bg-primary/15 text-primary'
-                        }`}>
+                        <span
+                          className={`flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            isClosed
+                              ? 'bg-bg-elevated text-text-muted'
+                              : 'bg-primary/15 text-primary'
+                          }`}
+                        >
                           {isClosed ? 'Ditutup' : 'Aktif'}
                         </span>
                       </div>
@@ -147,7 +190,16 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions, 
                       <p className="text-[10px] text-text-muted">transaksi</p>
                     </div>
                     {isClosed && (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6e7681" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#6e7681"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <polyline points="9 18 15 12 9 6" />
                       </svg>
                     )}

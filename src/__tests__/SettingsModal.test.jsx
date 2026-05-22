@@ -17,8 +17,10 @@ const mockRollbackSettings = vi.fn();
 const defaultMockSettings = {
   kasirName: 'Admin',
   tokoName: '',
+  appName: 'ClearTask',
+  appSubtitle: 'Pencatatan Penjualan',
   theme: 'dark',
-  accentColor: '#00ffa3',
+  accentColor: '#00f0ff',
 };
 
 vi.mock('../contexts/SettingsContext', () => ({
@@ -31,12 +33,28 @@ vi.mock('../contexts/SettingsContext', () => ({
   }),
 }));
 
+vi.mock('../hooks/useCategories', () => ({
+  useCategories: () => ({
+    customCategories: [],
+    customSubCategoriesFor: () => [],
+    deleteCategory: vi.fn(),
+    deleteSubCategory: vi.fn(),
+  }),
+  KATEGORI_DEFAULT: [
+    'Elektronik',
+    'Makanan',
+    'Minuman',
+    'Pakaian',
+    'Alat Tulis',
+    'Kesehatan',
+    'Lainnya',
+  ],
+}));
+
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function renderModal(props = {}) {
-  return render(
-    <SettingsModal isOpen={true} onClose={vi.fn()} {...props} />
-  );
+  return render(<SettingsModal isOpen={true} onClose={vi.fn()} {...props} />);
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -60,9 +78,14 @@ describe('SettingsModal', () => {
     expect(screen.getByRole('button', { name: /dark/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /light/i })).toBeInTheDocument();
 
-    // 4 swatch accent color
+    // Field Nama Aplikasi & Slogan
+    expect(screen.getByLabelText('Nama Aplikasi')).toBeInTheDocument();
+    expect(screen.getByLabelText('Slogan / Deskripsi Pendek')).toBeInTheDocument();
+
+    // 5 swatch accent color
+    expect(screen.getByRole('button', { name: 'Cyan Neon' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Hijau Neon' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Biru' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pink Neon' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ungu' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Oranye' })).toBeInTheDocument();
   });
@@ -88,6 +111,8 @@ describe('SettingsModal', () => {
       ...defaultMockSettings,
       kasirName: 'Budi',
       tokoName: 'Toko Maju',
+      appName: 'ClearTask',
+      appSubtitle: 'Pencatatan Penjualan',
     });
     expect(onClose).toHaveBeenCalledOnce();
   });
@@ -109,7 +134,8 @@ describe('SettingsModal', () => {
     const onClose = vi.fn();
     renderModal({ onClose });
 
-    fireEvent.click(screen.getByRole('button', { name: /tutup pengaturan/i }));
+    // Tombol close ada di Modal.jsx base component dengan aria-label="Tutup"
+    fireEvent.click(screen.getByRole('button', { name: /^tutup$/i }));
 
     expect(mockRollbackSettings).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
@@ -120,9 +146,9 @@ describe('SettingsModal', () => {
   it('klik swatch accent color memanggil updateSettings secara real-time', () => {
     renderModal();
 
-    // Klik swatch Biru
-    fireEvent.click(screen.getByRole('button', { name: 'Biru' }));
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#58a6ff' });
+    // Klik swatch Pink Neon
+    fireEvent.click(screen.getByRole('button', { name: 'Pink Neon' }));
+    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#ff3366' });
 
     // Klik swatch Ungu
     fireEvent.click(screen.getByRole('button', { name: 'Ungu' }));
@@ -134,7 +160,11 @@ describe('SettingsModal', () => {
 
     // Klik swatch Hijau Neon
     fireEvent.click(screen.getByRole('button', { name: 'Hijau Neon' }));
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#00ffa3' });
+    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#00ff88' });
+
+    // Klik swatch Cyan Neon
+    fireEvent.click(screen.getByRole('button', { name: 'Cyan Neon' }));
+    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#00f0ff' });
 
     // saveSettings tidak dipanggil (hanya real-time update)
     expect(mockSaveSettings).not.toHaveBeenCalled();

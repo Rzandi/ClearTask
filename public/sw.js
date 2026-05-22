@@ -3,7 +3,7 @@
    Cache-first for assets, Network-first for navigation
    ═══════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `cleartask-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `cleartask-dynamic-${CACHE_VERSION}`;
 
@@ -52,7 +52,12 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET' || url.origin !== location.origin) return;
 
-  // Static assets: cache-first
+  // In dev mode (localhost), never cache JS files — Vite HMR handles them
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+    return; // Let all dev requests pass through to network
+  }
+
+  // Static assets: cache-first (production only)
   if (url.pathname.match(/\.(css|js|png|jpg|svg|woff2|ico)$/)) {
     event.respondWith(cacheFirst(request));
     return;

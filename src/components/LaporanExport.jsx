@@ -9,9 +9,11 @@ import TransactionTable from './TransactionTable';
 import { exportToExcel } from '../utils/exportExcel';
 import { useSettings } from '../contexts/SettingsContext';
 
+import db from '../services/db';
+
 export default function LaporanExport({
   transactions,
-  allTransactions,
+  totalCount,
   todayMetrics,
   filterDate,
   setFilterDate,
@@ -25,13 +27,16 @@ export default function LaporanExport({
   const { settings } = useSettings();
 
   const isFilterActive = !!(filterDate || searchQuery?.trim());
-  const dataToExport = isFilterActive ? transactions : allTransactions;
-  const hasData = dataToExport.length > 0;
+  const hasData = isFilterActive ? transactions.length > 0 : totalCount > 0;
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async () => {
     if (!hasData) return;
+    let dataToExport = transactions;
+    if (!isFilterActive) {
+      dataToExport = await db.transactions.orderBy('createdAt').reverse().toArray();
+    }
     exportToExcel(dataToExport, settings);
-  }, [dataToExport, hasData, settings]);
+  }, [hasData, isFilterActive, transactions, settings]);
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -52,7 +57,18 @@ export default function LaporanExport({
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         {/* Date Filter */}
         <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
             <line x1="16" y1="2" x2="16" y2="6" />
             <line x1="8" y1="2" x2="8" y2="6" />
@@ -69,7 +85,18 @@ export default function LaporanExport({
 
         {/* Search */}
         <div className="relative flex-1 sm:max-w-xs">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -85,7 +112,9 @@ export default function LaporanExport({
 
         {/* Sort */}
         <div className="flex items-center gap-2">
-          <label htmlFor="filter-sort" className="text-xs text-text-muted whitespace-nowrap">Urutan:</label>
+          <label htmlFor="filter-sort" className="text-xs text-text-muted whitespace-nowrap">
+            Urutan:
+          </label>
           <select
             id="filter-sort"
             value={sortOrder}
@@ -102,7 +131,10 @@ export default function LaporanExport({
         {/* Clear Filters */}
         {(filterDate || searchQuery) && (
           <button
-            onClick={() => { setFilterDate(''); setSearchQuery(''); }}
+            onClick={() => {
+              setFilterDate('');
+              setSearchQuery('');
+            }}
             className="text-xs text-primary hover:text-primary-hover transition-colors cursor-pointer whitespace-nowrap"
           >
             ✕ Reset filter
@@ -113,7 +145,8 @@ export default function LaporanExport({
       {isFilterActive && (
         <div className="flex justify-between items-end mb-2">
           <p className="text-sm text-text-muted">
-            Menampilkan <strong className="text-text-primary">{transactions.length}</strong> dari <strong className="text-text-primary">{allTransactions.length}</strong> transaksi
+            Menampilkan <strong className="text-text-primary">{transactions.length}</strong> hasil
+            filter dari <strong className="text-text-primary">{totalCount}</strong> total transaksi
           </p>
         </div>
       )}
@@ -128,12 +161,24 @@ export default function LaporanExport({
           disabled={!hasData}
           className="inline-flex items-center gap-2 px-6 py-3 bg-bg-surface border border-border-default rounded-xl text-sm font-semibold text-text-primary hover:bg-bg-elevated hover:border-border-strong disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          {isFilterActive ? `Export Hasil Filter (${dataToExport.length})` : `Export Semua (${dataToExport.length})`}
+          {isFilterActive
+            ? `Export Hasil Filter (${transactions.length})`
+            : `Export Semua (${totalCount})`}
         </button>
       </div>
     </div>

@@ -6,20 +6,42 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import AppBootstrap from './components/AppBootstrap';
+import ErrorBoundary from './components/ErrorBoundary';
 import { SettingsProvider } from './contexts/SettingsContext';
 import './index.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <SettingsProvider>
-      <App />
-    </SettingsProvider>
+    <ErrorBoundary>
+      <AppBootstrap>
+        <SettingsProvider>
+          <App />
+        </SettingsProvider>
+      </AppBootstrap>
+    </ErrorBoundary>
   </StrictMode>
 );
 
 // ─── PWA: Service Worker Registration ─────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
+    // In dev mode: unregister all SWs and clear all caches to prevent
+    // stale JS files from causing "Invalid hook call" / duplicate React errors.
+    if (import.meta.env.DEV) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        await reg.unregister();
+        console.log('[ClearTask] DEV: SW unregistered to prevent cache issues');
+      }
+      const cacheNames = await caches.keys();
+      for (const name of cacheNames) {
+        await caches.delete(name);
+        console.log('[ClearTask] DEV: Cache cleared:', name);
+      }
+      return; // Don't register SW in dev mode
+    }
+
     try {
       const reg = await navigator.serviceWorker.register('/sw.js');
       console.log('[ClearTask] SW registered, scope:', reg.scope);

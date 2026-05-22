@@ -1,119 +1,76 @@
 /* eslint-disable react-refresh/only-export-components */
 /* ═══════════════════════════════════════════════════════════
    SettingsContext — ClearTask
-   Sumber kebenaran tunggal untuk preferensi pengguna.
+   Sumber kebenaran tunggal untuk preferensi pengguna (Dexie LiveQuery).
    ═══════════════════════════════════════════════════════════ */
 
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { STORAGE_KEYS } from '../constants/storageKeys';
-import * as storageService from '../services/storageService';
+import { createContext, useContext, useEffect, useRef } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import db from '../services/db';
 
-// ─── Konstanta ────────────────────────────────────────────────────────────────
-
-export const defaultSettings = {
-  kasirName: 'Admin',
-  tokoName: '',
-  theme: 'dark',
-  accentColor: '#00ffa3',
-};
-
-export const VALID_ACCENT_COLORS = ['#00ffa3', '#58a6ff', '#bc8cff', '#f0b429'];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Baca dan validasi settings dari localStorage.
- * Kembalikan defaultSettings jika tidak ada, corrupt, atau accentColor tidak valid.
- */
-export function loadFromStorage() {
-  try {
-    const parsed = storageService.getItem(STORAGE_KEYS.SETTINGS);
-    if (!parsed) return { ...defaultSettings };
-
-    // Validasi accentColor — hanya reset accentColor, pertahankan field lain
-    if (!VALID_ACCENT_COLORS.includes(parsed.accentColor)) {
-      return { ...defaultSettings, ...parsed, accentColor: defaultSettings.accentColor };
-    }
-
-    return { ...defaultSettings, ...parsed };
-  } catch {
-    return { ...defaultSettings };
-  }
-}
-
-/**
- * Terapkan tema ke DOM:
- * - class `dark` / `light` pada <html>
- * - CSS custom property `--color-primary`
- */
-export function applyThemeToDOM(theme, accentColor) {
-  const root = document.documentElement;
-
-  if (theme === 'dark') {
-    root.classList.add('dark');
-    root.classList.remove('light');
-  } else {
-    root.classList.remove('dark');
-    root.classList.add('light');
-  }
-
-  root.style.setProperty('--color-primary', accentColor);
-}
-
-// ─── Context ──────────────────────────────────────────────────────────────────
+import { defaultSettings, VALID_ACCENT_COLORS, applyThemeToDOM } from '../config/settingsConfig';
 
 const SettingsContext = createContext(null);
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
-
 export function SettingsProvider({ children }) {
-  const [settings, setSettings] = useState(() => loadFromStorage());
+  const rawSettings = useLiveQuery(() =>
+    db.settings.get({ key: 'main' }).then((res) => res || null)
+  );
   const snapshotRef = useRef(null);
 
-  // Terapkan tema ke DOM setiap kali theme atau accentColor berubah
-  useEffect(() => {
-    applyThemeToDOM(settings.theme, settings.accentColor);
-  }, [settings.theme, settings.accentColor]);
+  const settings =
+    rawSettings === undefined
+      ? undefined // Means still loading
+      : {
+          ...defaultSettings,
+          ...(rawSettings || {}),
+          theme: ['dark', 'light'].includes(rawSettings?.theme)
+            ? rawSettings.theme
+            : defaultSettings.theme,
+          accentColor: VALID_ACCENT_COLORS.includes(rawSettings?.accentColor)
+            ? rawSettings.accentColor
+            : defaultSettings.accentColor,
+        };
 
-  /**
-   * Update sebagian settings (real-time, tanpa simpan ke localStorage).
-   * Digunakan untuk preview tema sebelum Simpan.
-   */
-  function updateSettings(partial) {
-    setSettings((prev) => ({ ...prev, ...partial }));
+  const theme = settings?.theme;
+  const accentColor = settings?.accentColor;
+
+  useEffect(() => {
+    if (theme && accentColor) {
+      applyThemeToDOM(theme, accentColor);
+    }
+  }, [theme, accentColor]);
+
+  async function updateSettings(partial) {
+    if (!settings) return;
+    const newSettings = { ...settings, ...partial };
+    await db.settings.put({ key: 'main', ...newSettings });
   }
 
-  /**
-   * Simpan settings ke localStorage dan update state.
-   */
-  function saveSettings(newSettings) {
+  async function saveSettings(newSettings) {
     try {
-      storageService.setItem(STORAGE_KEYS.SETTINGS, newSettings);
-      setSettings(newSettings);
+      await db.settings.put({ key: 'main', ...newSettings });
     } catch (e) {
       console.error('[Settings] Gagal menyimpan pengaturan:', e);
       throw e;
     }
   }
 
-  /**
-   * Simpan snapshot settings saat ini (sebelum modal dibuka).
-   * Digunakan untuk rollback jika pengguna menekan Batal.
-   */
   function openSettingsSnapshot() {
-    snapshotRef.current = { ...settings };
+    if (settings) {
+      snapshotRef.current = { ...settings };
+    }
   }
 
-  /**
-   * Kembalikan settings ke snapshot sebelum modal dibuka.
-   * No-op jika snapshot belum pernah diambil.
-   */
-  function rollbackSettings() {
+  async function rollbackSettings() {
     if (snapshotRef.current === null) return;
     const snapshot = snapshotRef.current;
-    setSettings(snapshot);
-    applyThemeToDOM(snapshot.theme, snapshot.accentColor);
+    await db.settings.put({ key: 'main', ...snapshot });
     snapshotRef.current = null;
+  }
+
+  if (settings === undefined) {
+    return <div style={{ display: 'flex', height: '100vh', background: '#0a0a0f' }} />;
   }
 
   const value = {
@@ -124,14 +81,8 @@ export function SettingsProvider({ children }) {
     rollbackSettings,
   };
 
-  return (
-    <SettingsContext.Provider value={value}>
-      {children}
-    </SettingsContext.Provider>
-  );
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSettings() {
   const ctx = useContext(SettingsContext);

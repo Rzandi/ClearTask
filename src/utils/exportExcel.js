@@ -4,6 +4,19 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { formatDate, formatTime, toLocalDateString } from './formatters';
+import { triggerDownload } from './downloadHelper';
+
+/**
+ * Helper to sanitize values to prevent Excel Formula Injection (DDE)
+ */
+function sanitizeExcelValue(value) {
+  if (typeof value === 'number') return value;
+  const str = value === null || value === undefined ? '' : String(value);
+  if (/^[ \t]*[=\-+@]/.test(str)) {
+    return "'" + str;
+  }
+  return value;
+}
 
 /**
  * Helper to setup the base worksheet (header, data rows, formatting)
@@ -63,22 +76,46 @@ function setupBaseWorksheet(sheet, transactions, settings = {}) {
 
   // ── Data Rows ──
   transactions.forEach((tx) => {
-    const row = sheet.addRow([
-      tx.transactionId,
-      formatDate(tx.tanggal),
-      formatTime(tx.createdAt),
-      tx.kasir || 'Admin',
-      tx.kategori,
-      tx.subKategori || '',
-      tx.namaBarang,
-      tx.qty,
-      tx.hargaSatuan,
-      tx.total,
-      tx.metode,
-      tx.catatan || '-',
-      tx.status,
-    ]);
+    if (tx.items && Array.isArray(tx.items)) {
+      tx.items.forEach((item) => {
+        const row = sheet.addRow([
+          sanitizeExcelValue(tx.transactionId),
+          formatDate(tx.tanggal),
+          formatTime(tx.createdAt),
+          sanitizeExcelValue(tx.kasir || 'Admin'),
+          sanitizeExcelValue(item.kategori),
+          sanitizeExcelValue(item.subKategori || ''),
+          sanitizeExcelValue(item.namaBarang),
+          item.qty,
+          item.hargaSatuan,
+          item.total,
+          sanitizeExcelValue(tx.metode),
+          sanitizeExcelValue(tx.catatan || '-'),
+          sanitizeExcelValue(tx.status),
+        ]);
+        styleRow(row);
+      });
+    } else {
+      const row = sheet.addRow([
+        sanitizeExcelValue(tx.transactionId),
+        formatDate(tx.tanggal),
+        formatTime(tx.createdAt),
+        sanitizeExcelValue(tx.kasir || 'Admin'),
+        sanitizeExcelValue(tx.kategori),
+        sanitizeExcelValue(tx.subKategori || ''),
+        sanitizeExcelValue(tx.namaBarang),
+        tx.qty,
+        tx.hargaSatuan,
+        tx.total,
+        sanitizeExcelValue(tx.metode),
+        sanitizeExcelValue(tx.catatan || '-'),
+        sanitizeExcelValue(tx.status),
+      ]);
+      styleRow(row);
+    }
+  });
 
+  function styleRow(row) {
     row.eachCell((cell, colNumber) => {
       cell.font = { size: 10, color: { argb: 'FFE6EDF3' } };
       cell.fill = {
@@ -94,7 +131,7 @@ function setupBaseWorksheet(sheet, transactions, settings = {}) {
         bottom: { style: 'hair', color: { argb: 'FF30363D' } },
       };
     });
-  });
+  }
 
   return sheet;
 }
@@ -107,8 +144,7 @@ function setupBaseWorksheet(sheet, transactions, settings = {}) {
  */
 export async function exportToExcel(transactions, settings = {}, filename = 'ClearTask_Laporan') {
   const { default: ExcelJS } = await import('exceljs');
-  const { saveAs } = await import('file-saver');
-  
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'ClearTask';
   workbook.created = new Date();
@@ -130,7 +166,7 @@ export async function exportToExcel(transactions, settings = {}, filename = 'Cle
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
   const dateStr = toLocalDateString(new Date());
-  saveAs(blob, `${filename}_${dateStr}.xlsx`);
+  triggerDownload(blob, `${filename}_${dateStr}.xlsx`);
 }
 
 /**
@@ -141,7 +177,6 @@ export async function exportToExcel(transactions, settings = {}, filename = 'Cle
  */
 export async function exportSessionExcel(transactions, session, settings = {}) {
   const { default: ExcelJS } = await import('exceljs');
-  const { saveAs } = await import('file-saver');
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'ClearTask';
@@ -155,13 +190,25 @@ export async function exportSessionExcel(transactions, session, settings = {}) {
 
   // ── Summary Row ──
   const totalPemasukan = transactions.reduce((sum, tx) => sum + (tx.total || 0), 0);
-  
+
   // Add empty row for spacing
   sheet.addRow([]);
-  
+
   // Add summary row
   const summaryRow = sheet.addRow([
-    '', '', '', '', '', '', '', '', 'Total Pemasukan', totalPemasukan, '', '', ''
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    'Total Pemasukan',
+    totalPemasukan,
+    '',
+    '',
+    '',
   ]);
 
   summaryRow.eachCell((cell, colNumber) => {
@@ -188,9 +235,9 @@ export async function exportSessionExcel(transactions, session, settings = {}) {
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
-  
-  // Format filename: ClearTask_Session_{namaSesi || "NoName"}_{tanggalTutup}.xlsx
-  const sessionName = session?.nama || 'NoName';
-  const tanggalTutup = session?.tanggalTutup ? session.tanggalTutup.replace(/:/g, '-') : toLocalDateString(new Date());
-  saveAs(blob, `ClearTask_Session_${sessionName}_${tanggalTutup}.xlsx`);
+
+  const sessionName = (session?.nama || 'NoName').replace(/[/\\:*?"<>|]/g, '-');
+  // tanggalTutup is already YYYY-MM-DD format (no colons) — use directly as filename part
+  const tanggalTutup = session?.tanggalTutup ?? toLocalDateString(new Date());
+  triggerDownload(blob, `ClearTask_Session_${sessionName}_${tanggalTutup}.xlsx`);
 }

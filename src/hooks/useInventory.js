@@ -1,77 +1,48 @@
 /* ═══════════════════════════════════════════════════════════
    useInventory — ClearTask
-   Hook untuk mengelola data Master Barang (Inventaris) di localStorage
+   Hook untuk mengelola data Master Barang (Inventaris) di Dexie (IndexedDB)
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useEffect, useCallback } from 'react';
-import { STORAGE_KEYS } from '../constants/storageKeys';
-import * as storageService from '../services/storageService';
-
-function loadInventory() {
-  const data = storageService.getItem(STORAGE_KEYS.INVENTORY);
-  return Array.isArray(data) ? data : [];
-}
-
-function saveInventory(inventory) {
-  storageService.setItem(STORAGE_KEYS.INVENTORY, inventory);
-}
+import { useCallback } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import db from '../services/db';
 
 export function useInventory() {
-  const [inventory, setInventory] = useState(loadInventory);
+  const rawInventory = useLiveQuery(() => db.inventory.toArray());
+  const inventory = rawInventory || []; // default ke array kosong saat loading
 
-  // Sync state if localStorage changes from another tab
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (!e.key || e.key === STORAGE_KEYS.INVENTORY || e.type === 'local-storage-update') {
-        setInventory(loadInventory());
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('local-storage-update', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('local-storage-update', handleStorageChange);
-    };
-  }, []);
-
-  const addInventoryItem = useCallback((itemData) => {
+  const addInventoryItem = useCallback(async (itemData) => {
     const newItem = {
       ...itemData,
-      id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Schema uses '&id' (unique, manually provided — NOT auto-increment).
+    // We generate a UUID here and pass it explicitly as the primary key.
+    newItem.id =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
             const r = (Math.random() * 16) | 0;
             const v = c === 'x' ? r : (r & 0x3) | 0x8;
             return v.toString(16);
-          }),
-      createdAt: new Date().toISOString(),
+          });
+
+    await db.inventory.add(newItem);
+    return newItem;
+  }, []);
+
+  const updateInventoryItem = useCallback(async (id, itemData) => {
+    const changes = {
+      ...itemData,
       updatedAt: new Date().toISOString(),
     };
-    setInventory((prev) => {
-      const updated = [newItem, ...prev];
-      saveInventory(updated);
-      return updated;
-    });
+    await db.inventory.update(id, changes);
   }, []);
 
-  const updateInventoryItem = useCallback((id, updatedFields) => {
-    setInventory((prev) => {
-      const updated = prev.map((item) =>
-        item.id === id
-          ? { ...item, ...updatedFields, updatedAt: new Date().toISOString() }
-          : item
-      );
-      saveInventory(updated);
-      return updated;
-    });
-  }, []);
-
-  const deleteInventoryItem = useCallback((id) => {
-    setInventory((prev) => {
-      const updated = prev.filter((item) => item.id !== id);
-      saveInventory(updated);
-      return updated;
-    });
+  const deleteInventoryItem = useCallback(async (id) => {
+    await db.inventory.delete(id);
   }, []);
 
   return {

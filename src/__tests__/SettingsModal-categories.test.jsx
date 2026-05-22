@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import SettingsModal from '../components/SettingsModal';
 
-const mockDeleteCategory = vi.fn();
+const mockDeleteCategory = vi.fn().mockResolvedValue({ success: true });
 
 vi.mock('../contexts/SettingsContext', () => ({
   useSettings: () => ({
@@ -75,7 +75,9 @@ describe('SettingsModal — placeholder saat tidak ada kategori kustom', () => {
     // when categories exist (inverse check), since ESM module caching may prevent
     // the doMock from taking effect in the same test file.
     try {
-      const { default: SettingsModalFresh } = await import('../components/SettingsModal?t=' + Date.now());
+      const { default: SettingsModalFresh } = await import(
+        '../components/SettingsModal?t=' + Date.now()
+      );
       render(<SettingsModalFresh isOpen={true} onClose={vi.fn()} />);
       expect(screen.getByText('Belum ada kategori kustom.')).toBeTruthy();
     } catch {

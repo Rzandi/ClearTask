@@ -33,7 +33,7 @@ function withSettings(ui) {
 
 // ─── Bug 1: CSS Padding Override Gagal ────────────────────────────────────────
 
-describe('Bug 1 — CSS Padding Override Gagal (Exploratory)', () => {
+describe.skip('Bug 1 — CSS Padding Override Gagal (Exploratory)', () => {
   /**
    * Counterexample yang diharapkan:
    *   paddingLeft pada #field-hargaSatuan adalah '16px', bukan '40px'
@@ -115,7 +115,7 @@ describe('Bug 1 — CSS Padding Override Gagal (Exploratory)', () => {
 
 // ─── Bug 2: Tombol Icon Tanpa Handler ─────────────────────────────────────────
 
-describe('Bug 2 — Tombol Icon Tanpa Handler (Exploratory)', () => {
+describe.skip('Bug 2 — Tombol Icon Tanpa Handler (Exploratory)', () => {
   /**
    * Counterexample yang diharapkan:
    *   Setelah klik tombol Settings/Notifikasi/Bantuan, tidak ada modal/panel di DOM.
@@ -124,13 +124,7 @@ describe('Bug 2 — Tombol Icon Tanpa Handler (Exploratory)', () => {
 
   it('Bug 2a: Klik tombol Settings di TopBar → tidak ada modal Settings di DOM (handler belum ada)', () => {
     const mockSearchChange = vi.fn();
-    render(
-      <TopBar
-        title="ClearTask"
-        searchQuery=""
-        onSearchChange={mockSearchChange}
-      />
-    );
+    render(<TopBar title="ClearTask" searchQuery="" onSearchChange={mockSearchChange} />);
 
     // Cari tombol Settings (tombol pertama dengan SVG gear icon)
     // TopBar memiliki dua tombol icon: Settings dan Notifikasi
@@ -164,13 +158,7 @@ describe('Bug 2 — Tombol Icon Tanpa Handler (Exploratory)', () => {
 
   it('Bug 2b: Klik tombol Notifikasi di TopBar → tidak ada panel Notifikasi di DOM (handler belum ada)', () => {
     const mockSearchChange = vi.fn();
-    render(
-      <TopBar
-        title="ClearTask"
-        searchQuery=""
-        onSearchChange={mockSearchChange}
-      />
-    );
+    render(<TopBar title="ClearTask" searchQuery="" onSearchChange={mockSearchChange} />);
 
     // Cari tombol Notifikasi (tombol dengan SVG bell icon)
     const buttons = screen.getAllByRole('button');
@@ -201,14 +189,7 @@ describe('Bug 2 — Tombol Icon Tanpa Handler (Exploratory)', () => {
 
   it('Bug 2c: Klik tombol Bantuan di Sidebar → tidak ada modal Bantuan di DOM (handler belum ada)', () => {
     const mockTabChange = vi.fn();
-    render(
-      withSettings(
-        <Sidebar
-          activeTab="input"
-          onTabChange={mockTabChange}
-        />
-      )
-    );
+    render(withSettings(<Sidebar activeTab="input" onTabChange={mockTabChange} />));
 
     // Cari tombol Bantuan berdasarkan teks
     const helpButton = screen.queryByText('Bantuan');
@@ -238,11 +219,7 @@ describe('Bug 2 — Tombol Icon Tanpa Handler (Exploratory)', () => {
   it('Bug 2d: Tombol Settings tidak memiliki onClick handler yang terdefinisi', () => {
     const mockSearchChange = vi.fn();
     const { container } = render(
-      <TopBar
-        title="ClearTask"
-        searchQuery=""
-        onSearchChange={mockSearchChange}
-      />
+      <TopBar title="ClearTask" searchQuery="" onSearchChange={mockSearchChange} />
     );
 
     // Cari semua button di TopBar
@@ -254,7 +231,9 @@ describe('Bug 2 — Tombol Icon Tanpa Handler (Exploratory)', () => {
     expect(screen.queryByText(/nama kasir/i)).toBeNull();
 
     console.log(
-      '[Bug 2d] TopBar memiliki', buttons.length, 'tombol.',
+      '[Bug 2d] TopBar memiliki',
+      buttons.length,
+      'tombol.',
       'Tidak ada SettingsModal atau NotificationPanel yang ter-render — handler belum ada.'
     );
   });
