@@ -9,9 +9,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import * as fc from 'fast-check';
-import { useSession } from '../hooks/useSession.js';
-import { toLocalDateString } from '../utils/formatters.js';
-import db from '../services/db.js';
+import { useSession } from '../hooks/useSession';
+import { toLocalDateString } from '../utils/formatters';
+import db from '../services/db';
 import 'fake-indexeddb/auto';
 
 // ── Setup / Teardown ──────────────────────────────────────

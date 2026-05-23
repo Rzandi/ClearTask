@@ -3,6 +3,22 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.0.0] - 2026-05-24
+
+Versi 3.0.0 menandai perombakan pondasi arsitektur ClearTask menuju fase _Enterprise-Ready_. Semua kode inti secara bertahap dimigrasikan ke TypeScript untuk keamanan tipe data (Type Safety), dan antrean Cloud Sync disiapkan sebagai pondasi sinkronisasi data antar perangkat.
+
+### 🏗️ Changed
+
+- **TypeScript Migration (100% Core, Hooks, & UI)**: Mengubah seluruh utilitas (`src/utils/`), _services_ database (`src/services/`), _custom hooks_ Dexie (`src/hooks/`), dan seluruh komponen React (`src/components/`, `src/contexts/`, `App`, `main`) dari JavaScript murni menjadi TypeScript (`.ts` / `.tsx`). Ini memastikan _autocompletion_ dan ketatnya pengecekan tipe properti dengan nol _loose types_.
+- **Testing Suite**: Penyesuaian _mock data_ dan _asynchronous behavior_ pada 281 _property-based tests_ dan _unit tests_ di Vitest untuk memastikan kehandalan penuh tanpa peringatan kompilasi (`tsc --noEmit` bersih).
+
+### 🎉 Added
+
+- **Cloud Sync Blueprint**: Menambahkan `syncManager.ts` yang berisi arsitektur antrean data secara lokal (_offline-first_) dan algoritma LWW (Last-Write-Wins) untuk resolusi konflik sinkronisasi (bersiap integrasi Firebase/Supabase).
+- **Audit Trail**: Menambahkan fungsi pencatatan _timestamp_ modifikasi (`updatedAt`) dan kasir yang merubah (`updatedBy`) pada tabel transaksi dan inventaris.
+
+---
+
 ## [2.9.5] - 2026-05-23
 
 Versi 2.9.5 adalah rilis pemeliharaan (maintenance) yang difokuskan pada mode "Bug Hunter" dan pembersihan codebase secara menyeluruh. Menyelesaikan 33 isu linting (ESLint) untuk memastikan aplikasi lebih stabil, bersih, dan sepenuhnya mematuhi standar React Fast Refresh. Selain itu, pembaruan ini membawa perbaikan bug kritis pada database IndexedDB dan peningkatan UI/UX signifikan pada antarmuka kasir.

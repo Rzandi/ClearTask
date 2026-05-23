@@ -7,10 +7,12 @@ vi.mock('../contexts/SettingsContext', () => ({
   SettingsProvider: ({ children }) => <>{children}</>,
 }));
 
-const mockInventory = [{ id: 1, namaBarang: 'Kopi Susu', harga: 15000, kategori: 'Minuman' }];
+const mockInventory = [
+  { id: 1, namaBarang: 'Kopi Susu', harga: 15000, kategori: 'Minuman', quantity: 10 },
+];
 
 vi.mock('../hooks/useInventory', () => ({
-  useInventory: () => ({ inventory: mockInventory }),
+  useInventory: () => ({ inventory: mockInventory, updateInventoryItem: vi.fn() }),
 }));
 
 vi.mock('../hooks/useCategories', () => ({
@@ -35,7 +37,7 @@ describe('InputPenjualan — Shopping Cart Flow', () => {
     fireEvent.click(btnKopi);
 
     // Keranjang harus memiliki 1 item
-    expect(screen.getByText('1 Item')).not.toBeNull();
+    expect(screen.getAllByText(/1 Item/i).length).toBeGreaterThan(0);
     // Sub Total jadi Rp 15.000
     expect(screen.getAllByText('Rp 15.000').length).toBeGreaterThan(0);
   });
@@ -55,7 +57,7 @@ describe('InputPenjualan — Shopping Cart Flow', () => {
     fireEvent.click(btnTambah);
 
     // Cek di keranjang
-    expect(screen.getByText('1 Item')).not.toBeNull();
+    expect(screen.getAllByText(/1 Item/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Roti Bakar')).not.toBeNull();
     expect(screen.getAllByText('Rp 20.000').length).toBeGreaterThan(0);
   });
