@@ -63,10 +63,13 @@ export default function StrukModal({ order, onClose }) {
             <div className="flex justify-between">
               <span>Waktu</span>
               <span>
-                {new Date(order.createdAt).toLocaleString('id-ID', {
-                  dateStyle: 'short',
-                  timeStyle: 'short',
-                })}
+                {(order.createdAt ? new Date(order.createdAt) : new Date()).toLocaleString(
+                  'id-ID',
+                  {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  }
+                )}
               </span>
             </div>
             <div className="flex justify-between">

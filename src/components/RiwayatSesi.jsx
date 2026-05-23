@@ -46,9 +46,9 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions }
   }, [allSessions]);
 
   // 19.4 Handle click on a closed session — open ClosingReportModal
-  function handleSessionClick(session) {
+  async function handleSessionClick(session) {
     if (session.status !== 'ditutup') return;
-    const txs = getSessionTransactions(session.id);
+    const txs = await getSessionTransactions(session.id);
     setSelectedSession(session);
     setSelectedTransactions(txs);
     setShowModal(true);

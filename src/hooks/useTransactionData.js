@@ -12,7 +12,13 @@ export function useTransactionData(filterDate, searchQuery, sortOrder) {
   const rawTransactions = useLiveQuery(async () => {
     let collection;
     if (filterDate) {
-      collection = db.transactions.where('tanggal').equals(filterDate);
+      if (typeof filterDate === 'object' && filterDate.start && filterDate.end) {
+        collection = db.transactions
+          .where('tanggal')
+          .between(filterDate.start, filterDate.end, true, true);
+      } else if (typeof filterDate === 'string') {
+        collection = db.transactions.where('tanggal').equals(filterDate);
+      }
     } else {
       // Fallback limit for safety
       collection = db.transactions.orderBy('createdAt').reverse().limit(1000);
@@ -59,7 +65,7 @@ export function useTransactionData(filterDate, searchQuery, sortOrder) {
     await db.transaction('rw', [db.meta, db.transactions], async () => {
       const metaSeq = await db.meta.get({ key: 'seq' });
       const seq = metaSeq ? metaSeq.value + 1 : 1;
-      await db.meta.put({ key: 'seq', value: seq });
+      await db.meta.put({ ...(metaSeq || {}), key: 'seq', value: seq });
 
       newTx = {
         ...orderData,

@@ -7,6 +7,7 @@ import { useCallback } from 'react';
 import MetrikCard from './MetrikCard';
 import TransactionTable from './TransactionTable';
 import { exportToExcel } from '../utils/exportExcel';
+import { toLocalDateString, getTodayISO } from '../utils/formatters';
 import { useSettings } from '../contexts/SettingsContext';
 
 import db from '../services/db';
@@ -37,6 +38,33 @@ export default function LaporanExport({
     }
     exportToExcel(dataToExport, settings);
   }, [hasData, isFilterActive, transactions, settings]);
+
+  const handleQuickFilter = (type) => {
+    const today = new Date();
+    if (type === 'today') {
+      const d = getTodayISO();
+      setFilterDate({ start: d, end: d, label: 'Hari Ini' });
+    } else if (type === 'week') {
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const start = new Date(today.setDate(diff));
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      setFilterDate({
+        start: toLocalDateString(start),
+        end: toLocalDateString(end),
+        label: 'Mingguan',
+      });
+    } else if (type === 'month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      setFilterDate({
+        start: toLocalDateString(start),
+        end: toLocalDateString(end),
+        label: 'Bulanan',
+      });
+    }
+  };
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -77,7 +105,13 @@ export default function LaporanExport({
           <input
             type="date"
             id="filter-date"
-            value={filterDate}
+            value={
+              typeof filterDate === 'string'
+                ? filterDate
+                : filterDate?.start === filterDate?.end
+                  ? filterDate.start
+                  : ''
+            }
             onChange={(e) => setFilterDate(e.target.value)}
             className="pl-10 pr-4 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
           />
@@ -140,6 +174,40 @@ export default function LaporanExport({
             ✕ Reset filter
           </button>
         )}
+      </div>
+
+      {/* Quick Filters */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => handleQuickFilter('today')}
+          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
+            filterDate?.label === 'Hari Ini'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
+          }`}
+        >
+          Hari Ini
+        </button>
+        <button
+          onClick={() => handleQuickFilter('week')}
+          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
+            filterDate?.label === 'Mingguan'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
+          }`}
+        >
+          Mingguan
+        </button>
+        <button
+          onClick={() => handleQuickFilter('month')}
+          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
+            filterDate?.label === 'Bulanan'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
+          }`}
+        >
+          Bulanan
+        </button>
       </div>
 
       {isFilterActive && (

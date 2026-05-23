@@ -57,7 +57,7 @@ export default function NotificationPanel({ isOpen, onClose, transactions }) {
     <div
       ref={panelRef}
       data-testid="notification-panel"
-      className="absolute top-full right-0 mt-2 w-80 glass-card shadow-elevated animate-slide-down z-50 max-h-[480px] overflow-y-auto"
+      className="fixed left-4 right-4 top-20 sm:absolute sm:top-full sm:left-auto sm:right-0 sm:mt-2 sm:w-80 glass-card shadow-elevated animate-slide-down z-50 max-h-[480px] overflow-y-auto"
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-border-default">

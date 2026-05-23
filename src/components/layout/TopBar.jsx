@@ -75,7 +75,7 @@ export default function TopBar({
       </div>
 
       {/* Right: Search + Settings */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1 sm:gap-3">
         {/* Search */}
         <div className="relative hidden sm:block">
           <svg
@@ -132,7 +132,7 @@ export default function TopBar({
         <button
           aria-label="Bantuan"
           onClick={onHelpOpen}
-          className="lg:hidden w-11 h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer"
+          className="lg:hidden w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer"
         >
           <svg
             width="18"
@@ -154,7 +154,7 @@ export default function TopBar({
         <button
           aria-label="Pengaturan"
           onClick={onSettingsOpen}
-          className="w-11 h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer"
+          className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer"
         >
           <svg
             width="18"
@@ -176,7 +176,7 @@ export default function TopBar({
           <button
             aria-label="Notifikasi"
             onClick={onNotifOpen}
-            className="w-11 h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer relative"
+            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer relative"
           >
             <svg
               width="18"

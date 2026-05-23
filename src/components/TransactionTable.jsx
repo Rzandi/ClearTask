@@ -7,6 +7,7 @@ import { useState, memo } from 'react';
 import { formatRupiah, formatTime, formatQuantity } from '../utils/formatters';
 import EditTransactionModal from './EditTransactionModal';
 import ConfirmDialog from './ConfirmDialog';
+import EmptyState from './ui/EmptyState';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -75,27 +76,27 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
           <tbody>
             {visibleTxs.length === 0 ? (
               <tr>
-                <td
-                  colSpan={transactions.length > 0 ? 11 : 10}
-                  className="text-center py-12 text-text-muted"
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <svg
-                      width="40"
-                      height="40"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#6e7681"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                    </svg>
-                    <p>Belum ada transaksi</p>
-                  </div>
+                <td colSpan={transactions.length > 0 ? 11 : 10} className="py-12">
+                  <EmptyState
+                    icon={
+                      <svg
+                        width="40"
+                        height="40"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                      </svg>
+                    }
+                    title="Belum ada transaksi"
+                    description="Transaksi yang Anda buat akan muncul di sini."
+                  />
                 </td>
               </tr>
             ) : (

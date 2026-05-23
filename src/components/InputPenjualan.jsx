@@ -4,7 +4,7 @@
    Handles Order total, Payment received, and Change calculation.
    ═══════════════════════════════════════════════════════════ */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { getTodayISO } from '../utils/formatters';
 import { useCategories } from '../hooks/useCategories';
 import { useInventory } from '../hooks/useInventory';
@@ -13,6 +13,7 @@ import FieldGroup from './ui/FieldGroup';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import StrukModal from './StrukModal';
+import EmptyState from './ui/EmptyState';
 
 const METODE_OPTIONS = ['Tunai', 'QRIS', 'Kartu Debit', 'Transfer'];
 const DEFAULT_KATEGORI = 'Elektronik';
@@ -27,7 +28,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
   const { settings } = useSettings();
   const kasirName = settings?.kasirName || 'Admin';
 
-  const { inventory } = useInventory();
+  const { inventory, updateInventoryItem } = useInventory();
   const { allCategories, subCategoriesFor } = useCategories();
 
   // Cart State
@@ -42,6 +43,13 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
   // UI State
   const [activeTab, setActiveTab] = useState('katalog'); // 'katalog' | 'manual'
   const [formError, setFormError] = useState('');
+  const [showMobileCart, setShowMobileCart] = useState(false);
+
+  // Catalog Filter State
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogCategory, setCatalogCategory] = useState('all');
+  const [catalogSubCategory, setCatalogSubCategory] = useState('all');
+  const [catalogSort, setCatalogSort] = useState('az');
 
   // Modal Struk
   const [showStruk, setShowStruk] = useState(false);
@@ -55,10 +63,40 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
     qty: '1',
     hargaSatuan: '',
   });
+  const [errors, setErrors] = useState({});
 
   const subTotal = cart.reduce((sum, item) => sum + item.total, 0);
   const received = parseNumeric(uangDiterima);
   const kembalian = received > subTotal ? received - subTotal : 0;
+
+  // Filter & Sort Catalog
+  const filteredCatalog = useMemo(() => {
+    let items = [...inventory];
+
+    if (catalogCategory !== 'all') {
+      items = items.filter((i) => i.kategori === catalogCategory);
+      if (catalogSubCategory !== 'all') {
+        items = items.filter((i) => i.subKategori === catalogSubCategory);
+      }
+    }
+
+    if (catalogSearch.trim()) {
+      const q = catalogSearch.toLowerCase();
+      items = items.filter(
+        (i) => i.namaBarang?.toLowerCase().includes(q) || i.kategori?.toLowerCase().includes(q)
+      );
+    }
+
+    items.sort((a, b) => {
+      if (catalogSort === 'az') return (a.namaBarang || '').localeCompare(b.namaBarang || '');
+      if (catalogSort === 'za') return (b.namaBarang || '').localeCompare(a.namaBarang || '');
+      if (catalogSort === 'price_asc') return (a.harga || 0) - (b.harga || 0);
+      if (catalogSort === 'price_desc') return (b.harga || 0) - (a.harga || 0);
+      return 0;
+    });
+
+    return items;
+  }, [inventory, catalogSearch, catalogCategory, catalogSubCategory, catalogSort]);
 
   // Add to cart
   const addToCart = (item) => {
@@ -78,6 +116,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
         { ...item, id: Date.now() + Math.random(), total: item.qty * item.hargaSatuan },
       ];
     });
+    setFormError('');
   };
 
   const removeFromCart = (id) => {
@@ -91,13 +130,35 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
     );
   };
 
+  const handleManualChange = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    let err = { ...errors };
+    if (field === 'namaBarang' && !value.trim()) err.namaBarang = 'Nama barang wajib diisi';
+    else delete err.namaBarang;
+
+    if (field === 'qty' && parseNumeric(value) <= 0) err.qty = 'Qty harus > 0';
+    else delete err.qty;
+
+    if (field === 'hargaSatuan' && parseNumeric(value) <= 0) err.hargaSatuan = 'Harga harus > 0';
+    else delete err.hargaSatuan;
+
+    setErrors(err);
+  };
+
   const handleManualSubmit = (e) => {
     e.preventDefault();
     const q = parseNumeric(form.qty);
     const h = parseNumeric(form.hargaSatuan);
-    if (!form.namaBarang.trim()) return setFormError('Nama barang wajib diisi');
-    if (q <= 0) return setFormError('Qty harus > 0');
-    if (h <= 0) return setFormError('Harga harus > 0');
+
+    let err = {};
+    if (!form.namaBarang.trim()) err.namaBarang = 'Nama barang wajib diisi';
+    if (q <= 0) err.qty = 'Qty harus > 0';
+    if (h <= 0) err.hargaSatuan = 'Harga harus > 0';
+
+    if (Object.keys(err).length > 0) {
+      setErrors(err);
+      return;
+    }
 
     addToCart({
       namaBarang: form.namaBarang.trim(),
@@ -108,6 +169,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
     });
 
     setForm({ ...form, namaBarang: '', qty: '1', hargaSatuan: '' });
+    setErrors({});
     setFormError('');
   };
 
@@ -134,6 +196,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
 
     setLastOrder(orderData);
     setShowStruk(true);
+    setShowMobileCart(false);
 
     // Reset
     setCart([]);
@@ -162,52 +225,182 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-5 pb-24 lg:pb-5">
           {activeTab === 'katalog' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {inventory.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() =>
-                    addToCart({
-                      namaBarang: item.namaBarang,
-                      kategori: item.kategori,
-                      subKategori: item.subKategori || '',
-                      hargaSatuan: item.harga,
-                      qty: 1,
-                    })
-                  }
-                  className="p-4 bg-bg-surface border border-border-default rounded-xl hover:border-primary hover:bg-primary/5 transition-all text-left flex flex-col gap-1 cursor-pointer"
-                >
-                  <span className="text-sm font-medium text-text-primary line-clamp-2">
-                    {item.namaBarang}
-                  </span>
-                  <span className="text-xs text-text-muted">{item.kategori}</span>
-                  <span className="text-sm font-semibold text-primary mt-2">
-                    Rp {item.harga.toLocaleString('id-ID')}
-                  </span>
-                </button>
-              ))}
-              {inventory.length === 0 && (
-                <div className="col-span-full py-10 text-center text-text-muted text-sm flex flex-col items-center">
-                  <svg
-                    width="32"
-                    height="32"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                    className="mb-3"
+            <div className="space-y-4">
+              {/* Search & Filter Bar */}
+              <div className="flex flex-col gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <svg
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input
+                      type="text"
+                      placeholder="Cari katalog..."
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+                    />
+                  </div>
+
+                  <select
+                    value={catalogCategory}
+                    onChange={(e) => {
+                      setCatalogCategory(e.target.value);
+                      setCatalogSubCategory('all');
+                    }}
+                    className="w-[110px] sm:w-[140px] shrink-0 px-2 sm:px-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none cursor-pointer"
                   >
-                    <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />
-                    <path d="M18 2l4 4-4 4" />
-                    <path d="M22 6h-8" />
-                  </svg>
-                  Belum ada barang di Master Inventaris.
-                  <br />
-                  Tambahkan di menu Master Barang.
+                    <option value="all">Semua Kategori</option>
+                    {allCategories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sorts = ['az', 'za', 'price_asc', 'price_desc'];
+                      const next = sorts[(sorts.indexOf(catalogSort) + 1) % sorts.length];
+                      setCatalogSort(next);
+                    }}
+                    className="w-[50px] h-[38px] shrink-0 flex items-center justify-center bg-bg-input border border-border-default rounded-xl text-xs font-bold text-text-secondary hover:text-primary transition-all cursor-pointer"
+                    title="Ubah Urutan"
+                  >
+                    {catalogSort === 'az' && 'A-Z'}
+                    {catalogSort === 'za' && 'Z-A'}
+                    {catalogSort === 'price_asc' && 'Rp ↑'}
+                    {catalogSort === 'price_desc' && 'Rp ↓'}
+                  </button>
                 </div>
-              )}
+
+                {catalogCategory !== 'all' && subCategoriesFor(catalogCategory).length > 0 && (
+                  <select
+                    value={catalogSubCategory}
+                    onChange={(e) => setCatalogSubCategory(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none cursor-pointer"
+                  >
+                    <option value="all">Semua Sub-Kategori</option>
+                    {subCategoriesFor(catalogCategory).map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {filteredCatalog.map((item) => {
+                  const stock = item.quantity || 0;
+                  const isOutOfStock = stock <= 0;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-3 sm:p-4 bg-bg-surface border rounded-xl flex flex-col gap-1 transition-all relative ${
+                        isOutOfStock
+                          ? 'opacity-60 border-border-default'
+                          : 'border-border-default hover:border-primary hover:bg-primary/5 hover:shadow-[0_0_15px_rgba(0,240,255,0.1)]'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        disabled={isOutOfStock}
+                        onClick={() =>
+                          addToCart({
+                            namaBarang: item.namaBarang,
+                            kategori: item.kategori,
+                            subKategori: item.subKategori || '',
+                            hargaSatuan: item.harga,
+                            qty: 1,
+                          })
+                        }
+                        className={`text-left flex flex-col gap-1 w-full focus:outline-none transition-transform ${
+                          isOutOfStock ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.96]'
+                        }`}
+                      >
+                        <span className="text-sm font-medium text-text-primary line-clamp-2">
+                          {item.namaBarang}
+                        </span>
+                        <span className="text-xs text-text-muted">{item.kategori}</span>
+                        <span className="text-sm font-semibold text-primary mt-2">
+                          Rp {item.harga.toLocaleString('id-ID')}
+                        </span>
+                      </button>
+
+                      {/* Stock Adjuster */}
+                      <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-3">
+                        <span className="text-[10px] sm:text-[11px] font-medium text-text-muted">
+                          Stok:
+                        </span>
+                        <div className="flex items-center gap-1 bg-bg-input rounded-md px-1 py-1 border border-border-subtle">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateInventoryItem(item.id, { quantity: Math.max(0, stock - 1) })
+                            }
+                            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-text-secondary hover:bg-bg-elevated hover:text-primary rounded transition-colors"
+                          >
+                            -
+                          </button>
+                          <span
+                            className={`text-[11px] sm:text-xs font-bold w-5 sm:w-6 text-center ${isOutOfStock ? 'text-accent-red' : 'text-text-primary'}`}
+                          >
+                            {stock}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateInventoryItem(item.id, { quantity: stock + 1 })}
+                            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-text-secondary hover:bg-bg-elevated hover:text-primary rounded transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filteredCatalog.length === 0 && (
+                  <div className="col-span-full py-10">
+                    <EmptyState
+                      icon={
+                        <svg
+                          width="40"
+                          height="40"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                        >
+                          <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />
+                          <path d="M18 2l4 4-4 4" />
+                          <path d="M22 6h-8" />
+                        </svg>
+                      }
+                      title={inventory.length === 0 ? 'Belum ada barang' : 'Tidak ditemukan'}
+                      description={
+                        inventory.length === 0
+                          ? 'Tambahkan di menu Master Barang.'
+                          : 'Coba ubah kata kunci atau filter pencarian.'
+                      }
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <form onSubmit={handleManualSubmit} className="space-y-5">
@@ -218,9 +411,13 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
                 <Input
                   type="text"
                   value={form.namaBarang}
-                  onChange={(e) => setForm({ ...form, namaBarang: e.target.value })}
+                  onChange={(e) => handleManualChange('namaBarang', e.target.value)}
                   placeholder="Nama Item..."
+                  className={errors.namaBarang ? 'border-red-500' : ''}
                 />
+                {errors.namaBarang && (
+                  <span className="text-xs text-red-400 mt-1 block">{errors.namaBarang}</span>
+                )}
               </FieldGroup>
               <div className="flex gap-4">
                 <div className="flex-1">
@@ -228,9 +425,13 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
                     <Input
                       type="number"
                       value={form.hargaSatuan}
-                      onChange={(e) => setForm({ ...form, hargaSatuan: e.target.value })}
+                      onChange={(e) => handleManualChange('hargaSatuan', e.target.value)}
                       placeholder="0"
+                      className={errors.hargaSatuan ? 'border-red-500' : ''}
                     />
+                    {errors.hargaSatuan && (
+                      <span className="text-xs text-red-400 mt-1 block">{errors.hargaSatuan}</span>
+                    )}
                   </FieldGroup>
                 </div>
                 <div className="w-24">
@@ -238,8 +439,12 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
                     <Input
                       type="number"
                       value={form.qty}
-                      onChange={(e) => setForm({ ...form, qty: e.target.value })}
+                      onChange={(e) => handleManualChange('qty', e.target.value)}
+                      className={errors.qty ? 'border-red-500' : ''}
                     />
+                    {errors.qty && (
+                      <span className="text-xs text-red-400 mt-1 block">{errors.qty}</span>
+                    )}
                   </FieldGroup>
                 </div>
               </div>
@@ -252,7 +457,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
                     <select
                       aria-label="Kategori"
                       value={form.kategori}
-                      onChange={(e) => setForm({ ...form, kategori: e.target.value })}
+                      onChange={(e) => handleManualChange('kategori', e.target.value)}
                       className="form-input w-full"
                     >
                       {allCategories.map((c) => (
@@ -271,7 +476,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
                     <select
                       aria-label="Sub-Kategori"
                       value={form.subKategori}
-                      onChange={(e) => setForm({ ...form, subKategori: e.target.value })}
+                      onChange={(e) => handleManualChange('subKategori', e.target.value)}
                       className="form-input w-full"
                     >
                       <option value="">— Opsional —</option>
@@ -284,7 +489,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
                   </FieldGroup>
                 </div>
               </div>
-              <Button type="submit" variant="secondary" className="w-full py-3 mt-4">
+              <Button type="submit" variant="outline" className="w-full py-3 mt-4">
                 Tambah ke Keranjang
               </Button>
             </form>
@@ -292,8 +497,44 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
         </div>
       </div>
 
+      {/* Mobile Cart Backdrop */}
+      {showMobileCart && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          onClick={() => setShowMobileCart(false)}
+        />
+      )}
+
+      {/* Floating Mobile Cart Button */}
+      {!showMobileCart && cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-sm animate-slide-up">
+          <Button
+            variant="primary"
+            className="w-full rounded-full px-6 py-4 shadow-glow flex items-center justify-between"
+            onClick={() => setShowMobileCart(true)}
+          >
+            <span className="flex items-center gap-2 font-semibold">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+              {cart.length} Item
+            </span>
+            <span className="font-bold">Rp {subTotal.toLocaleString('id-ID')}</span>
+          </Button>
+        </div>
+      )}
+
       {/* KANAN: Keranjang & Pembayaran */}
-      <div className="w-full lg:w-[420px] glass-card flex flex-col min-h-[500px]">
+      <div
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md bg-bg-surface flex flex-col h-full transform transition-all duration-300 ${showMobileCart ? 'translate-x-0 shadow-2xl opacity-100 visible' : 'translate-x-full opacity-0 invisible'} lg:relative lg:translate-x-0 lg:opacity-100 lg:visible lg:w-[420px] lg:h-auto lg:min-h-[500px] lg:glass-card`}
+      >
         <div className="p-5 border-b border-border-default flex justify-between items-center bg-bg-surface/30">
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
             <svg
@@ -308,9 +549,26 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
             </svg>
             Keranjang
           </h2>
-          <span className="text-sm font-semibold px-2 py-1 bg-primary/10 text-primary rounded-lg">
-            {cart.length} Item
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold px-2 py-1 bg-primary/10 text-primary rounded-lg">
+              {cart.length} Item
+            </span>
+            <button
+              className="lg:hidden w-8 h-8 flex items-center justify-center rounded-full bg-bg-elevated text-text-secondary cursor-pointer"
+              onClick={() => setShowMobileCart(false)}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
@@ -358,8 +616,11 @@ export default function InputPenjualan({ onSubmit, activeSession = null }) {
             </div>
           ))}
           {cart.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-text-muted">
-              <p className="text-sm">Pilih barang dari Katalog.</p>
+            <div className="h-full">
+              <EmptyState
+                title="Keranjang Kosong"
+                description="Pilih barang dari Katalog untuk ditambahkan ke keranjang."
+              />
             </div>
           )}
         </div>

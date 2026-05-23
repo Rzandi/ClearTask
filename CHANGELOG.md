@@ -5,9 +5,24 @@ Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachange
 
 ## [2.9.5] - 2026-05-23
 
-Versi 2.9.5 adalah rilis pemeliharaan (maintenance) yang difokuskan pada mode "Bug Hunter" dan pembersihan codebase secara menyeluruh. Menyelesaikan 33 isu linting (ESLint) untuk memastikan aplikasi lebih stabil, bersih, dan sepenuhnya mematuhi standar React Fast Refresh.
+Versi 2.9.5 adalah rilis pemeliharaan (maintenance) yang difokuskan pada mode "Bug Hunter" dan pembersihan codebase secara menyeluruh. Menyelesaikan 33 isu linting (ESLint) untuk memastikan aplikasi lebih stabil, bersih, dan sepenuhnya mematuhi standar React Fast Refresh. Selain itu, pembaruan ini membawa perbaikan bug kritis pada database IndexedDB dan peningkatan UI/UX signifikan pada antarmuka kasir.
+
+### 🎉 Added
+
+- **Katalog Barang**: Menambahkan bar pencarian, filter Kategori & Sub-Kategori, serta tombol _Sort_ (A-Z, Harga) interaktif secara horizontal.
+- **Katalog Barang (Quick Edit)**: Menambahkan tombol `+` dan `-` pada kartu barang untuk mengatur stok secara langsung (instan) tanpa perlu berpindah ke tab Master Barang.
+- **Laporan & Export**: Menambahkan tombol filter rentang waktu cepat (_Shortcut_): "Hari Ini", "Mingguan", dan "Bulanan" untuk mempermudah ekspor data spesifik.
+
+### 🚀 Changed
+
+- **UI/UX Input Penjualan**: Meningkatkan respon taktil kartu barang (_active scale_, _shadow glow_), serta otomatis memblokir (_disable_) klik jika stok barang mencapai 0.
+- **UI/UX TopBar Mobile**: Menyesuaikan jarak (_gap_) dan ukuran ikon pada layar HP untuk menghindari masalah ikon terpotong (_overflow_) atau terlalu mepet ke ujung layar.
 
 ### 🛠️ Fixed
+
+- **Dexie ConstraintError**: Memperbaiki masalah duplikasi _Key_ pada IndexedDB (`db.meta.put`) yang menyebabkan aplikasi _crash_ (layar merah) saat membuat ID Transaksi secara cepat atau saat melakukan sinkronisasi _backup_.
+- **Riwayat Sesi Error**: Memperbaiki layar putih (_crash_) saat menekan laporan sesi yang sudah ditutup. Proses penarikan data transaksi kini menggunakan _asynchronous Promise_ (`await`) yang tepat.
+- **Tombol Tambah Keranjang**: Memperbaiki tipe _button variant_ yang salah (`secondary`) sehingga tombol "Tambah ke Keranjang" pada tab Input Manual kini dirender dengan sempurna (`outline`).
 
 **Codebase & Fast Refresh**
 

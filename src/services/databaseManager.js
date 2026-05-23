@@ -46,8 +46,13 @@ export async function exportDatabase() {
 
   // Record backup timestamp so SettingsModal can show the reminder (W5-2)
   try {
-    await db.meta.put({ key: 'lastBackupAt', value: new Date().toISOString() });
-  } catch {
+    const existingBackup = await db.meta.get({ key: 'lastBackupAt' });
+    await db.meta.put({
+      ...(existingBackup || {}),
+      key: 'lastBackupAt',
+      value: new Date().toISOString(),
+    });
+  } catch (err) {
     // Non-fatal — reminder will just show "belum pernah backup"
   }
 }
