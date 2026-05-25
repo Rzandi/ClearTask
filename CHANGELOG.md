@@ -3,6 +3,18 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.1.0] - 2026-05-25
+
+Versi 3.1.0 fokus pada optimasi skalabilitas dan performa tingkat lanjut (Advanced Performance Architecture) agar aplikasi tetap responsif meskipun data telah membengkak (ratusan ribu baris) seiring dengan usia toko.
+
+### 🚀 Changed (Performance & Scalability)
+
+- **Web Worker SPK**: Memindahkan komputasi algoritma _Simple Additive Weighting_ (SAW) dari _main thread_ ke _Background Web Worker_. Proses kalkulasi yang sebelumnya memblokir UI kini berjalan paralel tanpa membuat layar kasir _freeze_.
+- **Data Archiving (Tutup Buku Tahunan)**: Menambahkan utilitas baru di menu Database untuk memindahkan transaksi lawas (> 1 tahun) secara aman dari tabel utama `transactions` ke tabel `archive_transactions`. Hal ini mempercepat query harian secara drastis tanpa perlu menghapus riwayat historis.
+- **Session Pagination**: Mengimplementasikan sistem _pagination_ (maksimal 20 sesi per halaman) pada komponen Riwayat Sesi. Ini akan mencegah _lag_ ketika toko telah menghasilkan ribuan sesi penutupan shift.
+
+---
+
 ## [3.0.0] - 2026-05-24
 
 Versi 3.0.0 menandai perombakan pondasi arsitektur ClearTask menuju fase _Enterprise-Ready_. Semua kode inti secara bertahap dimigrasikan ke TypeScript untuk keamanan tipe data (Type Safety), dan antrean Cloud Sync disiapkan sebagai pondasi sinkronisasi data antar perangkat.

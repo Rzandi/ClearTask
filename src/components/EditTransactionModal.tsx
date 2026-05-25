@@ -24,12 +24,14 @@ function buildInitialForm(transaction: any) {
       kasir: '',
     };
   }
+  const firstItem = transaction.items && transaction.items.length > 0 ? transaction.items[0] : {};
+
   return {
     tanggal: transaction.tanggal ?? '',
-    kategori: transaction.kategori ?? '',
-    namaBarang: transaction.namaBarang ?? '',
-    qty: transaction.qty !== undefined ? String(transaction.qty) : '',
-    hargaSatuan: transaction.hargaSatuan !== undefined ? String(transaction.hargaSatuan) : '',
+    kategori: firstItem.kategori ?? transaction.kategori ?? '',
+    namaBarang: firstItem.namaBarang ?? transaction.namaBarang ?? '',
+    qty: firstItem.qty !== undefined ? String(firstItem.qty) : (transaction.qty !== undefined ? String(transaction.qty) : ''),
+    hargaSatuan: firstItem.hargaSatuan !== undefined ? String(firstItem.hargaSatuan) : (transaction.hargaSatuan !== undefined ? String(transaction.hargaSatuan) : ''),
     metode: transaction.metode ?? 'Tunai',
     catatan: transaction.catatan ?? '',
     kasir: transaction.kasir ?? '',
@@ -146,14 +148,24 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
 
     if (Object.keys(newErrors).length > 0) return;
 
-    // Panggil onSave dengan id dan data form yang sudah divalidasi
-    onSave(transaction.id, {
-      tanggal: form.tanggal,
+    const updatedItem = {
+      ...(transaction.items && transaction.items[0] ? transaction.items[0] : {}),
       kategori: form.kategori,
       namaBarang: form.namaBarang.trim(),
       qty: parseInt(form.qty, 10),
       hargaSatuan: parseInt(form.hargaSatuan, 10),
       total,
+    };
+    
+    const restItems = transaction.items && transaction.items.length > 1 ? transaction.items.slice(1) : [];
+    const newItems = [updatedItem, ...restItems];
+    const newGrandTotal = newItems.reduce((sum: number, item: any) => sum + (item.total || 0), 0);
+
+    // Panggil onSave dengan id dan data form yang sudah divalidasi
+    onSave(transaction.id, {
+      tanggal: form.tanggal,
+      items: newItems,
+      total: newGrandTotal,
       metode: form.metode,
       catatan: form.catatan,
       kasir: form.kasir,

@@ -254,3 +254,33 @@ export async function applyMerge(data: any): Promise<{ success: boolean; error: 
     return { success: false, error: 'Merge gagal: ' + error.message };
   }
 }
+
+/**
+ * Move transactions older than the specified date to the archive table.
+ * @param {string} olderThanDate - ISO date string to compare against
+ * @returns {Promise<{ success: boolean, archivedCount: number, error: string | null }>}
+ */
+export async function archiveOldTransactions(olderThanDate: string): Promise<{ success: boolean; archivedCount: number; error: string | null }> {
+  try {
+    let archivedCount = 0;
+    await db.transaction('rw', db.transactions, db.archive_transactions, async () => {
+      const oldTransactions = await db.transactions
+        .where('tanggal')
+        .below(olderThanDate)
+        .toArray();
+
+      if (oldTransactions.length === 0) return;
+
+      await db.archive_transactions.bulkAdd(oldTransactions);
+      
+      const idsToDelete = oldTransactions.map(tx => tx.id);
+      await db.transactions.bulkDelete(idsToDelete);
+      
+      archivedCount = oldTransactions.length;
+    });
+    
+    return { success: true, archivedCount, error: null };
+  } catch (error: any) {
+    return { success: false, archivedCount: 0, error: 'Gagal mengarsipkan data: ' + error.message };
+  }
+}

@@ -23,6 +23,7 @@ const ConfirmDialog = lazy(() => import('./components/ConfirmDialog'));
 const LaporanExport = lazy(() => import('./components/LaporanExport'));
 const TabDatabase = lazy(() => import('./components/TabDatabase'));
 const RiwayatSesi = lazy(() => import('./components/RiwayatSesi'));
+const RestockAnalysis = lazy(() => import('./pages/RestockAnalysis'));
 
 export default function App() {
   const { settings } = useSettings();
@@ -191,6 +192,8 @@ export default function App() {
               allSessions={allSessions}
               getSessionTransactions={getSessionTransactionsAsync}
             />
+          ) : activeTab === 'spk' ? (
+            <RestockAnalysis />
           ) : (
             <LaporanExport
               transactions={transactions}

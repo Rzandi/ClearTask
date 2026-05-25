@@ -4,13 +4,14 @@
    and export/import actions. Reads from IndexedDB via Dexie.
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { formatRupiah, formatDate } from '../utils/formatters';
 import {
   exportDatabase,
   validateImport,
   calculateMerge,
   applyMerge,
+  archiveOldTransactions,
 } from '../services/databaseManager';
 import MergePreviewModal from './MergePreviewModal';
 import Toast from './Toast';
@@ -63,6 +64,27 @@ export default function TabDatabase() {
     });
   }, [sortedTransactions, filterSesi]);
 
+  // ── Pagination ───────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterSesi]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = totalPages > 0 && currentPage > totalPages ? totalPages : currentPage;
+  
+  const startIdx = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const visibleTransactions = filteredTransactions.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+  function getVisiblePages(current: number, total: number) {
+    if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+    if (current <= 3) return [1, 2, 3, 4, 5];
+    if (current >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
+    return [current - 2, current - 1, current, current + 1, current + 2];
+  }
+
   // ── Session name lookup ───────────────────────────────────
   const sessionMap = useMemo(() => {
     return Array.isArray(sessions)
@@ -99,6 +121,31 @@ export default function TabDatabase() {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
       fileInputRef.current.click();
+    }
+  }
+
+  // ── Archive (Tutup Buku) handler ────────────────────────
+  async function handleArchive() {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const dateStr = oneYearAgo.toISOString();
+
+    const confirmed = window.confirm(
+      'Apakah Anda yakin ingin memindahkan transaksi yang usianya lebih dari 1 tahun ke dalam Arsip?\n\nTransaksi ini tidak akan tampil di riwayat utama untuk mempercepat kinerja, tapi masih tersimpan di database.'
+    );
+    if (!confirmed) return;
+
+    showToast('Sedang memproses...', 'warning');
+    const result = await archiveOldTransactions(dateStr);
+    
+    if (result.success) {
+      if (result.archivedCount > 0) {
+        showToast(`Berhasil mengarsipkan ${result.archivedCount} transaksi lawas!`, 'success');
+      } else {
+        showToast('Tidak ada transaksi lama yang perlu diarsipkan.', 'warning');
+      }
+    } else {
+      showToast(result.error || 'Gagal mengarsipkan data.', 'error');
     }
   }
 
@@ -276,6 +323,29 @@ export default function TabDatabase() {
               Import &amp; Merge Database
             </button>
 
+            <button
+              type="button"
+              onClick={handleArchive}
+              className="flex items-center gap-2 px-5 py-2.5 border border-warning/30 bg-warning/5 text-warning font-semibold text-sm rounded-xl hover:bg-warning/10 hover:border-warning/50 active:scale-[0.97] transition-all duration-200 cursor-pointer"
+              title="Pindahkan transaksi > 1 tahun ke Arsip"
+            >
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <rect x="2" y="4" width="20" height="5" rx="2" ry="2" />
+                <path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9" />
+                <path d="M10 13h4" />
+              </svg>
+              Tutup Buku (Arsip)
+            </button>
+
             {/* Hidden file input */}
             <input
               ref={fileInputRef}
@@ -342,7 +412,7 @@ export default function TabDatabase() {
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.length === 0 ? (
+                {visibleTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-12 text-text-muted">
                       <div className="flex flex-col items-center gap-2">
@@ -366,7 +436,7 @@ export default function TabDatabase() {
                     </td>
                   </tr>
                 ) : (
-                  filteredTransactions.map((tx, idx) => (
+                  visibleTransactions.map((tx, idx) => (
                     <tr
                       key={tx.transactionId || idx}
                       className="border-b border-border-subtle hover:bg-white/[0.02] transition-colors"
@@ -392,6 +462,45 @@ export default function TabDatabase() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {filteredTransactions.length > 0 && (
+            <div className="flex items-center justify-between px-1 mt-2">
+              <p className="text-xs text-text-muted">
+                Menampilkan {Math.min(startIdx + 1, filteredTransactions.length)}-
+                {Math.min(startIdx + ITEMS_PER_PAGE, filteredTransactions.length)} dari {filteredTransactions.length} transaksi
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCurrentPage === 1}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg border border-border-default text-text-muted hover:text-text-primary hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  ‹
+                </button>
+                {getVisiblePages(safeCurrentPage, totalPages).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                      safeCurrentPage === page
+                        ? 'bg-primary/15 text-primary border border-primary/30'
+                        : 'border border-border-default text-text-muted hover:text-text-primary hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safeCurrentPage === totalPages}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg border border-border-default text-text-muted hover:text-text-primary hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

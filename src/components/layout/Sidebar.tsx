@@ -25,6 +25,7 @@ export default function Sidebar({
     { id: 'laporan', label: 'Riwayat Laporan', icon: LaporanIcon },
     { id: 'riwayat-sesi', label: 'Riwayat Sesi', icon: SessionHistoryIcon },
     { id: 'database', label: 'Database', icon: DatabaseIcon },
+    { id: 'spk', label: 'Analisis Restock', icon: SpkIcon },
   ];
 
   return (
@@ -272,6 +273,24 @@ function SessionHistoryIcon({ active }: { active: boolean }) {
     >
       <path d="M12 8v4l3 3" />
       <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+    </svg>
+  );
+}
+
+function SpkIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={active ? '#00ffa3' : '#6e7681'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 3v18h18" />
+      <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
     </svg>
   );
 }

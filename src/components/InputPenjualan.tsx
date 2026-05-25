@@ -4,7 +4,7 @@
    Handles Order total, Payment received, and Change calculation.
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { getTodayISO } from '../utils/formatters';
 import { useCategories } from '../hooks/useCategories';
 import { useInventory } from '../hooks/useInventory';
@@ -29,7 +29,7 @@ export interface InputPenjualanProps {
   activeSession?: any;
 }
 
-export default function InputPenjualan({ onSubmit, activeSession = null }: InputPenjualanProps) {
+export default memo(function InputPenjualan({ onSubmit, activeSession = null }: InputPenjualanProps) {
   const { settings } = useSettings();
   const kasirName = settings?.kasirName || 'Admin';
 
@@ -104,7 +104,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }: Input
   }, [inventory, catalogSearch, catalogCategory, catalogSubCategory, catalogSort]);
 
   // Add to cart
-  const addToCart = (item: any) => {
+  const addToCart = useCallback((item: any) => {
     setCart((prev) => {
       const existing = prev.find(
         (i) => i.namaBarang.toLowerCase() === item.namaBarang.toLowerCase()
@@ -122,7 +122,7 @@ export default function InputPenjualan({ onSubmit, activeSession = null }: Input
       ];
     });
     setFormError('');
-  };
+  }, []);
 
   const removeFromCart = (id: any) => {
     setCart((prev) => prev.filter((i) => i.id !== id));
@@ -310,75 +310,19 @@ export default function InputPenjualan({ onSubmit, activeSession = null }: Input
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {filteredCatalog.map((item) => {
-                  const stock = item.quantity || 0;
-                  const isOutOfStock = stock <= 0;
-                  return (
-                    <div
-                      key={item.id}
-                      className={`p-3 sm:p-4 bg-bg-surface border rounded-xl flex flex-col gap-1 transition-all relative ${
-                        isOutOfStock
-                          ? 'opacity-60 border-border-default'
-                          : 'border-border-default hover:border-primary hover:bg-primary/5 hover:shadow-[0_0_15px_rgba(0,240,255,0.1)]'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        disabled={isOutOfStock}
-                        onClick={() =>
-                          addToCart({
-                            namaBarang: item.namaBarang,
-                            kategori: item.kategori,
-                            subKategori: item.subKategori || '',
-                            hargaSatuan: item.harga,
-                            qty: 1,
-                          })
-                        }
-                        className={`text-left flex flex-col gap-1 w-full focus:outline-none transition-transform ${
-                          isOutOfStock ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.96]'
-                        }`}
-                      >
-                        <span className="text-sm font-medium text-text-primary line-clamp-2">
-                          {item.namaBarang}
-                        </span>
-                        <span className="text-xs text-text-muted">{item.kategori}</span>
-                        <span className="text-sm font-semibold text-primary mt-2">
-                          Rp {item.harga.toLocaleString('id-ID')}
-                        </span>
-                      </button>
-
-                      {/* Stock Adjuster */}
-                      <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-3">
-                        <span className="text-[10px] sm:text-[11px] font-medium text-text-muted">
-                          Stok:
-                        </span>
-                        <div className="flex items-center gap-1 bg-bg-input rounded-md px-1 py-1 border border-border-subtle">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateInventoryItem(item.id as string, { quantity: Math.max(0, stock - 1) })
-                            }
-                            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-text-secondary hover:bg-bg-elevated hover:text-primary rounded transition-colors"
-                          >
-                            -
-                          </button>
-                          <span
-                            className={`text-[11px] sm:text-xs font-bold w-5 sm:w-6 text-center ${isOutOfStock ? 'text-accent-red' : 'text-text-primary'}`}
-                          >
-                            {stock}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateInventoryItem(item.id as string, { quantity: stock + 1 })}
-                            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-text-secondary hover:bg-bg-elevated hover:text-primary rounded transition-colors"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {filteredCatalog.map((item) => (
+                  <CatalogItemCard 
+                    key={item.id} 
+                    id={item.id}
+                    namaBarang={item.namaBarang}
+                    kategori={item.kategori}
+                    subKategori={item.subKategori}
+                    harga={item.harga}
+                    quantity={item.quantity}
+                    onAddToCart={addToCart} 
+                    onUpdateStock={updateInventoryItem} 
+                  />
+                ))}
                 {filteredCatalog.length === 0 && (
                   <div className="col-span-full py-10">
                     <EmptyState
@@ -710,4 +654,83 @@ export default function InputPenjualan({ onSubmit, activeSession = null }: Input
       {showStruk && <StrukModal order={lastOrder} onClose={() => setShowStruk(false)} />}
     </div>
   );
+});
+
+interface CatalogItemProps {
+  id: string;
+  namaBarang: string;
+  kategori: string;
+  subKategori?: string;
+  harga: number;
+  quantity: number;
+  onAddToCart: (item: any) => void;
+  onUpdateStock: (id: string, data: any) => void;
 }
+
+const CatalogItemCard = memo(function CatalogItemCard({ 
+  id, namaBarang, kategori, subKategori, harga, quantity, onAddToCart, onUpdateStock 
+}: CatalogItemProps) {
+  const stock = quantity || 0;
+  const isOutOfStock = stock <= 0;
+  
+  return (
+    <div
+      className={`p-3 sm:p-4 bg-bg-surface border rounded-xl flex flex-col gap-1 transition-all relative ${
+        isOutOfStock
+          ? 'opacity-60 border-border-default'
+          : 'border-border-default hover:border-primary hover:bg-primary/5 hover:shadow-[0_0_15px_rgba(0,240,255,0.1)]'
+      }`}
+    >
+      <button
+        type="button"
+        disabled={isOutOfStock}
+        onClick={() =>
+          onAddToCart({
+            namaBarang,
+            kategori,
+            subKategori: subKategori || '',
+            hargaSatuan: harga,
+            qty: 1,
+          })
+        }
+        className={`text-left flex flex-col gap-1 w-full focus:outline-none transition-transform ${
+          isOutOfStock ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.96]'
+        }`}
+      >
+        <span className="text-sm font-medium text-text-primary line-clamp-2">
+          {namaBarang}
+        </span>
+        <span className="text-xs text-text-muted">{kategori}</span>
+        <span className="text-sm font-semibold text-primary mt-2">
+          Rp {harga?.toLocaleString('id-ID') || 0}
+        </span>
+      </button>
+
+      {/* Stock Adjuster */}
+      <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-3">
+        <span className="text-[10px] sm:text-[11px] font-medium text-text-muted">Stok:</span>
+        <div className="flex items-center gap-1 bg-bg-input rounded-md px-1 py-1 border border-border-subtle">
+          <button
+            type="button"
+            onClick={() => onUpdateStock(id, { quantity: Math.max(0, stock - 1) })}
+            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-text-secondary hover:bg-bg-elevated hover:text-primary rounded transition-colors"
+          >
+            -
+          </button>
+          <span
+            className={`text-[11px] sm:text-xs font-bold w-5 sm:w-6 text-center ${isOutOfStock ? 'text-accent-red' : 'text-text-primary'}`}
+          >
+            {stock}
+          </span>
+          <button
+            type="button"
+            onClick={() => onUpdateStock(id, { quantity: stock + 1 })}
+            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-text-secondary hover:bg-bg-elevated hover:text-primary rounded transition-colors"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});

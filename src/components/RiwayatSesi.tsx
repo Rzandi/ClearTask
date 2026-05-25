@@ -59,6 +59,22 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions }
     setShowModal(true);
   }
 
+  // Pagination Logic
+  const ITEMS_PER_PAGE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(sortedSessions.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = totalPages > 0 && currentPage > totalPages ? totalPages : currentPage;
+  
+  const startIdx = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const visibleSessions = sortedSessions.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+  function getVisiblePages(current: number, total: number) {
+    if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+    if (current <= 3) return [1, 2, 3, 4, 5];
+    if (current >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
+    return [current - 2, current - 1, current, current + 1, current + 2];
+  }
+
   function handleModalClose() {
     setShowModal(false);
     setSelectedSession(null);
@@ -100,7 +116,7 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions }
       ) : (
         /* 19.2 Session list */
         <div className="space-y-3">
-          {sortedSessions.map((session) => {
+          {visibleSessions.map((session) => {
             const isClosed = session.status === 'ditutup';
             const txCount = txCountMap[session.id] || 0;
             const displayName = session.nama || 'Sesi Tanpa Nama';
@@ -213,6 +229,45 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions }
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {sortedSessions.length > 0 && (
+        <div className="flex items-center justify-between px-1 mt-2">
+          <p className="text-xs text-text-muted">
+            Menampilkan {Math.min(startIdx + 1, sortedSessions.length)}-
+            {Math.min(startIdx + ITEMS_PER_PAGE, sortedSessions.length)} dari {sortedSessions.length} sesi
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safeCurrentPage === 1}
+              className="w-10 h-10 flex items-center justify-center rounded-lg border border-border-default text-text-muted hover:text-text-primary hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              ‹
+            </button>
+            {getVisiblePages(safeCurrentPage, totalPages).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-10 h-10 flex items-center justify-center rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  safeCurrentPage === page
+                    ? 'bg-primary/15 text-primary border border-primary/30'
+                    : 'border border-border-default text-text-muted hover:text-text-primary hover:bg-white/[0.04]'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safeCurrentPage === totalPages}
+              className="w-10 h-10 flex items-center justify-center rounded-lg border border-border-default text-text-muted hover:text-text-primary hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              ›
+            </button>
+          </div>
         </div>
       )}
 

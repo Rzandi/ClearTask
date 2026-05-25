@@ -13,6 +13,9 @@ export class ClearTaskDB extends Dexie {
   categories!: Table<any, number>;
   settings!: Table<any, number>;
   meta!: Table<any, number>;
+  saw_criterias!: Table<any, number>;
+  saw_history!: Table<any, number>;
+  archive_transactions!: Table<any, number>;
 
   constructor() {
     super('ClearTaskDB');
@@ -104,6 +107,26 @@ export class ClearTaskDB extends Dexie {
             }
           });
       });
+
+    this.version(4)
+      .stores({
+        saw_criterias: '++id', // only need one row, but we use auto-increment
+        saw_history: '++id, period, createdAt',
+      })
+      .upgrade(async (tx: DexieTransaction) => {
+        // Initialize default criteria weights
+        await tx.table('saw_criterias').add({
+          c1_weight: 0.35,
+          c2_weight: 0.3,
+          c3_weight: 0.2,
+          c4_weight: 0.15,
+          updatedAt: new Date().toISOString(),
+        });
+      });
+
+    this.version(5).stores({
+      archive_transactions: '++id, transactionId, tanggal, sessionId, createdAt, kasir, updatedAt, syncStatus',
+    });
   }
 }
 

@@ -163,12 +163,20 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
 
         // Bulk insert sessions
         if (Array.isArray(sessions) && sessions.length > 0) {
-          await db.sessions.bulkAdd(sessions);
+          const sessionData = sessions.map((s: any, idx: number) => ({
+            ...s,
+            id: s.id || `legacy-session-${Date.now()}-${idx}`
+          }));
+          await db.sessions.bulkAdd(sessionData);
         }
 
         // Bulk insert inventory
         if (Array.isArray(inventory) && inventory.length > 0) {
-          await db.inventory.bulkAdd(inventory);
+          const invData = inventory.map((inv: any, idx: number) => ({
+            ...inv,
+            id: inv.id || `legacy-inv-${Date.now()}-${idx}`
+          }));
+          await db.inventory.bulkAdd(invData);
         }
 
         // Store categories as a single keyed document
