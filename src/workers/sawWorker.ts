@@ -1,4 +1,4 @@
-import { SAWResultItem, ExcludedItem, SAWCriterias } from '../hooks/useSAWCalculation';
+import type { SAWResultItem, ExcludedItem, SAWCriterias } from '../hooks/useSAWCalculation';
 
 self.onmessage = (e: MessageEvent) => {
   const { txsToProcess, inv, weights } = e.data as {
