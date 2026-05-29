@@ -163,12 +163,38 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   const importCategories = importData.categories?.categories ?? [];
   const importInventory = Array.isArray(importData.inventory) ? importData.inventory : [];
 
-  const transactionsToAdd = importTransactions.filter((tx: any) => !existingTxIds.has(tx.transactionId));
-  const sessionsToAdd = importSessions.filter((s: any) => !existingSessionIds.has(s.id));
-  const categoriesToAdd = importCategories.filter(
-    (name: string) => !existingCategoryNames.has(name.toLowerCase())
-  );
-  const inventoryToAdd = importInventory.filter((item: any) => !existingInventoryIds.has(item.id));
+  const seenTxIds = new Set(existingTxIds);
+  const transactionsToAdd = importTransactions.filter((tx: any) => {
+    if (!tx.transactionId) return false;
+    if (seenTxIds.has(tx.transactionId)) return false;
+    seenTxIds.add(tx.transactionId);
+    return true;
+  });
+
+  const seenSessionIds = new Set(existingSessionIds);
+  const sessionsToAdd = importSessions.filter((s: any) => {
+    if (!s.id) return false;
+    if (seenSessionIds.has(s.id)) return false;
+    seenSessionIds.add(s.id);
+    return true;
+  });
+
+  const seenCategoryNames = new Set(existingCategoryNames);
+  const categoriesToAdd = importCategories.filter((name: string) => {
+    if (!name) return false;
+    const lowerName = name.toLowerCase();
+    if (seenCategoryNames.has(lowerName)) return false;
+    seenCategoryNames.add(lowerName);
+    return true;
+  });
+
+  const seenInventoryIds = new Set(existingInventoryIds);
+  const inventoryToAdd = importInventory.filter((item: any) => {
+    if (!item.id) return false;
+    if (seenInventoryIds.has(item.id)) return false;
+    seenInventoryIds.add(item.id);
+    return true;
+  });
 
   // Build the full set of session IDs after merge (existing + new)
   const allSessionIdsAfterMerge = new Set([

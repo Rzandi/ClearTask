@@ -90,7 +90,13 @@ export default function App() {
         await addTransaction(data);
         setToast({ message: 'Transaksi berhasil disimpan!', type: 'success' });
       } catch (err: any) {
-        setToast({ message: err.message || 'Gagal menyimpan transaksi', type: 'error' });
+        const isQuota = err.name === 'QuotaExceededError' || 
+                        (err.message && err.message.includes('QuotaExceededError')) ||
+                        (err.inner && err.inner.name === 'QuotaExceededError');
+        const errMsg = isQuota 
+          ? 'Penyimpanan Penuh! Transaksi gagal disimpan ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
+          : (err.message || 'Gagal menyimpan transaksi');
+        setToast({ message: errMsg, type: 'error' });
       }
     },
     [addTransaction]
@@ -112,7 +118,13 @@ export default function App() {
         await openSession(sanitizedNama);
         setToast({ message: 'Sesi berhasil dibuka!', type: 'success' });
       } catch (err: any) {
-        setToast({ message: err.message || 'Gagal membuka sesi', type: 'error' });
+        const isQuota = err.name === 'QuotaExceededError' || 
+                        (err.message && err.message.includes('QuotaExceededError')) ||
+                        (err.inner && err.inner.name === 'QuotaExceededError');
+        const errMsg = isQuota 
+          ? 'Penyimpanan Penuh! Gagal membuka sesi ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
+          : (err.message || 'Gagal membuka sesi');
+        setToast({ message: errMsg, type: 'error' });
       }
     },
     [openSession]
@@ -127,7 +139,13 @@ export default function App() {
       setClosingReportData({ session: closedSession, transactions: sessionTxs });
       setShowClosingReport(true);
     } catch (err: any) {
-      setToast({ message: err.message || 'Gagal menutup sesi', type: 'error' });
+      const isQuota = err.name === 'QuotaExceededError' || 
+                      (err.message && err.message.includes('QuotaExceededError')) ||
+                      (err.inner && err.inner.name === 'QuotaExceededError');
+      const errMsg = isQuota 
+        ? 'Penyimpanan Penuh! Gagal menutup sesi ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
+        : (err.message || 'Gagal menutup sesi');
+      setToast({ message: errMsg, type: 'error' });
     }
   }, [closeSession, getSessionTransactionsAsync]);
 

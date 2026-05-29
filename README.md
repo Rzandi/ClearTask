@@ -74,108 +74,116 @@ ErrorBoundary
 
 ---
 
-## Quick Start
+## 🏃 Panduan Menjalankan Project (Run Guide)
 
-### Prasyarat
+### 📋 Prasyarat
 
-- Node.js ≥ 20
-- npm ≥ 10
+Sebelum memulai, pastikan perangkat Anda memiliki:
 
-### Instalasi
+- **Node.js** versi `≥ 20.0.0`
+- **npm** versi `≥ 10.0.0`
+
+### 💻 Instalasi Lokal & Development
+
+Ikuti langkah-langkah di bawah ini untuk mengkloning dan menjalankan server development:
 
 ```bash
-# Clone
-git clone https://github.com/<username>/ClearTask.git
+# 1. Kloning Repositori
+git clone https://github.com/fikz/ClearTask.git
 cd ClearTask
 
-# Install dependencies
+# 2. Instalasi Dependensi
 npm install
 
-# Copy env (tidak ada nilai yang wajib diisi untuk dev lokal)
+# 3. Salin Environment Variables
 cp .env.example .env
 
-# Jalankan dev server
+# 4. Jalankan Dev Server
 npm run dev
-# → http://localhost:5173
 ```
+
+Setelah dev server aktif, buka **[http://localhost:5173](http://localhost:5173)** di browser Anda.
 
 ---
 
-## Testing
+## 🧪 Panduan Pengujian (Testing Guide)
+
+ClearTask memiliki pertahanan testing berlapis untuk menjamin integritas data offline:
 
 ```bash
-# Jalankan semua unit test (single run)
+# 1. Jalankan Semua Unit & Component Tests (Single Run)
 npm run test:run
 
-# Watch mode (development)
+# 2. Jalankan Tests dalam Mode Interaktif (Watch Mode)
 npm run test
 
-# Coverage report → coverage/
+# 3. Jalankan Pengujian dengan Laporan Cakupan (Coverage Report)
 npm run test:coverage
+# Hasil laporan cakupan dapat dibuka di browser melalui berkas: `coverage/index.html`
 
-# E2E tests (butuh dev server aktif)
+# 4. Jalankan Pengujian Browser End-to-End (E2E)
+# Pastikan server dev aktif (npm run dev) sebelum menjalankan perintah ini:
 npm run test:e2e
 ```
 
-### Coverage Targets
+### 🎯 Batas Minimal Cakupan Kode (Coverage Targets)
 
-| Metric     | Target |
-| ---------- | ------ |
-| Statements | ≥ 80%  |
-| Branches   | ≥ 75%  |
-| Functions  | ≥ 80%  |
-| Lines      | ≥ 80%  |
+Setiap kontribusi kode baru wajib memenuhi kriteria cakupan minimal berikut:
 
----
-
-## Scripts
-
-| Perintah                     | Deskripsi                           |
-| ---------------------------- | ----------------------------------- |
-| `npm run dev`                | Dev server (port 5173, strictPort)  |
-| `npm run build`              | Production build → `dist/`          |
-| `npm run preview`            | Preview production build            |
-| `npm run lint`               | ESLint check                        |
-| `npm run format`             | Prettier format (write)             |
-| `npm run format:check`       | Prettier check (CI mode)            |
-| `npm run test:run`           | Unit tests (single run)             |
-| `npm run test:coverage`      | Unit tests + coverage               |
-| `npm run test:e2e`           | Playwright E2E                      |
-| `ANALYZE=true npm run build` | Bundle analyzer → `dist/stats.html` |
+- **Statements:** `≥ 80%`
+- **Branches:** `≥ 75%`
+- **Functions:** `≥ 80%`
+- **Lines:** `≥ 80%`
 
 ---
 
-## Keamanan
+## 📦 Bundling & Deployment
 
-- **Data Lokal:** Semua data tersimpan di IndexedDB browser — tidak ada server, tidak ada transmisi data
-- **CSP:** Content Security Policy meta tag di `index.html`
-- **Logging:** `console.error` hanya aktif di DEV mode
-- **Service Worker:** Otomatis di-unregister di DEV mode untuk mencegah stale cache
+### 1. Build untuk Production
 
----
-
-## Deployment
-
-### Vercel (Recommended)
+Untuk membuat bundle optimal siap rilis ke web server production:
 
 ```bash
+npm run build
+```
+
+Bundle hasil kompilasi akan tersimpan di dalam direktori `dist/`.
+
+### 2. Preview Hasil Build
+
+Untuk meninjau bundle production secara lokal sebelum deploy:
+
+```bash
+npm run preview
+```
+
+### 3. Analisis Ukuran Bundle
+
+Untuk menganalisis ukuran file JS dan mendeteksi dependensi yang terlalu berat:
+
+```bash
+ANALYZE=true npm run build
+# Hasil visualisasi interaktif akan ter-generate di: `dist/stats.html`
+```
+
+### 🚀 Deploy ke Vercel (Rekomendasi)
+
+ClearTask siap di-deploy secara instan ke platform serverless Vercel:
+
+```bash
+# Instal Vercel CLI global
 npm i -g vercel
+
+# Login & Deploy
 vercel login
 vercel --prod
 ```
 
-Atau import repo langsung dari Vercel Dashboard — Vite terdeteksi otomatis.
-
-> **Catatan PWA:** Pastikan production berjalan di HTTPS agar Service Worker dan Web Manifest berfungsi.
+> ⚠️ **PENTING:** Progressive Web App (PWA), Service Worker, dan Web Manifest mewajibkan koneksi **HTTPS** yang aman agar dapat berfungsi dan di-install di perangkat pengguna (Android, iOS, macOS, Windows). Vercel menyediakan SSL HTTPS secara otomatis secara gratis.
 
 ---
 
-## Kontribusi
+## 📝 Kontribusi & Changelog
 
-Lihat [CONTRIBUTING.md](./CONTRIBUTING.md) untuk panduan lengkap.
-
----
-
-## Changelog
-
-Lihat [CHANGELOG.md](./CHANGELOG.md) untuk riwayat perubahan.
+- Untuk panduan kontribusi kode, silakan baca [CONTRIBUTING.md](./CONTRIBUTING.md).
+- Riwayat rilis dan daftar perubahan detail dapat dilihat di [CHANGELOG.md](./CHANGELOG.md).

@@ -5,13 +5,19 @@ Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachange
 
 ## [3.1.0] - 2026-05-25
 
-Versi 3.1.0 fokus pada optimasi skalabilitas dan performa tingkat lanjut (Advanced Performance Architecture) agar aplikasi tetap responsif meskipun data telah membengkak (ratusan ribu baris) seiring dengan usia toko.
+Versi 3.1.0 fokus pada optimasi skalabilitas, keandalan sistem tingkat tinggi (System Hardening), dan performa tingkat lanjut (Advanced Performance Architecture) agar aplikasi tetap responsif dan aman meskipun data transaksi bertambah seiring usia operasional toko.
 
-### 🚀 Changed (Performance & Scalability)
+### 🚀 Changed & Optimized (Performance & Scalability)
 
-- **Web Worker SPK**: Memindahkan komputasi algoritma _Simple Additive Weighting_ (SAW) dari _main thread_ ke _Background Web Worker_. Proses kalkulasi yang sebelumnya memblokir UI kini berjalan paralel tanpa membuat layar kasir _freeze_.
-- **Data Archiving (Tutup Buku Tahunan)**: Menambahkan utilitas baru di menu Database untuk memindahkan transaksi lawas (> 1 tahun) secara aman dari tabel utama `transactions` ke tabel `archive_transactions`. Hal ini mempercepat query harian secara drastis tanpa perlu menghapus riwayat historis.
-- **Session Pagination**: Mengimplementasikan sistem _pagination_ (maksimal 20 sesi per halaman) pada komponen Riwayat Sesi. Ini akan mencegah _lag_ ketika toko telah menghasilkan ribuan sesi penutupan shift.
+- **Web Worker SAW Restocking**: Memindahkan komputasi berat algoritma multi-kriteria _Simple Additive Weighting_ (SAW) dari _main thread_ ke background worker thread (`sawWorker.ts`). Proses evaluasi prioritas stok ulang kini berjalan sepenuhnya paralel, menjaga fluiditas rendering UI visual kasir tetap stabil di angka 60 FPS tanpa dropped frames.
+- **Tutup Buku & Arsip Transaksi Tahunan**: Menambahkan fitur pemindahan transaksi lawas yang berumur lebih dari 1 tahun secara atomik dari tabel utama `transactions` ke tabel `archive_transactions` yang terpartisi secara terpisah. Langkah ini mempercepat kueri harian secara drastis tanpa menghapus data historis toko.
+- **Session Pagination**: Mengimplementasikan sistem _pagination_ (maksimal 20 sesi per halaman) pada komponen Riwayat Sesi untuk mencegah degradasi kinerja visual seiring bertambahnya ribuan log sesi penutupan shift.
+
+### 🛡️ Added & Fixed (Reliability & Hardening)
+
+- **Timezone Lock WIB Midnight Standard**: Mengunci standardisasi perekaman tanggal transaksi menggunakan helper lokal `getTodayISO()` yang disesuaikan ke batas kalender WIB (Waktu Indonesia Barat) tepat pada pukul 00:00 tengah malam. Langkah ini melenyapkan bug pergeseran tanggal/pelaporan yang melompat akibat perbedaan zona waktu browser/UTC.
+- **Penanganan QuotaExceededError (Offline Storage Hardening)**: Menambahkan deteksi dini kapasitas memori penyimpanan lokal IndexedDB browser. Sistem secara anggun menangkap error `QuotaExceededError` jika perangkat kehabisan kuota penyimpanan offline, lalu menembakkan Toast notifikasi berwarna merah yang menyarankan kasir melakukan backup ekspor dan pengarsipan untuk mencegah kegagalan simpan penjualan yang senyap (_silent save fail_).
+- **Smart Double-Merge Import Validation Check**: Memperkeras modul impor database (`databaseManager.ts`) menggunakan Set boundaries double-check untuk menyaring transaksi ganda secara otomatis dan atomik, baik dari database IndexedDB lokal maupun di dalam file backup JSON itu sendiri sebelum data digabungkan.
 
 ---
 

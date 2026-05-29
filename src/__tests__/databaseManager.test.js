@@ -31,6 +31,7 @@ import {
   validateImport,
   calculateMerge,
   applyMerge,
+  archiveOldTransactions,
 } from '../services/databaseManager';
 
 // ── Dexie Setup Helper ────────────────────────────────────
@@ -292,6 +293,18 @@ describe('calculateMerge()', () => {
     expect(result.newCategories).toBe(1); // only Minuman is new
     expect(result.skipped).toBeGreaterThanOrEqual(1);
   });
+
+  it('data import memiliki duplikat internal -> disaring dengan benar', async () => {
+    const dupTx = { ...sampleTransaction, transactionId: 'TRX-DUP', id: 999 };
+    const importData = {
+      ...validExportData,
+      transactions: [dupTx, dupTx],
+    };
+
+    const result = await calculateMerge(importData);
+    expect(result.newTransactions).toBe(1);
+    expect(result.skipped).toBe(1);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -356,6 +369,55 @@ describe('applyMerge()', () => {
 
     const storedTx = await db.transactions.toArray();
     expect(storedTx).toEqual(originalTx); // unchanged
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// archiveOldTransactions()
+// ═══════════════════════════════════════════════════════════
+
+describe('archiveOldTransactions()', () => {
+  beforeEach(async () => {
+    await setupDexie({});
+    await db.archive_transactions.clear();
+  });
+
+  it('mengarsipkan transaksi yang lebih lama dari tanggal batas dengan benar', async () => {
+    const oldTx = { ...sampleTransaction, id: 10, transactionId: 'TRX-OLD', tanggal: '2024-01-01' };
+    const newTx = { ...sampleTransaction, id: 11, transactionId: 'TRX-NEW', tanggal: '2025-07-01' };
+
+    await db.transactions.bulkAdd([oldTx, newTx]);
+
+    const boundaryDate = '2025-01-01';
+    const result = await archiveOldTransactions(boundaryDate);
+
+    expect(result.success).toBe(true);
+    expect(result.archivedCount).toBe(1);
+
+    const archived = await db.archive_transactions.toArray();
+    expect(archived).toHaveLength(1);
+    expect(archived[0].transactionId).toBe('TRX-OLD');
+
+    const remaining = await db.transactions.toArray();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].transactionId).toBe('TRX-NEW');
+  });
+
+  it('mengembalikan archivedCount 0 jika tidak ada transaksi yang cocok dengan batas', async () => {
+    const newTx = { ...sampleTransaction, id: 11, transactionId: 'TRX-NEW', tanggal: '2025-07-01' };
+    await db.transactions.add(newTx);
+
+    const boundaryDate = '2025-01-01';
+    const result = await archiveOldTransactions(boundaryDate);
+
+    expect(result.success).toBe(true);
+    expect(result.archivedCount).toBe(0);
+
+    const archived = await db.archive_transactions.toArray();
+    expect(archived).toHaveLength(0);
+
+    const remaining = await db.transactions.toArray();
+    expect(remaining).toHaveLength(1);
   });
 });
 

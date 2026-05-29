@@ -133,8 +133,8 @@ describe('TabDatabase — DatabaseStats', () => {
     await db.sessions.add(session1);
     await renderTabDatabaseAndReady();
 
-    expect(screen.getByText('2')).toBeInTheDocument(); // total transaksi
-    expect(screen.getByText('1')).toBeInTheDocument(); // total sesi
+    expect(screen.getByText('Total Transaksi').nextElementSibling).toHaveTextContent('2');
+    expect(screen.getByText('Total Sesi').nextElementSibling).toHaveTextContent('1');
   });
 
   it('menampilkan total pemasukan yang benar (Rp 35.000)', async () => {

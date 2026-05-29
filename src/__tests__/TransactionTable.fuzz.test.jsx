@@ -3,6 +3,8 @@ import { render } from '@testing-library/react';
 import * as fc from 'fast-check';
 import TransactionTable from '../components/TransactionTable';
 
+import { toLocalDateString } from '../utils/formatters';
+
 vi.mock('../components/EditTransactionModal', () => ({
   default: () => <div data-testid="edit-modal" />,
 }));
@@ -15,11 +17,7 @@ const arbTransaction = fc.record({
   transactionId: fc.string({ minLength: 1, maxLength: 50 }),
   tanggal: fc
     .date({ min: new Date('2000-01-01T00:00:00Z'), max: new Date('2100-01-01T00:00:00Z') })
-    .map((d) =>
-      Number.isNaN(d.getTime())
-        ? new Date().toISOString().split('T')[0]
-        : d.toISOString().split('T')[0]
-    ),
+    .map((d) => (Number.isNaN(d.getTime()) ? toLocalDateString(new Date()) : toLocalDateString(d))),
   kategori: fc.string(),
   subKategori: fc.oneof(fc.string(), fc.constant(undefined)),
   namaBarang: fc.string(),

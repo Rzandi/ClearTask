@@ -82,6 +82,7 @@ export function useTransactionData(
 
       newTx = {
         ...orderData,
+        kasir: orderData.kasir || currentUser,
         transactionId: `TRX-${String(seq).padStart(5, '0')}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

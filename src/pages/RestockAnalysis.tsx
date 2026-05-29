@@ -4,7 +4,7 @@ import { WeightControl } from '../components/spk/WeightControl';
 import { PriorityChart } from '../components/spk/PriorityChart';
 import { RankingTable } from '../components/spk/RankingTable';
 import { HistoryTable } from '../components/spk/HistoryTable';
-import { formatDate } from '../utils/formatters';
+import { formatDate, getTodayISO } from '../utils/formatters';
 
 export default function RestockAnalysis() {
   const {
@@ -79,7 +79,7 @@ export default function RestockAnalysis() {
                 type="date" 
                 className="form-input py-1.5 px-3 text-sm w-auto"
                 value={dateRange?.start || ''}
-                onChange={(e) => setDateRange(prev => ({ start: e.target.value, end: prev?.end || (new Date().toISOString().split('T')[0] || '') }))}
+                onChange={(e) => setDateRange(prev => ({ start: e.target.value, end: prev?.end || getTodayISO() }))}
               />
               <span className="text-text-muted">-</span>
               <input 
