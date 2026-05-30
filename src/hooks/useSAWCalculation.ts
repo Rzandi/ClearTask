@@ -97,9 +97,11 @@ export function useSAWCalculation() {
         .toArray();
 
       // If no valid filter applied because tanggal is YYYY-MM-DD
+      const startDate = startStr.split('T')[0] ?? '';
+      const endDate = endStr.split('T')[0] ?? '';
       const txsToProcess = txs.length > 0 ? txs : (await db.transactions.toArray()).filter(tx => {
         const txDate = tx.tanggal || (tx.createdAt ? tx.createdAt.split('T')[0] : '');
-        return txDate >= startStr.split('T')[0] && txDate <= endStr.split('T')[0];
+        return txDate >= startDate && txDate <= endDate;
       });
 
       // 2. Fetch all inventory

@@ -167,7 +167,7 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
             ...s,
             id: s.id || `legacy-session-${Date.now()}-${idx}`
           }));
-          await db.sessions.bulkAdd(sessionData);
+          await db.sessions.bulkPut(sessionData);
         }
 
         // Bulk insert inventory
@@ -176,11 +176,11 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
             ...inv,
             id: inv.id || `legacy-inv-${Date.now()}-${idx}`
           }));
-          await db.inventory.bulkAdd(invData);
+          await db.inventory.bulkPut(invData);
         }
 
         // Store categories as a single keyed document
-        await db.categories.add({
+        await db.categories.put({
           key: 'main',
           categories: categoriesData?.categories ?? [],
           subCategories: categoriesData?.subCategories ?? {},
@@ -188,9 +188,9 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
 
         // Store settings as a single keyed document
         if (settings) {
-          await db.settings.add({ key: 'main', ...(settings as object) });
+          await db.settings.put({ key: 'main', ...(settings as object) });
         } else {
-          await db.settings.add({
+          await db.settings.put({
             key: 'main',
             kasirName: 'Admin',
             tokoName: '',
@@ -200,7 +200,7 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
         }
 
         // Store sequence counter
-        await db.meta.add({ key: 'seq', value: seq });
+        await db.meta.put({ key: 'seq', value: seq });
       }
     );
 

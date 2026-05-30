@@ -235,38 +235,40 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
             <div className="space-y-4">
               {/* Search & Filter Bar */}
               <div className="flex flex-col gap-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <svg
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    <input
-                      type="text"
-                      placeholder="Cari katalog..."
-                      value={catalogSearch}
-                      onChange={(e) => setCatalogSearch(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
-                    />
-                  </div>
+                {/* Search — full width */}
+                <div className="relative">
+                  <svg
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Cari katalog..."
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+                  />
+                </div>
 
+                {/* Filter + Sort — row that always fits */}
+                <div className="flex items-center gap-2">
                   <select
                     value={catalogCategory}
                     onChange={(e) => {
                       setCatalogCategory(e.target.value);
                       setCatalogSubCategory('all');
                     }}
-                    className="w-[110px] sm:w-[140px] shrink-0 px-2 sm:px-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none cursor-pointer"
+                    className="flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none cursor-pointer"
                   >
                     <option value="all">Semua Kategori</option>
                     {allCategories.map((c) => (
@@ -313,10 +315,10 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
                 {filteredCatalog.map((item) => (
                   <CatalogItemCard 
                     key={item.id} 
-                    id={item.id}
+                    id={item.id ?? ''}
                     namaBarang={item.namaBarang}
                     kategori={item.kategori}
-                    subKategori={item.subKategori}
+                    subKategori={item.subKategori ?? ''}
                     harga={item.harga}
                     quantity={item.quantity}
                     onAddToCart={addToCart} 
