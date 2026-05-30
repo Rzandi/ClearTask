@@ -33,13 +33,33 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { settings, updateSettings, saveSettings, openSettingsSnapshot, rollbackSettings } =
     useSettings();
 
-  const { customCategories, customSubCategoriesFor, deleteCategory, deleteSubCategory } =
-    useCategories();
+  const {
+    allCategories = [],
+    customCategories = [],
+    customSubCategoriesFor = () => [],
+    deleteCategory = async () => ({ success: true }),
+    deleteSubCategory = async () => ({ success: true }),
+    addCategory = async () => ({ success: true }),
+    addSubCategory = async () => ({ success: true }),
+  } = useCategories() || {};
 
   const [localKasirName, setLocalKasirName] = useState('');
   const [localTokoName, setLocalTokoName] = useState('');
   const [localAppName, setLocalAppName] = useState('');
   const [localAppSubtitle, setLocalAppSubtitle] = useState('');
+  const [newCatInput, setNewCatInput] = useState('');
+
+  async function handleAddCategory() {
+    const trimmed = newCatInput.trim();
+    if (!trimmed) return;
+    const res = await addCategory(trimmed);
+    if (res && res.success) {
+      setNewCatInput('');
+      setToast({ message: `Kategori "${trimmed}" berhasil ditambahkan!`, type: 'success' });
+    } else {
+      setToast({ message: res?.error || 'Gagal menambahkan kategori', type: 'error' });
+    }
+  }
   const [toast, setToast] = useState<{message: string, type: 'success'|'error'|'warning'} | null>(null);
   const [daysSinceBackup, setDaysSinceBackup] = useState<number | null>(null);
 
@@ -315,37 +335,40 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         {/* Kelola Kategori */}
-        <div className="mt-5 space-y-2">
+        <div className="mt-5 space-y-3">
           <p className="text-sm font-medium text-text-secondary">Kelola Kategori</p>
+          
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              placeholder="Tambah kategori baru..."
+              value={newCatInput}
+              onChange={(e) => setNewCatInput(e.target.value)}
+              className="flex-1 py-2 text-xs"
+              maxLength={30}
+            />
+            <Button
+              onClick={handleAddCategory}
+              variant="outline"
+              className="px-4 py-2 text-xs shrink-0 cursor-pointer"
+            >
+              Tambah
+            </Button>
+          </div>
+
           {customCategories.length === 0 ? (
-            <p className="text-xs text-text-muted">Belum ada kategori kustom.</p>
+            <p className="text-xs text-text-muted italic">Belum ada kategori kustom.</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-1 max-h-[150px] overflow-y-auto pr-1">
               {customCategories.map((name) => (
-                <li key={name} className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-text-secondary">{name}</span>
+                <li key={name} className="flex items-center justify-between gap-2 bg-bg-input/40 px-3 py-1.5 rounded-lg border border-border-subtle/50">
+                  <span className="text-xs text-text-secondary font-medium">{name}</span>
                   <button
                     onClick={() => handleDeleteCategory(name)}
                     aria-label={`Hapus kategori ${name}`}
-                    className="w-11 h-11 flex items-center justify-center rounded text-text-muted hover:text-red-400 hover:bg-white/[0.06] transition-colors"
+                    className="text-text-muted hover:text-red-400 p-1 rounded hover:bg-white/[0.04] transition-colors cursor-pointer"
                   >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6" />
-                      <path d="M14 11v6" />
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                    </svg>
+                    <TrashIcon />
                   </button>
                 </li>
               ))}
@@ -355,9 +378,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
         {/* Kelola Sub-Kategori */}
         <SubKategoriSection
-          allCategories={[...KATEGORI_DEFAULT, ...customCategories]}
+          allCategories={allCategories}
           customSubCategoriesFor={customSubCategoriesFor}
           deleteSubCategory={handleDeleteSubCategory}
+          addSubCategory={addSubCategory}
+          setToast={setToast}
         />
       </div>
     </Modal>
@@ -390,29 +415,97 @@ interface SubKategoriSectionProps {
   allCategories: string[];
   customSubCategoriesFor: (kat: string) => string[];
   deleteSubCategory: (kat: string, sub: string) => void;
+  addSubCategory: (kat: string, sub: string) => Promise<{ success: boolean; error?: string }>;
+  setToast: (toast: any) => void;
 }
 
-function SubKategoriSection({ allCategories, customSubCategoriesFor, deleteSubCategory }: SubKategoriSectionProps) {
-  const withSubs = allCategories.filter((kat) => customSubCategoriesFor(kat).length > 0);
+function SubKategoriSection({ 
+  allCategories = [], 
+  customSubCategoriesFor = () => [], 
+  deleteSubCategory,
+  addSubCategory,
+  setToast
+}: SubKategoriSectionProps) {
+  const safeAllCategories = allCategories || [];
+  const [selectedKat, setSelectedKat] = useState<string>(() => safeAllCategories[0] || '');
+  const [newSubInput, setNewSubInput] = useState('');
+
+  const withSubs = safeAllCategories.filter((kat) => customSubCategoriesFor(kat).length > 0);
+
+  // Sync selectedKat if list of categories changes
+  useEffect(() => {
+    if (safeAllCategories.length > 0 && !safeAllCategories.includes(selectedKat)) {
+      setSelectedKat(safeAllCategories[0] || '');
+    }
+  }, [safeAllCategories, selectedKat]);
+
+  async function handleAddSub() {
+    const trimmed = newSubInput.trim();
+    if (!trimmed) return;
+    if (!selectedKat) {
+      setToast({ message: 'Pilih kategori utama terlebih dahulu', type: 'error' });
+      return;
+    }
+    const res = await addSubCategory(selectedKat, trimmed);
+    if (res && res.success) {
+      setNewSubInput('');
+      setToast({ message: `Sub-kategori "${trimmed}" berhasil ditambahkan!`, type: 'success' });
+    } else {
+      setToast({ message: res?.error || 'Gagal menambahkan sub-kategori', type: 'error' });
+    }
+  }
 
   return (
-    <div className="mt-4 space-y-2">
+    <div className="mt-4 space-y-3">
       <p className="text-sm font-medium text-text-secondary">Kelola Sub-Kategori</p>
+      
+      <div className="space-y-2 bg-bg-input/20 p-3 rounded-xl border border-border-subtle">
+        <select
+          aria-label="Pilih Kategori Utama"
+          value={selectedKat}
+          onChange={(e) => setSelectedKat(e.target.value)}
+          className="w-full px-3 py-2 text-xs bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary outline-none cursor-pointer"
+        >
+          {safeAllCategories.map((c) => (
+            <option key={c} value={c}>
+              {c + '\u200B'}
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            placeholder="Tambah sub-kategori baru..."
+            value={newSubInput}
+            onChange={(e) => setNewSubInput(e.target.value)}
+            className="flex-1 py-2 text-xs"
+            maxLength={30}
+          />
+          <Button
+            onClick={handleAddSub}
+            variant="outline"
+            className="px-4 py-2 text-xs shrink-0 cursor-pointer"
+          >
+            Tambah
+          </Button>
+        </div>
+      </div>
+
       {withSubs.length === 0 ? (
-        <p className="text-xs text-text-muted">Belum ada sub-kategori kustom.</p>
+        <p className="text-xs text-text-muted italic">Belum ada sub-kategori kustom.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
           {withSubs.map((kat) => (
-            <div key={kat}>
-              <p className="text-xs font-medium text-text-muted mb-1">{kat}</p>
-              <ul className="space-y-1 pl-2">
+            <div key={kat} className="bg-bg-input/10 p-2.5 rounded-xl border border-border-subtle/50">
+              <p className="text-[10px] font-bold text-primary mb-1.5 uppercase tracking-wider">{kat}</p>
+              <ul className="space-y-1 pl-1">
                 {customSubCategoriesFor(kat).map((sub) => (
-                  <li key={sub} className="flex items-center justify-between gap-2">
+                  <li key={sub} className="flex items-center justify-between gap-2 bg-bg-input/30 px-2.5 py-1 rounded-lg border border-border-subtle/30">
                     <span className="text-xs text-text-secondary">{sub}</span>
                     <button
                       onClick={() => deleteSubCategory(kat, sub)}
                       aria-label={`Hapus sub-kategori ${sub}`}
-                      className="w-11 h-11 flex items-center justify-center rounded text-text-muted hover:text-red-400 hover:bg-white/[0.06] transition-colors"
+                      className="text-text-muted hover:text-red-400 transition-colors cursor-pointer p-0.5"
                     >
                       <TrashIcon />
                     </button>

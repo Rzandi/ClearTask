@@ -1,14 +1,10 @@
-/* ═══════════════════════════════════════════════════════════
-   LaporanExport — ClearTask
-   Report view: Metrics + Filters + Table + Export
-   ═══════════════════════════════════════════════════════════ */
-
-import { useCallback } from 'react';
-import MetrikCard from './MetrikCard';
+import { useCallback, useMemo } from 'react';
 import TransactionTable from './TransactionTable';
 import { exportToExcel } from '../utils/exportExcel';
-import { toLocalDateString, getTodayISO } from '../utils/formatters';
+import { toLocalDateString, getTodayISO, formatRupiah } from '../utils/formatters';
 import { useSettings } from '../contexts/SettingsContext';
+import { useExpenses } from '../hooks/useExpenses';
+import ReportingChart from './ReportingChart';
 
 import db from '../services/db';
 
@@ -40,9 +36,46 @@ export default function LaporanExport({
   onDelete,
 }: LaporanExportProps) {
   const { settings } = useSettings();
+  const { expenses } = useExpenses();
 
   const isFilterActive = !!(filterDate || searchQuery?.trim());
   const hasData = isFilterActive ? transactions.length > 0 : totalCount > 0;
+
+  // Filter expenses matching the selected date ranges
+  const filteredExpenses = useMemo(() => {
+    let items = [...expenses];
+    if (filterDate) {
+      if (typeof filterDate === 'string') {
+        items = items.filter((e) => e.tanggal === filterDate);
+      } else if (filterDate.start && filterDate.end) {
+        items = items.filter((e) => e.tanggal >= filterDate.start && e.tanggal <= filterDate.end);
+      }
+    }
+    return items;
+  }, [expenses, filterDate]);
+
+  // Aggregate Metrics based on active filters
+  const totalRevenue = useMemo(() => {
+    return transactions.reduce((sum, tx) => sum + (tx.total || 0), 0);
+  }, [transactions]);
+
+  const totalCostOfSales = useMemo(() => {
+    return transactions.reduce((sum, tx) => {
+      let cost = 0;
+      if (tx.items && Array.isArray(tx.items)) {
+        tx.items.forEach((item: any) => {
+          cost += (item.hargaModal || 0) * (item.qty || 1);
+        });
+      }
+      return sum + cost;
+    }, 0);
+  }, [transactions]);
+
+  const totalExpense = useMemo(() => {
+    return filteredExpenses.reduce((sum, ex) => sum + (ex.jumlah || 0), 0);
+  }, [filteredExpenses]);
+
+  const netProfit = totalRevenue - totalCostOfSales - totalExpense;
 
   const handleExport = useCallback(async () => {
     if (!hasData) return;
@@ -88,12 +121,40 @@ export default function LaporanExport({
         <p className="text-sm text-text-muted">Tinjau riwayat penjualan dan unduh laporan.</p>
       </div>
 
-      {/* Metric Card */}
-      <MetrikCard
-        todayTotal={todayMetrics.todayTotal}
-        trendPercent={todayMetrics.trendPercent}
-        isFirstDay={todayMetrics.isFirstDay}
-      />
+      {/* Dynamic Metric Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Pemasukan Card */}
+        <div className="glass-card p-5">
+          <p className="text-xs font-semibold text-text-muted mb-1">Total Pemasukan</p>
+          <p className="text-2xl font-bold text-primary">{formatRupiah(totalRevenue)}</p>
+          <p className="text-[10px] text-text-muted mt-2">
+            {isFilterActive ? 'Sesuai filter' : 'Seluruh waktu'}
+          </p>
+        </div>
+
+        {/* Keluaran Card */}
+        <div className="glass-card p-5">
+          <p className="text-xs font-semibold text-text-muted mb-1">Total Keluaran (Pengeluaran)</p>
+          <p className="text-2xl font-bold text-accent-red">{formatRupiah(totalExpense)}</p>
+          <p className="text-[10px] text-text-muted mt-2">
+            {isFilterActive ? 'Sesuai filter' : 'Seluruh waktu'}
+          </p>
+        </div>
+
+        {/* Profit Card */}
+        <div className="glass-card p-5">
+          <p className="text-xs font-semibold text-text-muted mb-1">Keuntungan Bersih (Profit)</p>
+          <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}>
+            {formatRupiah(netProfit)}
+          </p>
+          <p className="text-[10px] text-text-muted mt-2">
+            Margin: Pemasukan - Modal ({formatRupiah(totalCostOfSales)}) - Keluaran
+          </p>
+        </div>
+      </div>
+
+      {/* SVG Reporting Chart */}
+      <ReportingChart transactions={transactions} expenses={filteredExpenses} />
 
       {/* Filters Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">

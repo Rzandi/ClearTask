@@ -24,6 +24,7 @@ const LaporanExport = lazy(() => import('./components/LaporanExport'));
 const TabDatabase = lazy(() => import('./components/TabDatabase'));
 const RiwayatSesi = lazy(() => import('./components/RiwayatSesi'));
 const RestockAnalysis = lazy(() => import('./pages/RestockAnalysis'));
+const InputKeluaran = lazy(() => import('./components/InputKeluaran'));
 
 export default function App() {
   const { settings } = useSettings();
@@ -202,6 +203,8 @@ export default function App() {
         >
           {activeTab === 'input' ? (
             <InputPenjualan onSubmit={handleSubmit} activeSession={activeSession} />
+          ) : activeTab === 'keluaran' ? (
+            <InputKeluaran />
           ) : activeTab === 'database' ? (
             <TabDatabase />
           ) : activeTab === 'riwayat-sesi' ? (

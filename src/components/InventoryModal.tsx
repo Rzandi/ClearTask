@@ -35,6 +35,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
     kategori: '',
     subKategori: '',
     harga: '',
+    hargaModal: '',
     satuan: 'Pcs',
     quantity: '',
   });
@@ -53,6 +54,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
           kategori: editItem.kategori || '',
           subKategori: editItem.subKategori || '',
           harga: editItem.harga?.toString() || '',
+          hargaModal: editItem.hargaModal?.toString() || '',
           satuan: editItem.satuan || 'Pcs',
           quantity: editItem.quantity?.toString() || '',
         });
@@ -62,6 +64,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
           kategori: '',
           subKategori: '',
           harga: '',
+          hargaModal: '',
           satuan: 'Pcs',
           quantity: '',
         });
@@ -72,12 +75,14 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
   if (!isOpen) return null;
 
   const harga = parseInt(form.harga, 10) || 0;
+  const hargaModal = parseInt(form.hargaModal, 10) || 0;
   const quantity = parseInt(form.quantity, 10) || 0;
 
   const isValid =
     form.namaBarang.trim().length > 0 &&
     form.kategori.trim().length > 0 &&
     harga >= 0 &&
+    hargaModal >= 0 &&
     quantity >= 0 &&
     form.satuan.trim().length > 0;
 
@@ -94,6 +99,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
       kategori: form.kategori.trim(),
       subKategori: form.subKategori.trim(),
       harga,
+      hargaModal,
       satuan: form.satuan.trim(),
       quantity,
     });
@@ -213,11 +219,25 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
             </div>
           </div>
 
-          {/* Harga, Satuan, Quantity */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Harga Modal & Harga Jual */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                Harga Satuan
+                Harga Modal *
+              </label>
+              <input
+                type="number"
+                name="hargaModal"
+                value={form.hargaModal}
+                onChange={handleChange}
+                min="0"
+                placeholder="0"
+                className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">
+                Harga Jual (Satuan) *
               </label>
               <input
                 type="number"
@@ -229,6 +249,10 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
                 className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
               />
             </div>
+          </div>
+
+          {/* Satuan & Stok */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">
                 Satuan *
@@ -247,7 +271,9 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5">Stok</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">
+                Stok
+              </label>
               <input
                 type="number"
                 name="quantity"

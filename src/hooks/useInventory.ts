@@ -10,12 +10,13 @@ import db from '../services/db';
 
 export interface InventoryItem {
   id?: string;
-  nama: string;
+  namaBarang: string;
   kategori: string;
   subKategori?: string;
-  hargaDasar?: number;
-  hargaJual: number;
-  stok?: number;
+  harga: number;
+  hargaModal?: number;
+  satuan?: string;
+  quantity: number;
   [key: string]: any;
 }
 

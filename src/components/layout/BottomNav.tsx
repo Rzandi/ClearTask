@@ -10,6 +10,7 @@ export interface BottomNavProps {
 export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   const tabs = [
     { id: 'input', label: 'Input', icon: InputIcon },
+    { id: 'keluaran', label: 'Keluaran', icon: KeluaranIcon },
     { id: 'laporan', label: 'Laporan', icon: LaporanIcon },
     { id: 'riwayat-sesi', label: 'Sesi', icon: SesiIcon },
     { id: 'database', label: 'Database', icon: DatabaseIcon },
@@ -118,6 +119,25 @@ function SesiIcon({ active }: { active: boolean }) {
     >
       <circle cx="12" cy="12" r="10" />
       <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function KeluaranIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={active ? '#00ffa3' : '#8b949e'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
+      <line x1="2" y1="10" x2="22" y2="10" />
+      <line x1="12" y1="15" x2="16" y2="15" />
     </svg>
   );
 }

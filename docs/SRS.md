@@ -1,7 +1,7 @@
 # 📄 Software Requirements Specification (SRS) — ClearTask
 
-> **Project:** ClearTask v3.1.0  
-> **Status:** Pending Approval (URG-3b)  
+> **Project:** ClearTask v3.2.0  
+> **Status:** Released (APPROVED & RELEASED)  
 > **Date:** 2026-05-30  
 > **Language:** Bahasa Indonesia
 
@@ -11,11 +11,11 @@
 
 ### 1.1 Purpose
 
-Dokumen ini mendefinisikan spesifikasi kebutuhan perangkat lunak (SRS) untuk aplikasi **ClearTask v3.1.0**. Dokumen ini ditujukan sebagai panduan teknis bagi Architect, Designer, Coder, dan QA Agent selama implementasi fitur-fitur baru dan refactoring sistem legacy.
+Dokumen ini mendefinisikan spesifikasi kebutuhan perangkat lunak (SRS) untuk aplikasi **ClearTask v3.2.0**. Dokumen ini ditujukan sebagai panduan teknis bagi Architect, Designer, Coder, dan QA Agent selama implementasi fitur-fitur baru, refactoring sistem legacy, dan perluasan fitur bisnis premium.
 
 ### 1.2 Scope
 
-ClearTask v3.1.0 adalah aplikasi berbasis web kasir offline-first dengan modul penunjang keputusan (DSS) menggunakan metode Simple Additive Weighting (SAW) untuk penentuan prioritas restock barang. Seluruh data disimpan secara lokal pada browser pengguna menggunakan IndexedDB (via Dexie.js).
+ClearTask v3.2.0 adalah aplikasi berbasis web kasir offline-first dengan modul penunjang keputusan (DSS) SAW untuk prioritas restock barang, terintegrasi dengan pencatatan harga modal, operasional pengeluaran (expenses), visualisasi performa SVG offline, dan laporan penutupan sesi kasir terperinci. Seluruh data disimpan lokal menggunakan IndexedDB (Dexie.js).
 
 ### 1.3 Definitions
 
@@ -35,7 +35,11 @@ ClearTask v3.1.0 beroperasi 100% sebagai aplikasi web offline mandiri (_Fully Of
 
 ### 2.2 Product Functions
 
-- Pencatatan transaksi penjualan secara offline.
+- Pencatatan transaksi penjualan dengan pengikatan historis harga modal.
+- Pencatatan dan manajemen pengeluaran operasional toko (operational expenses).
+- Visualisasi analitik performa harian (Pemasukan, Pengeluaran, Profit) via SVG Chart murni.
+- Laporan penutupan sesi kasir (Closing Report) terperinci dengan rincian barang terjual terlaris.
+- Manajemen reaktif penambahan/penghapusan kategori dan sub-kategori kustom secara dinamis.
 - Perhitungan prioritas restock barang otomatis menggunakan algoritma SAW.
 - Impor dan ekspor basis data lokal dengan aman melalui validasi skema JSON.
 - Pengarsipan otomatis data transaksi lawas (_cold-data archiving_).
@@ -56,7 +60,7 @@ ClearTask v3.1.0 beroperasi 100% sebagai aplikasi web offline mandiri (_Fully Of
   - _Deskripsi:_ Sistem harus mencatat dan membandingkan tanggal transaksi serta sesi berdasarkan waktu lokal zona wilayah pengguna, bukan UTC.
   - _Detail:_ Menggunakan helper `toLocalDateString()` untuk mengunci format YYYY-MM-DD di semua lookup query database.
 - **FR-02: Multi-Version Database Migration**
-  - _Deskripsi:_ Database Dexie.js harus mendukung skema peningkatan multi-versi (v1 sampai v5) untuk menjaga integritas data historis selama upgrade.
+  - _Deskripsi:_ Database Dexie.js harus mendukung skema peningkatan multi-versi (v1 sampai v6) untuk menjaga integritas data historis selama upgrade.
 - **FR-03: Atomic Merge Import**
   - _Deskripsi:_ Modul import database JSON wajib menggunakan ACID transaction. Jika satu baris data gagal diimpor, seluruh proses impor harus dibatalkan (_rollback_).
 
@@ -78,6 +82,19 @@ ClearTask v3.1.0 beroperasi 100% sebagai aplikasi web offline mandiri (_Fully Of
 
 - **FR-08: Automatic Cold-Data Archival**
   - _Deskripsi:_ Sistem harus menyediakan utilitas pemindahan transaksi yang berumur melebihi parameter tanggal tertentu secara atomic ke tabel `archive_transactions`.
+
+### 3.5 Business Extensions (v3.2.0)
+
+- **FR-09: Historical Cost Price (Harga Modal) Mappings**
+  - _Deskripsi:_ Sistem wajib mengunci harga modal produk pada saat checkout ke dalam detail item transaksi untuk menjaga keakuratan margin laba secara historis.
+- **FR-10: Dedicated Operational Expenses Management**
+  - _Deskripsi:_ Menyediakan modul pencatatan pengeluaran operasional (Bahan Baku, Gaji, Sewa, Operasional, Lainnya) dengan validasi nominal ketat ke IndexedDB `expenses`.
+- **FR-11: Offline Area Performance SVG Chart**
+  - _Deskripsi:_ Rapor performa keuangan (Pemasukan, Pengeluaran, Profit Bersih) dihitung otomatis dan divisualisasikan menggunakan diagram area SVG responsif tanpa library eksternal.
+- **FR-12: Aggregated Sold Items Closing Report**
+  - _Deskripsi:_ Laporan penutupan sesi menyertakan tabel detail barang yang terjual beserta jumlah kuantitas dan akumulasi total rupiahnya secara berurutan.
+- **FR-13: Interactive Custom Categories Creation**
+  - _Deskripsi:_ Kasir/Admin dapat secara dinamis menambah dan menghapus kategori serta sub-kategori kustom dari antarmuka menu Pengaturan.
 
 ---
 

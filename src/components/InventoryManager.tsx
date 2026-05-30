@@ -331,7 +331,10 @@ export default function InventoryManager() {
                       Kategori
                     </th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
-                      Harga
+                      Harga Modal
+                    </th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      Harga Jual
                     </th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">
                       Stok
@@ -358,7 +361,10 @@ export default function InventoryManager() {
                           {item.kategori}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-text-primary">
+                      <td className="px-4 py-3 text-right font-medium text-text-secondary">
+                        {formatRupiah(item.hargaModal || 0)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-primary">
                         {formatRupiah(item.harga)}
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -477,24 +483,28 @@ export default function InventoryManager() {
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 mb-2 border-b border-border-subtle pb-2">
                   <div>
-                    <p className="text-[10px] text-text-muted">Harga</p>
-                    <p className="text-sm font-semibold text-text-primary">
+                    <p className="text-[10px] text-text-muted">Harga Modal</p>
+                    <p className="text-sm font-semibold text-text-secondary">
+                      {formatRupiah(item.hargaModal || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-text-muted">Harga Jual</p>
+                    <p className="text-sm font-bold text-primary">
                       {formatRupiah(item.harga)}
                     </p>
                   </div>
-                  <div className="text-center">
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
                     <p className="text-[10px] text-text-muted">Stok</p>
                     <p
                       className={`text-sm font-bold ${item.quantity <= 5 ? 'text-accent-red' : 'text-text-primary'}`}
                     >
-                      {item.quantity}
+                      {item.quantity} {item.satuan}
                     </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-text-muted">Satuan</p>
-                    <p className="text-sm text-text-secondary">{item.satuan}</p>
                   </div>
                 </div>
               </div>

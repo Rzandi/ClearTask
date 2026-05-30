@@ -3,6 +3,26 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.2.0] - 2026-05-30
+
+Versi 3.2.0 berfokus pada perluasan fitur bisnis premium (Business Extensions) dan integrasi data finansial yang mendalam (Deep Financial Integration) secara luring penuh (fully offline-first) untuk membantu pemilik toko mengelola keuntungan bersih secara real-time dan menganalisis operasional kasir dengan tingkat presisi yang lebih tinggi.
+
+### 🎉 Added & Enhanced (Business Extensions)
+
+- **Harga Modal (Cost Price) & Pengikatan Historis**: Menambahkan kolom harga modal pada inventaris barang di Master Barang. Sistem secara otomatis mengikat (_hard-bind_) harga modal produk pada saat checkout ke dalam detail item transaksi. Dengan demikian, perhitungan margin laba kotor historis tetap 100% akurat meskipun di kemudian hari harga modal barang di inventaris berubah.
+- **Modul Pengeluaran Operasional (Input Keluaran)**: Menyediakan tab navigasi khusus (`InputKeluaran.tsx`) untuk mencatat pengeluaran operasional toko (seperti Bahan Baku, Gaji, Sewa, Operasional, Lainnya) secara luring ke IndexedDB `expenses`. Dilengkapi penyaringan tanggal, pencarian kata kunci, dan daftar riwayat khusus mobile.
+- **Metrik Laba Bersih & Grafik Performa Visual (Pure SVG Chart)**: Menyusun panel metrik Laporan ringkas yang melacak Total Pemasukan, Total Pengeluaran, dan Laba Bersih (Pemasukan - Harga Modal Barang Terjual - Total Pengeluaran). Metrik ini dihubungkan langsung ke **Grafik Ikhtisar Performa Bisnis** berbasis diagram area SVG murni (`ReportingChart.tsx`) yang sangat ringan dan responsif tanpa library charting pihak ketiga.
+- **Rincian Barang Terjual Terlaris di Closing Report**: Memperluas modal laporan penutupan shift kasir (`ClosingReportModal.tsx`) dengan menyertakan tabel detail barang terjual yang merangkum nama produk, kuantitas unit terjual (terurut menurun), dan total nominal penjualannya. Tampilan dioptimalkan secara defensif dengan scroll-lock dan pembatasan lebar kolom agar ramah di layar mobile.
+- **Form Pembuatan Kategori & Sub-Kategori Dinamis**: Mengintegrasikan formulir pembuatan kategori dan sub-kategori kustom secara interaktif langsung dari dalam modal Pengaturan (`SettingsModal.tsx`), yang seketika disinkronisasikan ke dropdown masukan transaksi dan master barang secara real-time.
+
+### 🛡️ Type-Safety, Compilations & Hardening
+
+- **TypeScript Strict Compliance**: Menyelesaikan kendala kompilasi bertipe ketat (`exactOptionalPropertyTypes`) pada interface `CatalogItemProps` dengan mengizinkan properti `hargaModal` bernilai `number | undefined` secara aman.
+- **Defensive Hook Destructuring**: Menambahkan parameter fallback bawaan pada destrukturisasi hook `useCategories` di SettingsModal untuk menjamin kekokohan layar pengaturan dari potensi crash akibat mock data minimal saat unit testing.
+- **Test DOM Query Collision Resolution**: Menyelesaikan konflik kueri DOM pada pengujian otomatis akibat kesamaan teks kategori kustom di dropdown select dan list span dengan menyisipkan karakter zero-width space `\u200B` yang invisible secara visual namun unik secara string.
+
+---
+
 ## [3.1.0] - 2026-05-25
 
 Versi 3.1.0 fokus pada optimasi skalabilitas, keandalan sistem tingkat tinggi (System Hardening), dan performa tingkat lanjut (Advanced Performance Architecture) agar aplikasi tetap responsif dan aman meskipun data transaksi bertambah seiring usia operasional toko.

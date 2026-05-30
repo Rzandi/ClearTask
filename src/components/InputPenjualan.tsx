@@ -165,11 +165,17 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
       return;
     }
 
+    const matchedItem = inventory.find(
+      (invItem) => invItem.namaBarang?.toLowerCase().trim() === form.namaBarang.trim().toLowerCase()
+    );
+    const resolvedHargaModal = matchedItem ? (matchedItem.hargaModal || 0) : 0;
+
     addToCart({
       namaBarang: form.namaBarang.trim(),
       kategori: form.kategori,
       subKategori: form.subKategori,
       hargaSatuan: h,
+      hargaModal: resolvedHargaModal,
       qty: q,
     });
 
@@ -320,6 +326,7 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
                     kategori={item.kategori}
                     subKategori={item.subKategori ?? ''}
                     harga={item.harga}
+                    hargaModal={item.hargaModal}
                     quantity={item.quantity}
                     onAddToCart={addToCart} 
                     onUpdateStock={updateInventoryItem} 
@@ -664,13 +671,14 @@ interface CatalogItemProps {
   kategori: string;
   subKategori?: string;
   harga: number;
+  hargaModal?: number | undefined;
   quantity: number;
   onAddToCart: (item: any) => void;
   onUpdateStock: (id: string, data: any) => void;
 }
 
 const CatalogItemCard = memo(function CatalogItemCard({ 
-  id, namaBarang, kategori, subKategori, harga, quantity, onAddToCart, onUpdateStock 
+  id, namaBarang, kategori, subKategori, harga, hargaModal, quantity, onAddToCart, onUpdateStock 
 }: CatalogItemProps) {
   const stock = quantity || 0;
   const isOutOfStock = stock <= 0;
@@ -692,6 +700,7 @@ const CatalogItemCard = memo(function CatalogItemCard({
             kategori,
             subKategori: subKategori || '',
             hargaSatuan: harga,
+            hargaModal: hargaModal || 0,
             qty: 1,
           })
         }

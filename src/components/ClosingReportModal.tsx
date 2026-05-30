@@ -4,6 +4,7 @@
    Feature: session-management
    ═══════════════════════════════════════════════════════════ */
 
+import { useMemo } from 'react';
 import { calculateSessionStats } from '../utils/sessionStats';
 import { exportSessionExcel } from '../utils/exportExcel';
 import { exportSessionCSV } from '../utils/exportCSV';
@@ -33,6 +34,28 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
 
   // 11.13 Gunakan calculateSessionStats untuk menghitung statistik
   const stats = calculateSessionStats(session, transactions);
+
+  // Calculate detailed breakdown of sold items during this session
+  const soldItemsBreakdown = useMemo(() => {
+    const itemsMap: Record<string, { namaBarang: string; qty: number; total: number }> = {};
+    
+    transactions.forEach((tx) => {
+      if (tx.items && Array.isArray(tx.items)) {
+        tx.items.forEach((item: any) => {
+          if (!item.namaBarang) return;
+          const key = item.namaBarang.trim();
+          if (!itemsMap[key]) {
+            itemsMap[key] = { namaBarang: key, qty: 0, total: 0 };
+          }
+          itemsMap[key].qty += (item.qty || 1);
+          itemsMap[key].total += (item.total || (item.hargaSatuan * item.qty) || 0);
+        });
+      }
+    });
+
+    // Sort by quantity sold descending
+    return Object.values(itemsMap).sort((a, b) => b.qty - a.qty);
+  }, [transactions]);
 
   // 11.2 Tampilkan nama sesi atau "Sesi Tanpa Nama"
   const displayName = session?.nama || 'Sesi Tanpa Nama';
@@ -170,6 +193,37 @@ export default function ClosingReportModal({ isOpen, session, transactions = [],
                     </tbody>
                   </table>
                 </div>
+              </section>
+
+              {/* Detail Barang Terjual */}
+              <section>
+                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Detail Barang Terjual</h3>
+                {soldItemsBreakdown.length === 0 ? (
+                  <div className="bg-bg-elevated rounded-xl p-4 border border-border-subtle flex items-center justify-center">
+                    <p className="text-sm text-text-secondary">Tidak ada rincian barang terjual.</p>
+                  </div>
+                ) : (
+                  <div className="bg-bg-elevated rounded-xl border border-border-subtle overflow-hidden max-h-[220px] overflow-y-auto">
+                    <table className="w-full text-[11px] sm:text-sm">
+                      <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle z-10">
+                        <tr>
+                          <th className="text-left px-2 sm:px-4 py-2 text-xs font-semibold text-text-muted">Nama Barang</th>
+                          <th className="text-center px-2 sm:px-4 py-2 text-xs font-semibold text-text-muted">Terjual</th>
+                          <th className="text-right px-2 sm:px-4 py-2 text-xs font-semibold text-text-muted">Total Penjualan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {soldItemsBreakdown.map((item, idx) => (
+                          <tr key={idx} className="border-b border-border-subtle last:border-0 hover:bg-white/[0.01]">
+                            <td className="px-2 sm:px-4 py-2 sm:py-2.5 text-text-primary font-medium truncate max-w-[110px] sm:max-w-[180px]">{item.namaBarang}</td>
+                            <td className="px-2 sm:px-4 py-2 sm:py-2.5 text-center text-text-secondary font-bold">{item.qty}</td>
+                            <td className="px-2 sm:px-4 py-2 sm:py-2.5 text-right text-text-primary">{formatRupiah(item.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
 
               {/* 11.6 Breakdown per metode pembayaran */}

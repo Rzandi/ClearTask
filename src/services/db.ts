@@ -16,6 +16,7 @@ export class ClearTaskDB extends Dexie {
   saw_criterias!: Table<any, number>;
   saw_history!: Table<any, number>;
   archive_transactions!: Table<any, number>;
+  expenses!: Table<any, number>;
 
   constructor() {
     super('ClearTaskDB');
@@ -126,6 +127,14 @@ export class ClearTaskDB extends Dexie {
 
     this.version(5).stores({
       archive_transactions: '++id, transactionId, tanggal, sessionId, createdAt, kasir, updatedAt, syncStatus',
+    });
+
+    this.version(6).stores({
+      expenses: '++id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
+    }).upgrade(async (tx: DexieTransaction) => {
+      await tx.table('inventory').toCollection().modify((item: any) => {
+        item.hargaModal = item.hargaModal || item.hargaDasar || 0;
+      });
     });
   }
 }

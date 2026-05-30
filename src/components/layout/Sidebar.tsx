@@ -22,6 +22,7 @@ export default function Sidebar({
   const { settings } = useSettings();
   const navItems = [
     { id: 'input', label: 'Input Penjualan', icon: InputIcon },
+    { id: 'keluaran', label: 'Input Keluaran', icon: KeluaranIcon },
     { id: 'laporan', label: 'Riwayat Laporan', icon: LaporanIcon },
     { id: 'riwayat-sesi', label: 'Riwayat Sesi', icon: SessionHistoryIcon },
     { id: 'database', label: 'Database', icon: DatabaseIcon },
@@ -291,6 +292,25 @@ function SpkIcon({ active }: { active: boolean }) {
     >
       <path d="M3 3v18h18" />
       <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+    </svg>
+  );
+}
+
+function KeluaranIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={active ? '#00ffa3' : '#6e7681'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
+      <line x1="2" y1="10" x2="22" y2="10" />
+      <line x1="12" y1="15" x2="16" y2="15" />
     </svg>
   );
 }
