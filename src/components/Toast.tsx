@@ -11,7 +11,12 @@ export interface ToastProps {
   duration?: number;
 }
 
-const Toast = memo(function Toast({ message, type = 'success', onClose, duration = 5000 }: ToastProps) {
+const Toast = memo(function Toast({
+  message,
+  type = 'success',
+  onClose,
+  duration = 5000,
+}: ToastProps) {
   const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {

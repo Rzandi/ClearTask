@@ -3,6 +3,25 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.3.0] - 2026-06-06
+
+Versi 3.3.0 berfokus pada keandalan migrasi data tingkat lanjut (Advanced Data Portability), peningkatan skema cadangan (Database Backup v2.0), penanganan pemulihan kategori secara otomatis (Self-Healing Category Sync), serta visualisasi pratinjau penggabungan data yang lebih detail dan transparan.
+
+### 🎉 Added & Enhanced (Data Integrity & Portability)
+
+- **Database Backup Schema v2.0**: Ekspor basis data kini ditingkatkan ke skema v2.0 untuk mencakup semua data operasional tambahan, yaitu pengeluaran (`expenses`), arsip transaksi (`archive_transactions`), kriteria penilaian SAW (`saw_criterias`), dan riwayat penilaian SAW (`saw_history`).
+- **Backward-Compatible Import**: Menjamin kecocokan penuh ke belakang. Sistem secara otomatis mendeteksi cadangan v1.0 dan mengimpor tabel-tabel utama (transaksi, barang, dll.) dengan lancar tanpa crash.
+- **Self-Healing Category Sync**: Implementasi fungsi `syncMissingCategories()` pada fase inisialisasi aplikasi (`App.tsx`). Jika kategori/sub-kategori preset bawaan hilang atau terhapus secara tidak sengaja, sistem akan memulihkannya kembali ke IndexedDB secara otomatis tanpa menimpa kategori kustom yang sudah dibuat pengguna.
+- **Detailed Merge Preview Counts**: Memperluas antarmuka `MergePreviewModal` untuk menampilkan jumlah baris baru dan konflik secara mendalam pada setiap tabel yang terdampak sebelum pengguna melakukan penggabungan data (merge).
+
+### 🛠️ Fixed & Hardened
+
+- **Dexie Transaction Argument Limits**: Memperbaiki bug kompilasi TypeScript pada `db.transaction('rw', ...)` saat memproses lebih dari 6 tabel dengan membungkus parameter tabel ke dalam satu array array-based transaction.
+- **TypeScript Strict Safety**: Melenyapkan peringatan implicit `any` pada parameter dictionary sub-kategori di closures mapping `databaseManager.ts`.
+- **Integration Test Suite expansion**: Menambahkan 5 pengujian otomatis baru di `databaseManager.test.js` untuk memverifikasi merge logika v2.0, deteksi konflik LWW (Last-Write-Wins), dan backward compatibility impor v1.0. Semua 32 test suite (277 tests) kini berjalan 100% lulus.
+
+---
+
 ## [3.2.0] - 2026-05-30
 
 Versi 3.2.0 berfokus pada perluasan fitur bisnis premium (Business Extensions) dan integrasi data finansial yang mendalam (Deep Financial Integration) secara luring penuh (fully offline-first) untuk membantu pemilik toko mengelola keuntungan bersih secara real-time dan menganalisis operasional kasir dengan tingkat presisi yang lebih tinggi.

@@ -27,7 +27,12 @@ export interface InventoryModalProps {
   editItem?: any;
 }
 
-export default function InventoryModal({ isOpen, onClose, onSave, editItem = null }: InventoryModalProps) {
+export default function InventoryModal({
+  isOpen,
+  onClose,
+  onSave,
+  editItem = null,
+}: InventoryModalProps) {
   const { allCategories, subCategoriesFor } = useCategories();
 
   const [form, setForm] = useState({
@@ -271,9 +276,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem = nul
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                Stok
-              </label>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">Stok</label>
               <input
                 type="number"
                 name="quantity"

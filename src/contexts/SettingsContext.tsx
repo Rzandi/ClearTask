@@ -8,7 +8,12 @@ import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../services/db';
 
-import { defaultSettings, VALID_ACCENT_COLORS, applyThemeToDOM, type AppSettings } from '../config/settingsConfig';
+import {
+  defaultSettings,
+  VALID_ACCENT_COLORS,
+  applyThemeToDOM,
+  type AppSettings,
+} from '../config/settingsConfig';
 
 export interface SettingsContextValue {
   settings: AppSettings;

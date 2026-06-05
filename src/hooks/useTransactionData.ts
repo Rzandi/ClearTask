@@ -97,19 +97,22 @@ export function useTransactionData(
   }, []);
 
   // ── Update Transaction ──
-  const updateTransaction = useCallback(async (id: string | number, data: any) => {
-    const changes = {
-      ...data,
-      updatedAt: new Date().toISOString(),
-      updatedBy: currentUser,
-    };
+  const updateTransaction = useCallback(
+    async (id: string | number, data: any) => {
+      const changes = {
+        ...data,
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser,
+      };
 
-    const numId = Number(id);
-    const updatedRows = await db.transactions.update(numId, changes);
-    if (updatedRows === 0) return null;
+      const numId = Number(id);
+      const updatedRows = await db.transactions.update(numId, changes);
+      if (updatedRows === 0) return null;
 
-    return await db.transactions.get(numId);
-  }, [currentUser]);
+      return await db.transactions.get(numId);
+    },
+    [currentUser]
+  );
 
   // ── Delete Transaction ──
   const deleteTransaction = useCallback(async (id: string | number) => {

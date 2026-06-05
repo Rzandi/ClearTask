@@ -32,6 +32,7 @@ import {
   calculateMerge,
   applyMerge,
   archiveOldTransactions,
+  syncMissingCategories,
 } from '../services/databaseManager';
 
 // ── Dexie Setup Helper ────────────────────────────────────
@@ -41,6 +42,10 @@ async function setupDexie(data = {}) {
   await db.sessions.clear();
   await db.categories.clear();
   await db.inventory.clear();
+  await db.expenses.clear();
+  await db.archive_transactions.clear();
+  await db.saw_criterias.clear();
+  await db.saw_history.clear();
 
   if (data.cleartask_transactions) {
     const txs =
@@ -61,7 +66,12 @@ async function setupDexie(data = {}) {
       typeof data.cleartask_categories === 'string'
         ? JSON.parse(data.cleartask_categories)
         : data.cleartask_categories;
-    await db.categories.put({ id: 1, key: 'main', categories: cats.categories });
+    await db.categories.put({
+      id: 1,
+      key: 'main',
+      categories: cats.categories || [],
+      subCategories: cats.subCategories || {},
+    });
   }
   if (data.cleartask_inventory) {
     const inv =
@@ -69,6 +79,34 @@ async function setupDexie(data = {}) {
         ? JSON.parse(data.cleartask_inventory)
         : data.cleartask_inventory;
     if (inv.length) await db.inventory.bulkAdd(inv);
+  }
+  if (data.cleartask_expenses) {
+    const expenses =
+      typeof data.cleartask_expenses === 'string'
+        ? JSON.parse(data.cleartask_expenses)
+        : data.cleartask_expenses;
+    if (expenses.length) await db.expenses.bulkAdd(expenses);
+  }
+  if (data.cleartask_archive_transactions) {
+    const arcTxs =
+      typeof data.cleartask_archive_transactions === 'string'
+        ? JSON.parse(data.cleartask_archive_transactions)
+        : data.cleartask_archive_transactions;
+    if (arcTxs.length) await db.archive_transactions.bulkAdd(arcTxs);
+  }
+  if (data.cleartask_saw_criterias) {
+    const criteria =
+      typeof data.cleartask_saw_criterias === 'string'
+        ? JSON.parse(data.cleartask_saw_criterias)
+        : data.cleartask_saw_criterias;
+    if (criteria.length) await db.saw_criterias.bulkAdd(criteria);
+  }
+  if (data.cleartask_saw_history) {
+    const history =
+      typeof data.cleartask_saw_history === 'string'
+        ? JSON.parse(data.cleartask_saw_history)
+        : data.cleartask_saw_history;
+    if (history.length) await db.saw_history.bulkAdd(history);
   }
 }
 
@@ -151,7 +189,7 @@ describe('exportDatabase()', () => {
     expect(parsed.transactions).toEqual([]);
     expect(parsed.sessions).toEqual([]);
     expect(parsed.categories).toEqual({ categories: [] });
-    expect(parsed.version).toBe('1.0');
+    expect(parsed.version).toBe('2.0');
     expect(parsed.exportedAt).toBeTruthy();
   });
 
@@ -168,7 +206,7 @@ describe('exportDatabase()', () => {
     const text = await blob.text();
     const parsed = JSON.parse(text);
 
-    expect(parsed.version).toBe('1.0');
+    expect(parsed.version).toBe('2.0');
     expect(parsed.exportedAt).toBeTruthy();
     expect(parsed.transactions).toHaveLength(1);
     expect(parsed.transactions[0].transactionId).toBe('TRX-00001');
@@ -198,7 +236,7 @@ describe('validateImport()', () => {
   });
 
   it('versi salah → valid: false', () => {
-    const data = { ...validExportData, version: '2.0' };
+    const data = { ...validExportData, version: '3.0' };
     const result = validateImport(JSON.stringify(data));
     expect(result.valid).toBe(false);
     expect(result.error).toMatch(/versi database tidak didukung/);
@@ -422,6 +460,176 @@ describe('archiveOldTransactions()', () => {
 });
 
 // ═══════════════════════════════════════════════════════════
+// calculateMerge() & applyMerge() for v2.0 additional tables
+// ═══════════════════════════════════════════════════════════
+
+describe('v2.0 additional tables merging & sync', () => {
+  beforeEach(async () => {
+    await setupDexie({});
+  });
+
+  it('menggabungkan expenses dengan deduplikasi id', async () => {
+    const existingExpense = {
+      id: 'exp-1',
+      tanggal: '2025-07-14',
+      kategori: 'Lainnya',
+      namaKeluaran: 'ATK',
+      jumlah: 15000,
+    };
+    await setupDexie({
+      cleartask_expenses: [existingExpense],
+    });
+
+    const newExpense = {
+      id: 'exp-2',
+      tanggal: '2025-07-15',
+      kategori: 'Lainnya',
+      namaKeluaran: 'Sapu',
+      jumlah: 25000,
+    };
+    const importData = {
+      ...validExportData,
+      version: '2.0',
+      expenses: [existingExpense, newExpense],
+    };
+
+    const merge = await calculateMerge(importData);
+    expect(merge.newExpenses).toBe(1);
+    expect(merge.expensesToAdd).toEqual([newExpense]);
+
+    const result = await applyMerge(merge);
+    expect(result.success).toBe(true);
+
+    const stored = await db.expenses.toArray();
+    expect(stored).toHaveLength(2);
+    expect(stored.map((e) => e.id)).toContain('exp-2');
+  });
+
+  it('menggabungkan archive_transactions dengan deduplikasi transactionId', async () => {
+    const existingArc = { ...sampleTransaction, transactionId: 'TRX-ARC-1', id: 100 };
+    await setupDexie({
+      cleartask_archive_transactions: [existingArc],
+    });
+
+    const newArc = { ...sampleTransaction, transactionId: 'TRX-ARC-2', id: 101 };
+    const importData = {
+      ...validExportData,
+      version: '2.0',
+      archive_transactions: [existingArc, newArc],
+    };
+
+    const merge = await calculateMerge(importData);
+    expect(merge.newArchiveTransactions).toBe(1);
+    expect(merge.archiveTransactionsToAdd).toEqual([newArc]);
+
+    const result = await applyMerge(merge);
+    expect(result.success).toBe(true);
+
+    const stored = await db.archive_transactions.toArray();
+    expect(stored).toHaveLength(2);
+  });
+
+  it('menggabungkan saw_history dengan deduplikasi createdAt', async () => {
+    const hist1 = {
+      period: 'last_30_days',
+      createdAt: '2026-06-05T14:54:02.870Z',
+      weights: {},
+      results_snapshot: [],
+    };
+    await setupDexie({
+      cleartask_saw_history: [hist1],
+    });
+
+    const hist2 = {
+      period: 'last_30_days',
+      createdAt: '2026-06-05T15:00:00.000Z',
+      weights: {},
+      results_snapshot: [],
+    };
+    const importData = {
+      ...validExportData,
+      version: '2.0',
+      saw_history: [hist1, hist2],
+    };
+
+    const merge = await calculateMerge(importData);
+    expect(merge.newSawHistory).toBe(1);
+
+    await applyMerge(merge);
+    const stored = await db.saw_history.toArray();
+    expect(stored).toHaveLength(2);
+  });
+
+  it('kriteria SAW: imported lebih baru -> update kriteria yang ada', async () => {
+    const critOld = {
+      id: 1,
+      c1_weight: 0.35,
+      c2_weight: 0.3,
+      c3_weight: 0.2,
+      c4_weight: 0.15,
+      updatedAt: '2026-06-05T10:00:00.000Z',
+    };
+    await setupDexie({
+      cleartask_saw_criterias: [critOld],
+    });
+
+    const critNew = {
+      id: 2,
+      c1_weight: 0.4,
+      c2_weight: 0.3,
+      c3_weight: 0.2,
+      c4_weight: 0.1,
+      updatedAt: '2026-06-05T11:00:00.000Z',
+    };
+    const importData = {
+      ...validExportData,
+      version: '2.0',
+      saw_criterias: [critNew],
+    };
+
+    const merge = await calculateMerge(importData);
+    expect(merge.sawCriteriaUpdated).toBe(true);
+    expect(merge.sawCriteriasToPut.c1_weight).toBe(0.4);
+    expect(merge.sawCriteriasToPut.id).toBe(1); // retain existing ID for overwrite
+
+    await applyMerge(merge);
+    const stored = await db.saw_criterias.toArray();
+    expect(stored).toHaveLength(1);
+    expect(stored[0].c1_weight).toBe(0.4);
+  });
+
+  it('syncMissingCategories: memulihkan kategori/subkategori dari data yang sudah ada', async () => {
+    const tx = {
+      ...sampleTransaction,
+      transactionId: 'TRX-TEST-CAT',
+      items: [
+        {
+          namaBarang: 'Kecap Bango',
+          kategori: 'Bumbu dapur',
+          subKategori: 'Kecap',
+          qty: 1,
+          total: 10000,
+          hargaSatuan: 10000,
+        },
+      ],
+    };
+
+    await setupDexie({
+      cleartask_transactions: [tx],
+      cleartask_categories: { categories: [] },
+    });
+
+    const syncRes = await syncMissingCategories();
+    expect(syncRes.success).toBe(true);
+
+    const storedCats = await db.categories.toArray();
+    expect(storedCats).toHaveLength(1);
+    expect(storedCats[0].categories).toContain('Bumbu dapur');
+    expect(storedCats[0].subCategories['Bumbu dapur']).toContain('Kecap');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
 // PROPERTY-BASED TESTS
 // ═══════════════════════════════════════════════════════════
 
@@ -489,7 +697,7 @@ describe('Property 1: Round-Trip Export-Import', () => {
           expect(parsed.transactions.sort(sortById)).toEqual([...transactions].sort(sortById));
           expect(parsed.sessions.sort(sortById)).toEqual([...sessions].sort(sortById));
           expect(parsed.categories.categories).toEqual(categoryNames);
-          expect(parsed.version).toBe('1.0');
+          expect(parsed.version).toBe('2.0');
         }
       ),
       { numRuns: 10 }

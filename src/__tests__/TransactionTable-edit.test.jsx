@@ -11,17 +11,13 @@ import TransactionTable from '../components/TransactionTable';
 // Mock EditTransactionModal
 vi.mock('../components/EditTransactionModal', () => ({
   default: ({ isOpen, transaction }) =>
-    isOpen ? (
-      <div data-testid="edit-modal-open">{transaction?.transactionId}</div>
-    ) : null,
+    isOpen ? <div data-testid="edit-modal-open">{transaction?.transactionId}</div> : null,
 }));
 
 // Mock ConfirmDialog
 vi.mock('../components/ConfirmDialog', () => ({
   default: ({ isOpen, message }) =>
-    isOpen ? (
-      <div data-testid="confirm-dialog-open">{message}</div>
-    ) : null,
+    isOpen ? <div data-testid="confirm-dialog-open">{message}</div> : null,
 }));
 
 // Helper: buat objek transaksi
@@ -102,9 +98,7 @@ describe('TransactionTable — fitur aksi', () => {
     const transactions = [makeTx({ transactionId: 'TRX-00001' })];
     render(<TransactionTable transactions={transactions} {...defaultProps} />);
 
-    expect(
-      screen.getByRole('button', { name: 'Edit transaksi TRX-00001' })
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit transaksi TRX-00001' })).toBeTruthy();
   });
 
   // 12.6: Tombol Hapus memiliki aria-label yang menyebutkan transactionId
@@ -112,9 +106,7 @@ describe('TransactionTable — fitur aksi', () => {
     const transactions = [makeTx({ transactionId: 'TRX-00001' })];
     render(<TransactionTable transactions={transactions} {...defaultProps} />);
 
-    expect(
-      screen.getByRole('button', { name: 'Hapus transaksi TRX-00001' })
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Hapus transaksi TRX-00001' })).toBeTruthy();
   });
 
   // 12.7: Klik tombol Edit membuka EditTransactionModal dengan data transaksi yang benar

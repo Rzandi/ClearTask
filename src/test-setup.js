@@ -9,6 +9,8 @@
 import '@testing-library/jest-dom';
 import 'fake-indexeddb/auto';
 
+global.IS_REACT_ACT_ENVIRONMENT = true;
+
 import db from './services/db';
 import { beforeEach, afterEach, vi } from 'vitest';
 

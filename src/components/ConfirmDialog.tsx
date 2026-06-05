@@ -17,20 +17,27 @@ export interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-const ConfirmDialog = memo(function ConfirmDialog({ isOpen, message, title, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+const ConfirmDialog = memo(function ConfirmDialog({
+  isOpen,
+  message,
+  title,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
   return (
     <Modal
       isOpen={isOpen}
       onClose={onCancel}
       size="sm"
-      title={title || "Konfirmasi Hapus"}
+      title={title || 'Konfirmasi Hapus'}
       footer={
         <div className="flex items-center justify-end gap-3">
           <Button variant="outline" size="sm" onClick={onCancel}>
             Batal
           </Button>
           <Button variant="danger" size="sm" onClick={onConfirm}>
-            {confirmLabel || "Hapus"}
+            {confirmLabel || 'Hapus'}
           </Button>
         </div>
       }

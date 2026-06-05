@@ -4,7 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import React, { useState, useMemo } from 'react';
-import { useExpenses } from '../hooks/useExpenses';
+import { useExpenses, type ExpenseItem } from '../hooks/useExpenses';
 import { formatRupiah, getTodayISO } from '../utils/formatters';
 import FieldGroup from './ui/FieldGroup';
 import Button from './ui/Button';
@@ -19,7 +19,7 @@ export default function InputKeluaran() {
 
   const [form, setForm] = useState({
     tanggal: getTodayISO(),
-    kategori: KATEGORI_OPTIONS[0],
+    kategori: KATEGORI_OPTIONS[0] || 'Bahan Baku',
     namaKeluaran: '',
     jumlah: '',
     catatan: '',
@@ -88,13 +88,18 @@ export default function InputKeluaran() {
     if (!isValid) return;
 
     try {
-      await addExpense({
+      const expenseData: Omit<ExpenseItem, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'> = {
         tanggal: form.tanggal,
-        kategori: form.kategori,
+        kategori: form.kategori || 'Bahan Baku',
         namaKeluaran: form.namaKeluaran.trim(),
         jumlah: jumlahVal,
-        catatan: form.catatan.trim() || undefined,
-      });
+      };
+
+      if (form.catatan.trim()) {
+        expenseData.catatan = form.catatan.trim();
+      }
+
+      await addExpense(expenseData);
 
       // Reset form but keep date and category
       setForm((prev) => ({
@@ -159,12 +164,7 @@ export default function InputKeluaran() {
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <FieldGroup label="Tanggal">
-              <Input
-                type="date"
-                name="tanggal"
-                value={form.tanggal}
-                onChange={handleChange}
-              />
+              <Input type="date" name="tanggal" value={form.tanggal} onChange={handleChange} />
             </FieldGroup>
 
             <FieldGroup label="Kategori Pengeluaran">
@@ -224,9 +224,7 @@ export default function InputKeluaran() {
             {jumlahVal > 0 && (
               <div className="bg-bg-elevated rounded-xl p-3 border border-border-subtle">
                 <p className="text-xs text-text-muted mb-0.5">Jumlah Tercatat</p>
-                <p className="text-base font-bold text-accent-red">
-                  {formatRupiah(jumlahVal)}
-                </p>
+                <p className="text-base font-bold text-accent-red">{formatRupiah(jumlahVal)}</p>
               </div>
             )}
 
@@ -308,16 +306,26 @@ export default function InputKeluaran() {
                 <thead>
                   <tr className="border-b border-border-default">
                     <th className="py-2.5 px-3 font-semibold text-text-muted uppercase">Tanggal</th>
-                    <th className="py-2.5 px-3 font-semibold text-text-muted uppercase">Kategori</th>
-                    <th className="py-2.5 px-3 font-semibold text-text-muted uppercase">Deskripsi</th>
-                    <th className="py-2.5 px-3 font-semibold text-text-muted uppercase text-right">Nominal</th>
-                    <th className="py-2.5 px-3 font-semibold text-text-muted uppercase text-center">Aksi</th>
+                    <th className="py-2.5 px-3 font-semibold text-text-muted uppercase">
+                      Kategori
+                    </th>
+                    <th className="py-2.5 px-3 font-semibold text-text-muted uppercase">
+                      Deskripsi
+                    </th>
+                    <th className="py-2.5 px-3 font-semibold text-text-muted uppercase text-right">
+                      Nominal
+                    </th>
+                    <th className="py-2.5 px-3 font-semibold text-text-muted uppercase text-center">
+                      Aksi
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle">
                   {filteredExpenses.map((item) => (
                     <tr key={item.id} className="hover:bg-white/[0.01] transition-colors">
-                      <td className="py-3 px-3 text-text-secondary whitespace-nowrap">{item.tanggal}</td>
+                      <td className="py-3 px-3 text-text-secondary whitespace-nowrap">
+                        {item.tanggal}
+                      </td>
                       <td className="py-3 px-3">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-red/10 text-accent-red">
                           {item.kategori}
@@ -325,7 +333,9 @@ export default function InputKeluaran() {
                       </td>
                       <td className="py-3 px-3">
                         <p className="font-semibold text-text-primary">{item.namaKeluaran}</p>
-                        {item.catatan && <p className="text-[10px] text-text-muted mt-0.5">{item.catatan}</p>}
+                        {item.catatan && (
+                          <p className="text-[10px] text-text-muted mt-0.5">{item.catatan}</p>
+                        )}
                       </td>
                       <td className="py-3 px-3 text-right font-bold text-accent-red whitespace-nowrap">
                         {formatRupiah(item.jumlah)}
@@ -357,11 +367,18 @@ export default function InputKeluaran() {
               {/* Mobile Card List View */}
               <div className="sm:hidden space-y-3">
                 {filteredExpenses.map((item) => (
-                  <div key={item.id} className="bg-bg-input p-3 border border-border-subtle rounded-xl flex flex-col gap-2 relative">
+                  <div
+                    key={item.id}
+                    className="bg-bg-input p-3 border border-border-subtle rounded-xl flex flex-col gap-2 relative"
+                  >
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 pr-6">
-                        <h4 className="text-xs font-bold text-text-primary truncate">{item.namaKeluaran}</h4>
-                        <p className="text-[10px] text-text-muted mt-0.5">{item.tanggal} • {item.kategori}</p>
+                        <h4 className="text-xs font-bold text-text-primary truncate">
+                          {item.namaKeluaran}
+                        </h4>
+                        <p className="text-[10px] text-text-muted mt-0.5">
+                          {item.tanggal} • {item.kategori}
+                        </p>
                       </div>
                       <button
                         onClick={() => setDeleteTarget(item)}
@@ -381,11 +398,15 @@ export default function InputKeluaran() {
                       </button>
                     </div>
                     {item.catatan && (
-                      <p className="text-[10px] text-text-secondary bg-bg-surface px-2 py-1 rounded border border-border-subtle">{item.catatan}</p>
+                      <p className="text-[10px] text-text-secondary bg-bg-surface px-2 py-1 rounded border border-border-subtle">
+                        {item.catatan}
+                      </p>
                     )}
                     <div className="flex justify-between items-center mt-1 border-t border-border-subtle pt-2">
                       <span className="text-[10px] text-text-muted">Nominal</span>
-                      <span className="text-xs font-bold text-accent-red">{formatRupiah(item.jumlah)}</span>
+                      <span className="text-xs font-bold text-accent-red">
+                        {formatRupiah(item.jumlah)}
+                      </span>
                     </div>
                   </div>
                 ))}

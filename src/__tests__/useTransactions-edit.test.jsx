@@ -50,6 +50,7 @@ const renderHookAndReady = async () => {
   let hookResult;
   await act(async () => {
     hookResult = renderHook(() => useTransactions());
+    await new Promise((resolve) => setTimeout(resolve, 10));
   });
   // Wait until the hook has finished initial loading from Dexie
   await waitFor(
@@ -131,9 +132,8 @@ describe('Task 13 — Property Tests: useTransactions.js', () => {
 
             await act(async () => {
               await result.current.deleteTransaction(1);
+              await new Promise((resolve) => setTimeout(resolve, 50));
             });
-
-            await new Promise((resolve) => setTimeout(resolve, 50));
 
             expect(result.current.searchQuery).toBe(searchQuery);
             expect(result.current.filterDate).toBe(filterDate);

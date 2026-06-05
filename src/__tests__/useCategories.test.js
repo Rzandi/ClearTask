@@ -49,7 +49,7 @@ describe('useCategories hook (Async Dexie)', () => {
     const { result } = await renderHookAndReady();
 
     await act(async () => {
-      const res1 = await result.current.addCategory('Elektronik'); // Bawaan
+      const res1 = await result.current.addCategory('Makanan'); // Bawaan
       expect(res1.success).toBe(false);
 
       await result.current.addCategory('Olahraga');
@@ -84,7 +84,7 @@ describe('useCategories hook (Async Dexie)', () => {
     const { result } = await renderHookAndReady();
 
     await act(async () => {
-      const res = await result.current.deleteCategory('Elektronik');
+      const res = await result.current.deleteCategory('Makanan');
       expect(res.success).toBe(false);
     });
   });
@@ -122,7 +122,7 @@ describe('useCategories hook (Async Dexie)', () => {
     const { result } = await renderHookAndReady();
 
     await act(async () => {
-      const res = await result.current.deleteSubCategory('Elektronik', 'Gadget');
+      const res = await result.current.deleteSubCategory('Makanan', 'Snack');
       expect(res.success).toBe(false);
     });
   });

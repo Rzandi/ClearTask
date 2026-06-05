@@ -16,7 +16,7 @@ export class ClearTaskDB extends Dexie {
   saw_criterias!: Table<any, number>;
   saw_history!: Table<any, number>;
   archive_transactions!: Table<any, number>;
-  expenses!: Table<any, number>;
+  expenses!: Table<any, string>;
 
   constructor() {
     super('ClearTaskDB');
@@ -47,7 +47,8 @@ export class ClearTaskDB extends Dexie {
           .table('transactions')
           .toCollection()
           .modify((txRecord: any) => {
-            txRecord.updatedAt = txRecord.updatedAt || txRecord.createdAt || new Date().toISOString();
+            txRecord.updatedAt =
+              txRecord.updatedAt || txRecord.createdAt || new Date().toISOString();
             txRecord.syncStatus = txRecord.syncStatus || 'local';
           });
 
@@ -126,16 +127,46 @@ export class ClearTaskDB extends Dexie {
       });
 
     this.version(5).stores({
-      archive_transactions: '++id, transactionId, tanggal, sessionId, createdAt, kasir, updatedAt, syncStatus',
+      archive_transactions:
+        '++id, transactionId, tanggal, sessionId, createdAt, kasir, updatedAt, syncStatus',
     });
 
-    this.version(6).stores({
-      expenses: '++id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
-    }).upgrade(async (tx: DexieTransaction) => {
-      await tx.table('inventory').toCollection().modify((item: any) => {
-        item.hargaModal = item.hargaModal || item.hargaDasar || 0;
+    this.version(6)
+      .stores({
+        expenses: '++id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
+      })
+      .upgrade(async (tx: DexieTransaction) => {
+        await tx
+          .table('inventory')
+          .toCollection()
+          .modify((item: any) => {
+            item.hargaModal = item.hargaModal || item.hargaDasar || 0;
+          });
       });
-    });
+
+    this.version(7)
+      .stores({
+        expenses: '&id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
+      })
+      .upgrade(async (tx: DexieTransaction) => {
+        // Migrate any expense records that have integer IDs (from old ++id schema)
+        // to string UUIDs required by the new &id schema.
+        await tx
+          .table('expenses')
+          .toCollection()
+          .modify((record: any) => {
+            if (typeof record.id === 'number') {
+              record.id =
+                typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                  ? crypto.randomUUID()
+                  : 'ex-xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                      const r = (Math.random() * 16) | 0;
+                      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                      return v.toString(16);
+                    });
+            }
+          });
+      });
   }
 }
 

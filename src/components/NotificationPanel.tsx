@@ -23,7 +23,11 @@ export interface NotificationPanelProps {
   transactions: any[];
 }
 
-export default function NotificationPanel({ isOpen, onClose, transactions }: NotificationPanelProps) {
+export default function NotificationPanel({
+  isOpen,
+  onClose,
+  transactions,
+}: NotificationPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -94,14 +98,20 @@ export default function NotificationPanel({ isOpen, onClose, transactions }: Not
             <p className="text-sm text-text-muted">Belum ada transaksi</p>
           </div>
         ) : (
-          recentTransactions.map((tx) => (
+          recentTransactions.map((tx, idx) => (
             <div
-              key={tx.transactionId}
+              key={tx.id || tx.transactionId || `tx-${idx}`}
               className="px-4 py-3 hover:bg-white/[0.03] transition-colors border-b border-border-subtle last:border-b-0"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{tx.namaBarang}</p>
+                  <p className="text-sm font-medium text-text-primary truncate">
+                    {tx.items && tx.items.length > 0
+                      ? tx.items.length === 1
+                        ? tx.items[0].namaBarang
+                        : `${tx.items[0].namaBarang} (+${tx.items.length - 1} item lain)`
+                      : tx.namaBarang || 'Item Tidak Diketahui'}
+                  </p>
                   <p className="text-xs text-text-muted mt-0.5">
                     {getRelativeTime(tx.createdAt, nowMs)}
                   </p>

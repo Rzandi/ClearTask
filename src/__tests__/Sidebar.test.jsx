@@ -24,9 +24,7 @@ function renderSidebar(settingsOverride = {}) {
     },
   });
 
-  return render(
-    <Sidebar activeTab="input" onTabChange={() => {}} onHelpOpen={() => {}} />
-  );
+  return render(<Sidebar activeTab="input" onTabChange={() => {}} onHelpOpen={() => {}} />);
 }
 
 describe('Sidebar — integrasi useSettings', () => {

@@ -17,20 +17,28 @@ export interface ReportingChartProps {
 export default function ReportingChart({ transactions, expenses }: ReportingChartProps) {
   // Group Pemasukan, Keluaran & Profit by Date
   const chartData = useMemo(() => {
-    const dataMap: Record<string, { tanggal: string; pemasukan: number; modal: number; keluaran: number }> = {};
+    const dataMap: Record<
+      string,
+      { tanggal: string; pemasukan: number; modal: number; keluaran: number }
+    > = {};
 
     // Group Transactions
     transactions.forEach((tx) => {
       const date = tx.tanggal;
-      if (!dataMap[date]) {
-        dataMap[date] = { tanggal: date, pemasukan: 0, modal: 0, keluaran: 0 };
+      if (!date) return;
+      let entry = dataMap[date];
+      if (!entry) {
+        entry = { tanggal: date, pemasukan: 0, modal: 0, keluaran: 0 };
+        dataMap[date] = entry;
       }
-      dataMap[date].pemasukan += tx.total || 0;
+      entry.pemasukan += tx.total || 0;
 
       // Group historical cost price of items sold
       if (tx.items && Array.isArray(tx.items)) {
         tx.items.forEach((item: any) => {
-          dataMap[date].modal += (item.hargaModal || 0) * (item.qty || 1);
+          if (entry) {
+            entry.modal += (item.hargaModal || 0) * (item.qty || 1);
+          }
         });
       }
     });
@@ -38,10 +46,13 @@ export default function ReportingChart({ transactions, expenses }: ReportingChar
     // Group Expenses
     expenses.forEach((ex) => {
       const date = ex.tanggal;
-      if (!dataMap[date]) {
-        dataMap[date] = { tanggal: date, pemasukan: 0, modal: 0, keluaran: 0 };
+      if (!date) return;
+      let entry = dataMap[date];
+      if (!entry) {
+        entry = { tanggal: date, pemasukan: 0, modal: 0, keluaran: 0 };
+        dataMap[date] = entry;
       }
-      dataMap[date].keluaran += ex.jumlah || 0;
+      entry.keluaran += ex.jumlah || 0;
     });
 
     // Sort chronologically
@@ -73,7 +84,16 @@ export default function ReportingChart({ transactions, expenses }: ReportingChar
   }, [chartData]);
 
   const points = useMemo(() => {
-    if (chartData.length === 0) return { pemasukan: '', keluaran: '', profit: '', areaPemasukan: '', areaKeluaran: '', areaProfit: '', list: [] };
+    if (chartData.length === 0)
+      return {
+        pemasukan: '',
+        keluaran: '',
+        profit: '',
+        areaPemasukan: '',
+        areaKeluaran: '',
+        areaProfit: '',
+        list: [],
+      };
 
     const list: any[] = [];
     const stepX = chartData.length > 1 ? chartWidth / (chartData.length - 1) : chartWidth;
@@ -83,7 +103,7 @@ export default function ReportingChart({ transactions, expenses }: ReportingChar
 
     chartData.forEach((d, idx) => {
       const x = paddingLeft + idx * stepX;
-      
+
       const profit = d.pemasukan - d.modal - d.keluaran;
 
       // Y Scale (inverted for SVG coordinates: 0 is top, height is bottom)
@@ -109,8 +129,12 @@ export default function ReportingChart({ transactions, expenses }: ReportingChar
     });
 
     // Generate path lines
-    const linePemasukan = list.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.yPemasukan}`).join(' ');
-    const lineKeluaran = list.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.yKeluaran}`).join(' ');
+    const linePemasukan = list
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.yPemasukan}`)
+      .join(' ');
+    const lineKeluaran = list
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.yKeluaran}`)
+      .join(' ');
     const lineProfit = list.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.yProfit}`).join(' ');
 
     // Generate area fills
@@ -118,17 +142,22 @@ export default function ReportingChart({ transactions, expenses }: ReportingChar
     const lastX = list[list.length - 1]?.x || width - paddingRight;
     const baseY = paddingTop + chartHeight;
 
-    const areaPemasukan = list.length > 0 
-      ? `${linePemasukan} L ${lastX} ${baseY} L ${firstX} ${baseY} Z` 
-      : '';
-    const areaKeluaran = list.length > 0 
-      ? `${lineKeluaran} L ${lastX} ${baseY} L ${firstX} ${baseY} Z` 
-      : '';
-    const areaProfit = list.length > 0 
-      ? `${lineProfit} L ${lastX} ${baseY} L ${firstX} ${baseY} Z` 
-      : '';
+    const areaPemasukan =
+      list.length > 0 ? `${linePemasukan} L ${lastX} ${baseY} L ${firstX} ${baseY} Z` : '';
+    const areaKeluaran =
+      list.length > 0 ? `${lineKeluaran} L ${lastX} ${baseY} L ${firstX} ${baseY} Z` : '';
+    const areaProfit =
+      list.length > 0 ? `${lineProfit} L ${lastX} ${baseY} L ${firstX} ${baseY} Z` : '';
 
-    return { pemasukan: linePemasukan, keluaran: lineKeluaran, profit: lineProfit, areaPemasukan, areaKeluaran, areaProfit, list };
+    return {
+      pemasukan: linePemasukan,
+      keluaran: lineKeluaran,
+      profit: lineProfit,
+      areaPemasukan,
+      areaKeluaran,
+      areaProfit,
+      list,
+    };
   }, [chartData, chartWidth, chartHeight, maxVal, paddingTop, paddingLeft, paddingRight, width]);
 
   // Format date shorthand (MM-DD)
@@ -145,7 +174,9 @@ export default function ReportingChart({ transactions, expenses }: ReportingChar
     <Card className="p-5 flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Grafik Ikhtisar Performa Bisnis</h3>
+          <h3 className="text-sm font-semibold text-text-primary">
+            Grafik Ikhtisar Performa Bisnis
+          </h3>
           <p className="text-xs text-text-muted">Tren performa harian hingga 10 hari terakhir.</p>
         </div>
         {/* Legends */}
@@ -265,12 +296,33 @@ export default function ReportingChart({ transactions, expenses }: ReportingChar
                     className="opacity-0 group-hover:opacity-100 transition-opacity"
                   />
                   {/* Pemasukan Dot */}
-                  <circle cx={p.x} cy={p.yPemasukan} r="4" fill="#00ffa3" stroke="var(--bg-card)" strokeWidth="1.5" />
+                  <circle
+                    cx={p.x}
+                    cy={p.yPemasukan}
+                    r="4"
+                    fill="#00ffa3"
+                    stroke="var(--bg-card)"
+                    strokeWidth="1.5"
+                  />
                   {/* Keluaran Dot */}
-                  <circle cx={p.x} cy={p.yKeluaran} r="4" fill="#ff4a4a" stroke="var(--bg-card)" strokeWidth="1.5" />
+                  <circle
+                    cx={p.x}
+                    cy={p.yKeluaran}
+                    r="4"
+                    fill="#ff4a4a"
+                    stroke="var(--bg-card)"
+                    strokeWidth="1.5"
+                  />
                   {/* Profit Dot */}
-                  <circle cx={p.x} cy={p.yProfit} r="4" fill="#60a5fa" stroke="var(--bg-card)" strokeWidth="1.5" />
-                  
+                  <circle
+                    cx={p.x}
+                    cy={p.yProfit}
+                    r="4"
+                    fill="#60a5fa"
+                    stroke="var(--bg-card)"
+                    strokeWidth="1.5"
+                  />
+
                   {/* Axis Label X */}
                   <text
                     x={p.x}

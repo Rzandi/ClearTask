@@ -60,7 +60,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setToast({ message: res?.error || 'Gagal menambahkan kategori', type: 'error' });
     }
   }
-  const [toast, setToast] = useState<{message: string, type: 'success'|'error'|'warning'} | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'warning';
+  } | null>(null);
   const [daysSinceBackup, setDaysSinceBackup] = useState<number | null>(null);
 
   // Cek kapan terakhir backup saat modal dibuka
@@ -337,7 +340,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         {/* Kelola Kategori */}
         <div className="mt-5 space-y-3">
           <p className="text-sm font-medium text-text-secondary">Kelola Kategori</p>
-          
+
           <div className="flex gap-2">
             <Input
               type="text"
@@ -361,7 +364,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           ) : (
             <ul className="space-y-1 max-h-[150px] overflow-y-auto pr-1">
               {customCategories.map((name) => (
-                <li key={name} className="flex items-center justify-between gap-2 bg-bg-input/40 px-3 py-1.5 rounded-lg border border-border-subtle/50">
+                <li
+                  key={name}
+                  className="flex items-center justify-between gap-2 bg-bg-input/40 px-3 py-1.5 rounded-lg border border-border-subtle/50"
+                >
                   <span className="text-xs text-text-secondary font-medium">{name}</span>
                   <button
                     onClick={() => handleDeleteCategory(name)}
@@ -419,12 +425,12 @@ interface SubKategoriSectionProps {
   setToast: (toast: any) => void;
 }
 
-function SubKategoriSection({ 
-  allCategories = [], 
-  customSubCategoriesFor = () => [], 
+function SubKategoriSection({
+  allCategories = [],
+  customSubCategoriesFor = () => [],
   deleteSubCategory,
   addSubCategory,
-  setToast
+  setToast,
 }: SubKategoriSectionProps) {
   const safeAllCategories = allCategories || [];
   const [selectedKat, setSelectedKat] = useState<string>(() => safeAllCategories[0] || '');
@@ -458,7 +464,7 @@ function SubKategoriSection({
   return (
     <div className="mt-4 space-y-3">
       <p className="text-sm font-medium text-text-secondary">Kelola Sub-Kategori</p>
-      
+
       <div className="space-y-2 bg-bg-input/20 p-3 rounded-xl border border-border-subtle">
         <select
           aria-label="Pilih Kategori Utama"
@@ -496,11 +502,19 @@ function SubKategoriSection({
       ) : (
         <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
           {withSubs.map((kat) => (
-            <div key={kat} className="bg-bg-input/10 p-2.5 rounded-xl border border-border-subtle/50">
-              <p className="text-[10px] font-bold text-primary mb-1.5 uppercase tracking-wider">{kat}</p>
+            <div
+              key={kat}
+              className="bg-bg-input/10 p-2.5 rounded-xl border border-border-subtle/50"
+            >
+              <p className="text-[10px] font-bold text-primary mb-1.5 uppercase tracking-wider">
+                {kat}
+              </p>
               <ul className="space-y-1 pl-1">
                 {customSubCategoriesFor(kat).map((sub) => (
-                  <li key={sub} className="flex items-center justify-between gap-2 bg-bg-input/30 px-2.5 py-1 rounded-lg border border-border-subtle/30">
+                  <li
+                    key={sub}
+                    className="flex items-center justify-between gap-2 bg-bg-input/30 px-2.5 py-1 rounded-lg border border-border-subtle/30"
+                  >
                     <span className="text-xs text-text-secondary">{sub}</span>
                     <button
                       onClick={() => deleteSubCategory(kat, sub)}

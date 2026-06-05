@@ -8,11 +8,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../services/db';
 
 export const KATEGORI_DEFAULT: string[] = [
-  'Elektronik',
   'Makanan',
   'Minuman',
   'Pakaian',
-  'Alat Tulis',
+  'Bahan Baku',
   'Kesehatan',
   'Lainnya',
 ];
@@ -20,7 +19,8 @@ export const KATEGORI_DEFAULT: string[] = [
 export const SUBKATEGORI_PRESET: Record<string, string[]> = {
   Makanan: ['Makanan Berat', 'Snack', 'Dessert'],
   Minuman: ['Minuman Panas', 'Minuman Dingin', 'Jus'],
-  Elektronik: ['Gadget', 'Aksesoris', 'Komponen'],
+  'Bahan Baku': ['Bahan Baku Utama', 'Bumbu', 'Bahan Pelengkap'],
+  Pakaian: ['Pakaian Atas', 'Pakaian Bawah', 'Aksesoris'],
 };
 
 /**
@@ -40,8 +40,14 @@ export function useCategories(): {
   customSubCategoriesFor: (kategori: string) => string[];
   addCategory: (name: string) => Promise<{ success: boolean; error?: string }>;
   deleteCategory: (name: string) => Promise<{ success: boolean; error?: string }>;
-  addSubCategory: (kategori: string, subName: string) => Promise<{ success: boolean; error?: string }>;
-  deleteSubCategory: (kategori: string, subName: string) => Promise<{ success: boolean; error?: string }>;
+  addSubCategory: (
+    kategori: string,
+    subName: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  deleteSubCategory: (
+    kategori: string,
+    subName: string
+  ) => Promise<{ success: boolean; error?: string }>;
 } {
   // useLiveQuery will return undefined while loading
   const rawStore = useLiveQuery(() => db.categories.get({ key: 'main' }));
@@ -170,7 +176,8 @@ export function useCategories(): {
 
   const deleteSubCategory = useCallback(async (kategori: string, subName: string) => {
     const isPreset =
-      Object.hasOwn(SUBKATEGORI_PRESET, kategori) && SUBKATEGORI_PRESET[kategori]?.includes(subName);
+      Object.hasOwn(SUBKATEGORI_PRESET, kategori) &&
+      SUBKATEGORI_PRESET[kategori]?.includes(subName);
     if (isPreset) {
       return { success: false, error: 'Sub-kategori bawaan tidak dapat dihapus.' };
     }

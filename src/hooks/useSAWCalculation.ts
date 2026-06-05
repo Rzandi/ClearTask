@@ -52,7 +52,7 @@ export function useSAWCalculation() {
   const criterias = useLiveQuery(async () => {
     const records = await db.saw_criterias.toArray();
     if (records.length > 0) return records[0] as SAWCriterias;
-    return { c1_weight: 0.35, c2_weight: 0.30, c3_weight: 0.20, c4_weight: 0.15 };
+    return { c1_weight: 0.35, c2_weight: 0.3, c3_weight: 0.2, c4_weight: 0.15 };
   });
 
   const [results, setResults] = useState<SAWResultItem[]>([]);
@@ -65,7 +65,7 @@ export function useSAWCalculation() {
       let startStr = '';
       let endStr = new Date().toISOString();
       const now = new Date();
-      
+
       if (period === 'last_7_days') {
         const d = new Date();
         d.setDate(d.getDate() - 7);
@@ -99,22 +99,30 @@ export function useSAWCalculation() {
       // If no valid filter applied because tanggal is YYYY-MM-DD
       const startDate = startStr.split('T')[0] ?? '';
       const endDate = endStr.split('T')[0] ?? '';
-      const txsToProcess = txs.length > 0 ? txs : (await db.transactions.toArray()).filter(tx => {
-        const txDate = tx.tanggal || (tx.createdAt ? tx.createdAt.split('T')[0] : '');
-        return txDate >= startDate && txDate <= endDate;
-      });
+      const txsToProcess =
+        txs.length > 0
+          ? txs
+          : (await db.transactions.toArray()).filter((tx) => {
+              const txDate = tx.tanggal || (tx.createdAt ? tx.createdAt.split('T')[0] : '');
+              return txDate >= startDate && txDate <= endDate;
+            });
 
       // 2. Fetch all inventory
       const inv = await db.inventory.toArray();
 
-      const weights = criterias || { c1_weight: 0.35, c2_weight: 0.30, c3_weight: 0.20, c4_weight: 0.15 };
+      const weights = criterias || {
+        c1_weight: 0.35,
+        c2_weight: 0.3,
+        c3_weight: 0.2,
+        c4_weight: 0.15,
+      };
 
       // Initialize Web Worker
       const worker = new SAWWorker();
 
       worker.onmessage = (e: MessageEvent) => {
         if (e.data.error) {
-          console.error("SAW Worker Error:", e.data.error);
+          console.error('SAW Worker Error:', e.data.error);
         } else {
           setResults(e.data.results || []);
           setExcluded(e.data.excluded || []);
@@ -124,16 +132,15 @@ export function useSAWCalculation() {
       };
 
       worker.onerror = (err) => {
-        console.error("SAW Worker Initialization Error:", err);
+        console.error('SAW Worker Initialization Error:', err);
         setIsCalculating(false);
         worker.terminate();
       };
 
       // Send data to worker
       worker.postMessage({ txsToProcess, inv, weights });
-
     } catch (error) {
-      console.error("SAW Calculation Error:", error);
+      console.error('SAW Calculation Error:', error);
       setIsCalculating(false);
     }
   }, [period, dateRange, criterias]);
@@ -141,7 +148,10 @@ export function useSAWCalculation() {
   const updateWeights = async (newWeights: SAWCriterias) => {
     const records = await db.saw_criterias.toArray();
     if (records.length > 0) {
-      await db.saw_criterias.update(records[0].id, { ...newWeights, updatedAt: new Date().toISOString() });
+      await db.saw_criterias.update(records[0].id, {
+        ...newWeights,
+        updatedAt: new Date().toISOString(),
+      });
     } else {
       await db.saw_criterias.add({ ...newWeights, updatedAt: new Date().toISOString() });
     }
@@ -154,11 +164,13 @@ export function useSAWCalculation() {
       createdAt: new Date().toISOString(),
       weights: criterias,
       results_snapshot: results.slice(0, 10), // top 10
-      urgent_count: results.filter(r => r.urgency_level === 'urgent').length
+      urgent_count: results.filter((r) => r.urgency_level === 'urgent').length,
     });
   };
 
-  const historyQuery = useLiveQuery(() => db.saw_history.orderBy('createdAt').reverse().limit(20).toArray());
+  const historyQuery = useLiveQuery(() =>
+    db.saw_history.orderBy('createdAt').reverse().limit(20).toArray()
+  );
 
   // Run initial calculation when ready
   useEffect(() => {
@@ -179,6 +191,6 @@ export function useSAWCalculation() {
     results,
     excluded,
     saveHistory,
-    history: historyQuery || []
+    history: historyQuery || [],
   };
 }

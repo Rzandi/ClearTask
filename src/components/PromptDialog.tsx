@@ -74,15 +74,13 @@ const PromptDialog = memo(function PromptDialog({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-primary/80 backdrop-blur-sm animate-fade-in"
       onClick={handleBackdropClick}
     >
-      <div
-        className="w-full max-w-sm bg-bg-elevated border border-border-color rounded-2xl p-6 shadow-xl animate-scale-up"
-      >
+      <div className="w-full max-w-sm bg-bg-elevated border border-border-color rounded-2xl p-6 shadow-xl animate-scale-up">
         {title && (
           <h3 id="prompt-dialog-title" className="text-lg font-bold text-text-primary mb-2">
             {title}
           </h3>
         )}
-        
+
         {message && (
           <p id="prompt-dialog-desc" className="text-sm text-text-secondary mb-4 leading-relaxed">
             {message}

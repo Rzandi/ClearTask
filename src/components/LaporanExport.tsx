@@ -144,7 +144,9 @@ export default function LaporanExport({
         {/* Profit Card */}
         <div className="glass-card p-5">
           <p className="text-xs font-semibold text-text-muted mb-1">Keuntungan Bersih (Profit)</p>
-          <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}>
+          <p
+            className={`text-2xl font-bold ${netProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}
+          >
             {formatRupiah(netProfit)}
           </p>
           <p className="text-[10px] text-text-muted mt-2">

@@ -1,8 +1,8 @@
 # 📄 Software Requirements Specification (SRS) — ClearTask
 
-> **Project:** ClearTask v3.2.0  
+> **Project:** ClearTask v3.3.0  
 > **Status:** Released (APPROVED & RELEASED)  
-> **Date:** 2026-05-30  
+> **Date:** 2026-06-06  
 > **Language:** Bahasa Indonesia
 
 ---
@@ -11,11 +11,11 @@
 
 ### 1.1 Purpose
 
-Dokumen ini mendefinisikan spesifikasi kebutuhan perangkat lunak (SRS) untuk aplikasi **ClearTask v3.2.0**. Dokumen ini ditujukan sebagai panduan teknis bagi Architect, Designer, Coder, dan QA Agent selama implementasi fitur-fitur baru, refactoring sistem legacy, dan perluasan fitur bisnis premium.
+Dokumen ini mendefinisikan spesifikasi kebutuhan perangkat lunak (SRS) untuk aplikasi **ClearTask v3.3.0**. Dokumen ini ditujukan sebagai panduan teknis bagi Architect, Designer, Coder, dan QA Agent selama implementasi fitur-fitur baru, refactoring sistem legacy, dan perluasan fitur bisnis premium.
 
 ### 1.2 Scope
 
-ClearTask v3.2.0 adalah aplikasi berbasis web kasir offline-first dengan modul penunjang keputusan (DSS) SAW untuk prioritas restock barang, terintegrasi dengan pencatatan harga modal, operasional pengeluaran (expenses), visualisasi performa SVG offline, dan laporan penutupan sesi kasir terperinci. Seluruh data disimpan lokal menggunakan IndexedDB (Dexie.js).
+ClearTask v3.3.0 adalah aplikasi berbasis web kasir offline-first dengan modul penunjang keputusan (DSS) SAW untuk prioritas restock barang, terintegrasi dengan pencatatan harga modal, operasional pengeluaran (expenses), visualisasi performa SVG offline, dan laporan penutupan sesi kasir terperinci. Seluruh data disimpan lokal menggunakan IndexedDB (Dexie.js).
 
 ### 1.3 Definitions
 
@@ -83,7 +83,7 @@ ClearTask v3.1.0 beroperasi 100% sebagai aplikasi web offline mandiri (_Fully Of
 - **FR-08: Automatic Cold-Data Archival**
   - _Deskripsi:_ Sistem harus menyediakan utilitas pemindahan transaksi yang berumur melebihi parameter tanggal tertentu secara atomic ke tabel `archive_transactions`.
 
-### 3.5 Business Extensions (v3.2.0)
+### 3.5 Business Extensions & Backup Enhancements (v3.3.0)
 
 - **FR-09: Historical Cost Price (Harga Modal) Mappings**
   - _Deskripsi:_ Sistem wajib mengunci harga modal produk pada saat checkout ke dalam detail item transaksi untuk menjaga keakuratan margin laba secara historis.
@@ -95,6 +95,12 @@ ClearTask v3.1.0 beroperasi 100% sebagai aplikasi web offline mandiri (_Fully Of
   - _Deskripsi:_ Laporan penutupan sesi menyertakan tabel detail barang yang terjual beserta jumlah kuantitas dan akumulasi total rupiahnya secara berurutan.
 - **FR-13: Interactive Custom Categories Creation**
   - _Deskripsi:_ Kasir/Admin dapat secara dinamis menambah dan menghapus kategori serta sub-kategori kustom dari antarmuka menu Pengaturan.
+- **FR-14: Database Backup Schema v2.0 Support**
+  - _Deskripsi:_ Ekspor database ditingkatkan ke skema v2.0 untuk mencakup tabel `expenses`, `archive_transactions`, `saw_criterias`, dan `saw_history`. Proses impor harus mendukung backward-compatibility penuh untuk format cadangan v1.0.
+- **FR-15: Self-Healing Startup Category Sync**
+  - _Deskripsi:_ Pada saat startup, sistem harus mendeteksi dan mengembalikan kategori bawaan (preset) yang hilang ke tabel kategori kustom secara otomatis tanpa menimpa data yang sudah diubah oleh pengguna.
+- **FR-16: Detailed Merge Preview Stats**
+  - _Deskripsi:_ Modal pratinjau penggabungan (Merge Preview) harus menampilkan jumlah entri baru dan konflik secara terperinci untuk setiap tabel yang terlibat sebelum pengguna mengonfirmasi penggabungan data.
 
 ---
 

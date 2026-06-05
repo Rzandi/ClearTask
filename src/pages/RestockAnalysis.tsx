@@ -19,10 +19,10 @@ export default function RestockAnalysis() {
     results,
     excluded,
     saveHistory,
-    history
+    history,
   } = useSAWCalculation();
 
-  const urgentCount = results.filter(r => r.urgency_level === 'urgent').length;
+  const urgentCount = results.filter((r) => r.urgency_level === 'urgent').length;
 
   const handleSaveAndCalculate = async (newWeights: any) => {
     await updateWeights(newWeights);
@@ -35,7 +35,7 @@ export default function RestockAnalysis() {
     last_30_days: '30 Hari Terakhir',
     last_90_days: '90 Hari Terakhir',
     this_year: 'Tahun Ini',
-    custom: 'Kustom'
+    custom: 'Kustom',
   };
 
   return (
@@ -51,15 +51,19 @@ export default function RestockAnalysis() {
               </span>
             )}
           </h1>
-          <p className="text-text-muted mt-1">Metode Simple Additive Weighting (SAW) - Offline Native</p>
+          <p className="text-text-muted mt-1">
+            Metode Simple Additive Weighting (SAW) - Offline Native
+          </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4">
           <div className="flex flex-col items-end">
-            <span className="text-xs text-text-muted mb-1">Dihitung pada: {formatDate(new Date())}</span>
+            <span className="text-xs text-text-muted mb-1">
+              Dihitung pada: {formatDate(new Date())}
+            </span>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-text-secondary">Periode:</label>
-              <select 
+              <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
                 className="form-input py-1.5 pl-3 pr-8 text-sm bg-bg-input text-text-primary w-auto cursor-pointer"
@@ -75,18 +79,25 @@ export default function RestockAnalysis() {
 
           {period === 'custom' && (
             <div className="flex items-center gap-2 mt-2 sm:mt-0">
-              <input 
-                type="date" 
+              <input
+                type="date"
                 className="form-input py-1.5 px-3 text-sm w-auto"
                 value={dateRange?.start || ''}
-                onChange={(e) => setDateRange(prev => ({ start: e.target.value, end: prev?.end || getTodayISO() }))}
+                onChange={(e) =>
+                  setDateRange((prev) => ({
+                    start: e.target.value,
+                    end: prev?.end || getTodayISO(),
+                  }))
+                }
               />
               <span className="text-text-muted">-</span>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 className="form-input py-1.5 px-3 text-sm w-auto"
                 value={dateRange?.end || ''}
-                onChange={(e) => setDateRange(prev => ({ start: prev?.start || '', end: e.target.value }))}
+                onChange={(e) =>
+                  setDateRange((prev) => ({ start: prev?.start || '', end: e.target.value }))
+                }
               />
             </div>
           )}
@@ -95,10 +106,10 @@ export default function RestockAnalysis() {
 
       {/* Main Content */}
       {criterias ? (
-        <WeightControl 
-          initialWeights={criterias} 
-          onSave={handleSaveAndCalculate} 
-          isCalculating={isCalculating} 
+        <WeightControl
+          initialWeights={criterias}
+          onSave={handleSaveAndCalculate}
+          isCalculating={isCalculating}
         />
       ) : (
         <div className="animate-pulse bg-bg-surface h-48 rounded-xl border border-border-default mb-6 shadow-card"></div>
@@ -112,17 +123,17 @@ export default function RestockAnalysis() {
       ) : (
         <>
           <PriorityChart data={results} />
-          
-          <RankingTable 
-            results={results} 
-            excluded={excluded} 
+
+          <RankingTable
+            results={results}
+            excluded={excluded}
             criterias={criterias || { c1_weight: 0, c2_weight: 0, c3_weight: 0, c4_weight: 0 }}
             periodLabel={periodLabelMap[period] || period}
           />
-          
+
           <HistoryTable history={history} />
         </>
       )}
     </div>
   );
-};
+}

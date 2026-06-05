@@ -27,7 +27,10 @@ export default function TabDatabase() {
   const [importData, setImportData] = useState<any>(null);
   const [mergeResult, setMergeResult] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'warning'} | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'warning';
+  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,7 +77,7 @@ export default function TabDatabase() {
 
   const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE));
   const safeCurrentPage = totalPages > 0 && currentPage > totalPages ? totalPages : currentPage;
-  
+
   const startIdx = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
   const visibleTransactions = filteredTransactions.slice(startIdx, startIdx + ITEMS_PER_PAGE);
 
@@ -137,7 +140,7 @@ export default function TabDatabase() {
 
     showToast('Sedang memproses...', 'warning');
     const result = await archiveOldTransactions(dateStr);
-    
+
     if (result.success) {
       if (result.archivedCount > 0) {
         showToast(`Berhasil mengarsipkan ${result.archivedCount} transaksi lawas!`, 'success');
@@ -329,14 +332,14 @@ export default function TabDatabase() {
               className="flex items-center gap-2 px-5 py-2.5 border border-warning/30 bg-warning/5 text-warning font-semibold text-sm rounded-xl hover:bg-warning/10 hover:border-warning/50 active:scale-[0.97] transition-all duration-200 cursor-pointer"
               title="Pindahkan transaksi > 1 tahun ke Arsip"
             >
-              <svg 
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2.5" 
-                strokeLinecap="round" 
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
                 strokeLinejoin="round"
               >
                 <rect x="2" y="4" width="20" height="5" rx="2" ry="2" />
@@ -447,8 +450,18 @@ export default function TabDatabase() {
                       <td className="px-4 py-3.5 text-text-secondary">
                         {formatDate(tx.createdAt || tx.tanggal)}
                       </td>
-                      <td className="px-4 py-3.5 text-text-primary">{tx.namaBarang || '—'}</td>
-                      <td className="px-4 py-3.5 text-text-secondary">{tx.kategori || '—'}</td>
+                      <td className="px-4 py-3.5 text-text-primary font-medium">
+                        {tx.items && tx.items.length > 0
+                          ? tx.items.map((i: any) => `${i.namaBarang} (x${i.qty})`).join(', ')
+                          : tx.namaBarang || '—'}
+                      </td>
+                      <td className="px-4 py-3.5 text-text-secondary">
+                        {tx.items && tx.items.length > 0
+                          ? Array.from(
+                              new Set(tx.items.map((i: any) => i.kategori).filter(Boolean))
+                            ).join(', ')
+                          : tx.kategori || '—'}
+                      </td>
                       <td className="px-4 py-3.5 text-right font-semibold text-text-primary tabular-nums">
                         {formatRupiah(tx.total)}
                       </td>
@@ -468,7 +481,8 @@ export default function TabDatabase() {
             <div className="flex items-center justify-between px-1 mt-2">
               <p className="text-xs text-text-muted">
                 Menampilkan {Math.min(startIdx + 1, filteredTransactions.length)}-
-                {Math.min(startIdx + ITEMS_PER_PAGE, filteredTransactions.length)} dari {filteredTransactions.length} transaksi
+                {Math.min(startIdx + ITEMS_PER_PAGE, filteredTransactions.length)} dari{' '}
+                {filteredTransactions.length} transaksi
               </p>
               <div className="flex items-center gap-1">
                 <button

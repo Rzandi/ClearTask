@@ -45,7 +45,9 @@ export default function InventoryManager() {
           item.subKategori?.toLowerCase().includes(q)
       );
     }
-    return items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return items.sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   }, [inventory, filterKategori, searchQuery]);
 
   // ── Pagination ───────────────────────────────────────────
@@ -58,7 +60,7 @@ export default function InventoryManager() {
 
   const totalPages = Math.max(1, Math.ceil(filteredInventory.length / ITEMS_PER_PAGE));
   const safeCurrentPage = totalPages > 0 && currentPage > totalPages ? totalPages : currentPage;
-  
+
   const startIdx = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
   const visibleInventory = filteredInventory.slice(startIdx, startIdx + ITEMS_PER_PAGE);
 
@@ -492,9 +494,7 @@ export default function InventoryManager() {
                   </div>
                   <div>
                     <p className="text-[10px] text-text-muted">Harga Jual</p>
-                    <p className="text-sm font-bold text-primary">
-                      {formatRupiah(item.harga)}
-                    </p>
+                    <p className="text-sm font-bold text-primary">{formatRupiah(item.harga)}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -516,7 +516,8 @@ export default function InventoryManager() {
             <div className="flex items-center justify-between px-1 mt-4">
               <p className="text-xs text-text-muted hidden sm:block">
                 Menampilkan {Math.min(startIdx + 1, filteredInventory.length)}-
-                {Math.min(startIdx + ITEMS_PER_PAGE, filteredInventory.length)} dari {filteredInventory.length} barang
+                {Math.min(startIdx + ITEMS_PER_PAGE, filteredInventory.length)} dari{' '}
+                {filteredInventory.length} barang
               </p>
               <div className="flex items-center gap-1 w-full sm:w-auto justify-center sm:justify-end">
                 <button

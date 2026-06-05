@@ -24,7 +24,7 @@ class SyncManager {
   constructor() {
     this.isOnline = navigator.onLine;
     this.syncQueue = [];
-    
+
     // Listeners for network status
     window.addEventListener('online', this.handleOnline.bind(this));
     window.addEventListener('offline', this.handleOffline.bind(this));
@@ -107,7 +107,7 @@ class SyncManager {
     //    - Jika sebaliknya, timpa data Cloud dengan payload lokal.
     // 3. Jika dokumen remote tidak ada:
     //    - Buat dokumen baru di Cloud.
-    
+
     console.log('[SyncManager] Simulating push to cloud...', payload);
     return Promise.resolve();
   }

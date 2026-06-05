@@ -22,13 +22,17 @@ function wrapper({ children }) {
 // ─── Setup / Teardown ─────────────────────────────────────────────────────────
 
 beforeEach(async () => {
-  await db.settings.clear();
+  await act(async () => {
+    await db.settings.clear();
+  });
   // Reset class pada documentElement
   document.documentElement.className = '';
 });
 
 afterEach(async () => {
-  await db.settings.clear();
+  await act(async () => {
+    await db.settings.clear();
+  });
   document.documentElement.className = '';
 });
 

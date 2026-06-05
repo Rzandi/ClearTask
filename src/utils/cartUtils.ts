@@ -54,7 +54,11 @@ export function hitungPajak(harga: number, pajakPersen: number = 11): number {
  * @param {number} pajakPersen
  * @returns {{ hargaSetelahDiskon: number, pajak: number, grandTotal: number }}
  */
-export function hitungGrandTotal(harga: number, diskonPersen: number = 0, pajakPersen: number = 0): { hargaSetelahDiskon: number; pajak: number; grandTotal: number } {
+export function hitungGrandTotal(
+  harga: number,
+  diskonPersen: number = 0,
+  pajakPersen: number = 0
+): { hargaSetelahDiskon: number; pajak: number; grandTotal: number } {
   const hargaSetelahDiskon = terapkanDiskon(harga, diskonPersen);
   const pajak = hitungPajak(hargaSetelahDiskon, pajakPersen);
   return {

@@ -9,9 +9,10 @@ self.onmessage = (e: MessageEvent) => {
 
   try {
     // 3. Aggregate data per product
-    const aggregated: Record<string, { c1_vol: number, c4_freq: number, unique_txs: Set<string> }> = {};
-    
-    txsToProcess.forEach(tx => {
+    const aggregated: Record<string, { c1_vol: number; c4_freq: number; unique_txs: Set<string> }> =
+      {};
+
+    txsToProcess.forEach((tx) => {
       if (tx.items && Array.isArray(tx.items)) {
         tx.items.forEach((item: any) => {
           const name = item.namaBarang;
@@ -28,10 +29,10 @@ self.onmessage = (e: MessageEvent) => {
     const validProducts: any[] = [];
     const excludedProducts: ExcludedItem[] = [];
 
-    inv.forEach(item => {
+    inv.forEach((item) => {
       const name = item.nama;
       const stats = aggregated[name];
-      
+
       const c1_vol = stats ? stats.c1_vol : 0;
       const c4_freq = stats ? stats.unique_txs.size : 0;
 
@@ -41,7 +42,11 @@ self.onmessage = (e: MessageEvent) => {
       }
 
       if (c4_freq < 3) {
-        excludedProducts.push({ product_name: name, reason: 'Data Tidak Cukup', transaction_count: c4_freq });
+        excludedProducts.push({
+          product_name: name,
+          reason: 'Data Tidak Cukup',
+          transaction_count: c4_freq,
+        });
         return;
       }
 
@@ -49,7 +54,11 @@ self.onmessage = (e: MessageEvent) => {
       const hargaJual = Number(item.hargaJual) || 0;
 
       if (hargaBeli <= 0) {
-        excludedProducts.push({ product_name: name, reason: 'Data Tidak Lengkap (Harga Beli 0)', transaction_count: c4_freq });
+        excludedProducts.push({
+          product_name: name,
+          reason: 'Data Tidak Lengkap (Harga Beli 0)',
+          transaction_count: c4_freq,
+        });
         return;
       }
 
@@ -71,18 +80,18 @@ self.onmessage = (e: MessageEvent) => {
     }
 
     // 5. Normalization (Find Max/Min)
-    const maxC1 = Math.max(...validProducts.map(p => p.c1));
-    const validStocks = validProducts.map(p => p.c2).filter(s => s > 0);
+    const maxC1 = Math.max(...validProducts.map((p) => p.c1));
+    const validStocks = validProducts.map((p) => p.c2).filter((s) => s > 0);
     const minC2 = validStocks.length > 0 ? Math.min(...validStocks) : 0;
-    
-    const maxC3 = Math.max(...validProducts.map(p => p.c3));
-    const maxC4 = Math.max(...validProducts.map(p => p.c4));
 
-    const scoredProducts = validProducts.map(p => {
+    const maxC3 = Math.max(...validProducts.map((p) => p.c3));
+    const maxC4 = Math.max(...validProducts.map((p) => p.c4));
+
+    const scoredProducts = validProducts.map((p) => {
       // Benefit
       const normC1 = maxC1 > 0 ? p.c1 / maxC1 : 0;
       // Cost (if stock is 0, give max normalized cost value of 1.0)
-      const normC2 = p.c2 === 0 ? 1.0 : (minC2 / p.c2);
+      const normC2 = p.c2 === 0 ? 1.0 : minC2 / p.c2;
       // Benefit
       const normC3 = maxC3 > 0 ? p.c3 / maxC3 : 0;
       // Benefit
@@ -96,8 +105,8 @@ self.onmessage = (e: MessageEvent) => {
       const score = wC1 + wC2 + wC3 + wC4;
 
       let urgency_level: 'urgent' | 'perhatian' | 'aman' = 'aman';
-      if (score >= 0.80) urgency_level = 'urgent';
-      else if (score >= 0.60) urgency_level = 'perhatian';
+      if (score >= 0.8) urgency_level = 'urgent';
+      else if (score >= 0.6) urgency_level = 'perhatian';
 
       return {
         product_name: p.name,
@@ -115,10 +124,11 @@ self.onmessage = (e: MessageEvent) => {
     scoredProducts.sort((a, b) => b.score - a.score);
 
     // Add rank
-    scoredProducts.forEach((p, idx) => { p.rank = idx + 1; });
+    scoredProducts.forEach((p, idx) => {
+      p.rank = idx + 1;
+    });
 
     self.postMessage({ results: scoredProducts, excluded: excludedProducts });
-
   } catch (error: any) {
     self.postMessage({ error: error.message || 'Worker Error' });
   }

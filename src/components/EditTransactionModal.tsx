@@ -30,8 +30,18 @@ function buildInitialForm(transaction: any) {
     tanggal: transaction.tanggal ?? '',
     kategori: firstItem.kategori ?? transaction.kategori ?? '',
     namaBarang: firstItem.namaBarang ?? transaction.namaBarang ?? '',
-    qty: firstItem.qty !== undefined ? String(firstItem.qty) : (transaction.qty !== undefined ? String(transaction.qty) : ''),
-    hargaSatuan: firstItem.hargaSatuan !== undefined ? String(firstItem.hargaSatuan) : (transaction.hargaSatuan !== undefined ? String(transaction.hargaSatuan) : ''),
+    qty:
+      firstItem.qty !== undefined
+        ? String(firstItem.qty)
+        : transaction.qty !== undefined
+          ? String(transaction.qty)
+          : '',
+    hargaSatuan:
+      firstItem.hargaSatuan !== undefined
+        ? String(firstItem.hargaSatuan)
+        : transaction.hargaSatuan !== undefined
+          ? String(transaction.hargaSatuan)
+          : '',
     metode: transaction.metode ?? 'Tunai',
     catatan: transaction.catatan ?? '',
     kasir: transaction.kasir ?? '',
@@ -67,7 +77,12 @@ export interface EditTransactionModalProps {
   onSave: (id: string, data: any) => void;
 }
 
-export default function EditTransactionModal({ transaction, isOpen, onClose, onSave }: EditTransactionModalProps) {
+export default function EditTransactionModal({
+  transaction,
+  isOpen,
+  onClose,
+  onSave,
+}: EditTransactionModalProps) {
   const [form, setForm] = useState(() => buildInitialForm(transaction));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -156,8 +171,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
       hargaSatuan: parseInt(form.hargaSatuan, 10),
       total,
     };
-    
-    const restItems = transaction.items && transaction.items.length > 1 ? transaction.items.slice(1) : [];
+
+    const restItems =
+      transaction.items && transaction.items.length > 1 ? transaction.items.slice(1) : [];
     const newItems = [updatedItem, ...restItems];
     const newGrandTotal = newItems.reduce((sum: number, item: any) => sum + (item.total || 0), 0);
 
@@ -198,7 +214,13 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
             </p>
             {transaction?.updatedBy && transaction?.updatedAt && (
               <p className="text-xs text-text-muted mt-1">
-                Terakhir diubah oleh <span className="font-semibold text-text-primary">{transaction.updatedBy}</span> pada {new Date(transaction.updatedAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
+                Terakhir diubah oleh{' '}
+                <span className="font-semibold text-text-primary">{transaction.updatedBy}</span>{' '}
+                pada{' '}
+                {new Date(transaction.updatedAt).toLocaleString('id-ID', {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })}
               </p>
             )}
           </div>
@@ -417,7 +439,15 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, onS
 }
 
 /* ─── Shared Field Group ──────────────────────────────────── */
-function FieldGroup({ label, htmlFor, children }: { label: React.ReactNode; htmlFor?: string; children: React.ReactNode }) {
+function FieldGroup({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: React.ReactNode;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <label htmlFor={htmlFor} className="block text-sm font-medium text-text-secondary mb-2">

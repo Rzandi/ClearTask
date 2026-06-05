@@ -93,10 +93,13 @@ export function useSession(): {
   }, []);
 
   // getSessionTransactions needs to be async now because it queries the DB
-  const getSessionTransactionsAsync = useCallback(async (sessionId: string): Promise<Transaction[]> => {
-    if (!sessionId) return [];
-    return await db.transactions.where('sessionId').equals(sessionId).toArray();
-  }, []);
+  const getSessionTransactionsAsync = useCallback(
+    async (sessionId: string): Promise<Transaction[]> => {
+      if (!sessionId) return [];
+      return await db.transactions.where('sessionId').equals(sessionId).toArray();
+    },
+    []
+  );
 
   return {
     activeSession,

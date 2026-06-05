@@ -15,7 +15,11 @@ export interface MetrikCardProps {
   isFirstDay: boolean;
 }
 
-const MetrikCard = memo(function MetrikCard({ todayTotal, trendPercent, isFirstDay }: MetrikCardProps) {
+const MetrikCard = memo(function MetrikCard({
+  todayTotal,
+  trendPercent,
+  isFirstDay,
+}: MetrikCardProps) {
   const trend = formatTrend(isFirstDay ? NaN : trendPercent);
 
   return (

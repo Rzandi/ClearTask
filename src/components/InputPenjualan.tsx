@@ -29,7 +29,10 @@ export interface InputPenjualanProps {
   activeSession?: any;
 }
 
-export default memo(function InputPenjualan({ onSubmit, activeSession = null }: InputPenjualanProps) {
+export default memo(function InputPenjualan({
+  onSubmit,
+  activeSession = null,
+}: InputPenjualanProps) {
   const { settings } = useSettings();
   const kasirName = settings?.kasirName || 'Admin';
 
@@ -136,7 +139,13 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
   };
 
   const handleManualChange = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const nextForm = { ...prev, [field]: value };
+      if (field === 'kategori') {
+        nextForm.subKategori = '';
+      }
+      return nextForm;
+    });
     let err = { ...errors };
     if (field === 'namaBarang' && !value.trim()) err.namaBarang = 'Nama barang wajib diisi';
     else delete err.namaBarang;
@@ -168,7 +177,7 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
     const matchedItem = inventory.find(
       (invItem) => invItem.namaBarang?.toLowerCase().trim() === form.namaBarang.trim().toLowerCase()
     );
-    const resolvedHargaModal = matchedItem ? (matchedItem.hargaModal || 0) : 0;
+    const resolvedHargaModal = matchedItem ? matchedItem.hargaModal || 0 : 0;
 
     addToCart({
       namaBarang: form.namaBarang.trim(),
@@ -319,8 +328,8 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {filteredCatalog.map((item) => (
-                  <CatalogItemCard 
-                    key={item.id} 
+                  <CatalogItemCard
+                    key={item.id}
                     id={item.id ?? ''}
                     namaBarang={item.namaBarang}
                     kategori={item.kategori}
@@ -328,8 +337,8 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
                     harga={item.harga}
                     hargaModal={item.hargaModal}
                     quantity={item.quantity}
-                    onAddToCart={addToCart} 
-                    onUpdateStock={updateInventoryItem} 
+                    onAddToCart={addToCart}
+                    onUpdateStock={updateInventoryItem}
                   />
                 ))}
                 {filteredCatalog.length === 0 && (
@@ -594,18 +603,18 @@ export default memo(function InputPenjualan({ onSubmit, activeSession = null }: 
           <div className="space-y-3">
             <div className="mb-0">
               <FieldGroup label="Metode Pembayaran">
-              <select
-                aria-label="Metode Pembayaran"
-                value={metode}
-                onChange={(e) => setMetode(e.target.value)}
-                className="form-input w-full text-sm"
-              >
-                {METODE_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+                <select
+                  aria-label="Metode Pembayaran"
+                  value={metode}
+                  onChange={(e) => setMetode(e.target.value)}
+                  className="form-input w-full text-sm"
+                >
+                  {METODE_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
               </FieldGroup>
             </div>
 
@@ -677,12 +686,20 @@ interface CatalogItemProps {
   onUpdateStock: (id: string, data: any) => void;
 }
 
-const CatalogItemCard = memo(function CatalogItemCard({ 
-  id, namaBarang, kategori, subKategori, harga, hargaModal, quantity, onAddToCart, onUpdateStock 
+const CatalogItemCard = memo(function CatalogItemCard({
+  id,
+  namaBarang,
+  kategori,
+  subKategori,
+  harga,
+  hargaModal,
+  quantity,
+  onAddToCart,
+  onUpdateStock,
 }: CatalogItemProps) {
   const stock = quantity || 0;
   const isOutOfStock = stock <= 0;
-  
+
   return (
     <div
       className={`p-3 sm:p-4 bg-bg-surface border rounded-xl flex flex-col gap-1 transition-all relative ${
@@ -708,9 +725,7 @@ const CatalogItemCard = memo(function CatalogItemCard({
           isOutOfStock ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.96]'
         }`}
       >
-        <span className="text-sm font-medium text-text-primary line-clamp-2">
-          {namaBarang}
-        </span>
+        <span className="text-sm font-medium text-text-primary line-clamp-2">{namaBarang}</span>
         <span className="text-xs text-text-muted">{kategori}</span>
         <span className="text-sm font-semibold text-primary mt-2">
           Rp {harga?.toLocaleString('id-ID') || 0}

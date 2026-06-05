@@ -143,7 +143,11 @@ function setupBaseWorksheet(sheet: any, transactions: Transaction[], settings: a
  * @param {Object} settings - { tokoName, kasirName, ... }
  * @param {string} filename
  */
-export async function exportToExcel(transactions: Transaction[], settings: any = {}, filename: string = 'ClearTask_Laporan'): Promise<void> {
+export async function exportToExcel(
+  transactions: Transaction[],
+  settings: any = {},
+  filename: string = 'ClearTask_Laporan'
+): Promise<void> {
   const { default: ExcelJS } = await import('exceljs');
 
   const workbook = new ExcelJS.Workbook();
@@ -176,7 +180,11 @@ export async function exportToExcel(transactions: Transaction[], settings: any =
  * @param {Object} session - Session object with nama and tanggalTutup fields
  * @param {Object} settings - { tokoName, kasirName, ... }
  */
-export async function exportSessionExcel(transactions: Transaction[], session: Session, settings: any = {}): Promise<void> {
+export async function exportSessionExcel(
+  transactions: Transaction[],
+  session: Session,
+  settings: any = {}
+): Promise<void> {
   const { default: ExcelJS } = await import('exceljs');
 
   const workbook = new ExcelJS.Workbook();

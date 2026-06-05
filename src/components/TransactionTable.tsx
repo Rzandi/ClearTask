@@ -24,7 +24,11 @@ export interface TransactionTableProps {
   onDelete: (id: string) => Promise<void>;
 }
 
-const TransactionTable = memo(function TransactionTable({ transactions, onUpdate, onDelete }: TransactionTableProps) {
+const TransactionTable = memo(function TransactionTable({
+  transactions,
+  onUpdate,
+  onDelete,
+}: TransactionTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
@@ -145,7 +149,9 @@ const TransactionTable = memo(function TransactionTable({ transactions, onUpdate
                   </td>
                   <td className="px-4 py-3.5 text-right font-medium text-text-secondary tabular-nums">
                     {formatQuantity(
-                      tx.items ? tx.items.reduce((s: number, i: any) => s + (Number(i.qty) || 0), 0) : 0
+                      tx.items
+                        ? tx.items.reduce((s: number, i: any) => s + (Number(i.qty) || 0), 0)
+                        : 0
                     )}
                   </td>
                   <td className="px-4 py-3.5 text-text-secondary text-xs truncate max-w-[100px]">
@@ -317,7 +323,11 @@ function MetodeIcon({ metode }: { metode: string }) {
     'Kartu Debit': '💳',
     Transfer: '🏦',
   };
-  return <span className="text-sm">{Object.hasOwn(iconMap, metode) ? iconMap[metode as keyof typeof iconMap] : '💰'}</span>;
+  return (
+    <span className="text-sm">
+      {Object.hasOwn(iconMap, metode) ? iconMap[metode as keyof typeof iconMap] : '💰'}
+    </span>
+  );
 }
 
 export default TransactionTable;

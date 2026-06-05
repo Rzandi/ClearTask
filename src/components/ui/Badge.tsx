@@ -18,7 +18,13 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   size?: 'sm' | 'md';
 }
 
-export default function Badge({ children, variant = 'default', size = 'sm', className, ...props }: BadgeProps) {
+export default function Badge({
+  children,
+  variant = 'default',
+  size = 'sm',
+  className,
+  ...props
+}: BadgeProps) {
   const base = 'inline-flex items-center font-semibold rounded-full leading-none';
 
   const variants = {

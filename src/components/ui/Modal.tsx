@@ -66,7 +66,7 @@ export default function Modal({
           return;
         }
         const first = focusable[0] as HTMLElement;
-        const last = focusable[focusable.length - 1] as HTMLElement;
+        const last = focusable.at(-1) as HTMLElement;
         if (e.shiftKey) {
           if (document.activeElement === first) {
             e.preventDefault();
@@ -83,7 +83,15 @@ export default function Modal({
 
     document.addEventListener('keydown', handleKey);
 
-    // Auto-focus first focusable element when modal opens
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [isOpen, onClose]);
+
+  // Auto-focus first focusable element when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
     const timer = setTimeout(() => {
       if (modalRef.current) {
         const first = modalRef.current.querySelector(FOCUSABLE) as HTMLElement;
@@ -92,10 +100,9 @@ export default function Modal({
     }, 50);
 
     return () => {
-      document.removeEventListener('keydown', handleKey);
       clearTimeout(timer);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -133,7 +140,7 @@ export default function Modal({
       <div
         className={cn(
           'glass-card w-full animate-slide-up flex flex-col max-h-[90vh]',
-          sizes[size],
+          Reflect.get(sizes, size),
           className
         )}
         ref={modalRef}

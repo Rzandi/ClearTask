@@ -52,10 +52,10 @@ describe('SessionBanner', () => {
       status: 'aktif',
     };
     render(<SessionBanner session={session} onClose={onClose} />);
-    
+
     const closeButton = screen.getByRole('button', { name: /tutup session/i });
     await user.click(closeButton);
-    
+
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -69,7 +69,7 @@ describe('SessionBanner', () => {
       status: 'aktif',
     };
     render(<SessionBanner session={session} onClose={vi.fn()} />);
-    
+
     // The format should be "Dibuka: DD/MM/YYYY, HH:mm"
     // waktuMulai is in UTC, so we need to check for the formatted output
     // formatDate and formatTime use 'id-ID' locale

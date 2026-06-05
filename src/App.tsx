@@ -14,6 +14,7 @@ import Skeleton from './components/ui/Skeleton';
 import { useTransactions } from './hooks/useTransactions';
 import { useSession } from './hooks/useSession';
 import { useSettings } from './contexts/SettingsContext';
+import { syncMissingCategories } from './services/databaseManager';
 
 // Lazy-loaded modals — only downloaded when first opened (perf-report.md W4-1)
 const SettingsModal = lazy(() => import('./components/SettingsModal'));
@@ -28,6 +29,14 @@ const InputKeluaran = lazy(() => import('./components/InputKeluaran'));
 
 export default function App() {
   const { settings } = useSettings();
+
+  // Sync missing categories on startup to repair old/new preset mismatches
+  useEffect(() => {
+    syncMissingCategories().catch((err) => {
+      console.error('Failed to sync missing categories on startup:', err);
+    });
+  }, []);
+
   const [activeTab, setActiveTab] = useState(() => {
     return window.location.hash.replace('#', '') || 'input';
   });
@@ -91,12 +100,13 @@ export default function App() {
         await addTransaction(data);
         setToast({ message: 'Transaksi berhasil disimpan!', type: 'success' });
       } catch (err: any) {
-        const isQuota = err.name === 'QuotaExceededError' || 
-                        (err.message && err.message.includes('QuotaExceededError')) ||
-                        (err.inner && err.inner.name === 'QuotaExceededError');
-        const errMsg = isQuota 
+        const isQuota =
+          err.name === 'QuotaExceededError' ||
+          (err.message && err.message.includes('QuotaExceededError')) ||
+          (err.inner && err.inner.name === 'QuotaExceededError');
+        const errMsg = isQuota
           ? 'Penyimpanan Penuh! Transaksi gagal disimpan ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
-          : (err.message || 'Gagal menyimpan transaksi');
+          : err.message || 'Gagal menyimpan transaksi';
         setToast({ message: errMsg, type: 'error' });
       }
     },
@@ -119,12 +129,13 @@ export default function App() {
         await openSession(sanitizedNama);
         setToast({ message: 'Sesi berhasil dibuka!', type: 'success' });
       } catch (err: any) {
-        const isQuota = err.name === 'QuotaExceededError' || 
-                        (err.message && err.message.includes('QuotaExceededError')) ||
-                        (err.inner && err.inner.name === 'QuotaExceededError');
-        const errMsg = isQuota 
+        const isQuota =
+          err.name === 'QuotaExceededError' ||
+          (err.message && err.message.includes('QuotaExceededError')) ||
+          (err.inner && err.inner.name === 'QuotaExceededError');
+        const errMsg = isQuota
           ? 'Penyimpanan Penuh! Gagal membuka sesi ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
-          : (err.message || 'Gagal membuka sesi');
+          : err.message || 'Gagal membuka sesi';
         setToast({ message: errMsg, type: 'error' });
       }
     },
@@ -140,12 +151,13 @@ export default function App() {
       setClosingReportData({ session: closedSession, transactions: sessionTxs });
       setShowClosingReport(true);
     } catch (err: any) {
-      const isQuota = err.name === 'QuotaExceededError' || 
-                      (err.message && err.message.includes('QuotaExceededError')) ||
-                      (err.inner && err.inner.name === 'QuotaExceededError');
-      const errMsg = isQuota 
+      const isQuota =
+        err.name === 'QuotaExceededError' ||
+        (err.message && err.message.includes('QuotaExceededError')) ||
+        (err.inner && err.inner.name === 'QuotaExceededError');
+      const errMsg = isQuota
         ? 'Penyimpanan Penuh! Gagal menutup sesi ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
-        : (err.message || 'Gagal menutup sesi');
+        : err.message || 'Gagal menutup sesi';
       setToast({ message: errMsg, type: 'error' });
     }
   }, [closeSession, getSessionTransactionsAsync]);

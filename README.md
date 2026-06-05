@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">ClearTask v3.2.0</h1>
+  <h1 align="center">ClearTask v3.3.0</h1>
   <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Aman, Cepat, dan Bisa Dipakai Tanpa Internet.</strong></p>
 </p>
 

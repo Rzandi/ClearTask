@@ -32,7 +32,14 @@ const mockState = {
 // that matches how exportExcel.js uses it: `new ExcelJS.Workbook()`
 vi.mock('exceljs', () => {
   const makeCell = () => {
-    const cell = { font: null, fill: null, alignment: null, border: null, numFmt: null, value: null };
+    const cell = {
+      font: null,
+      fill: null,
+      alignment: null,
+      border: null,
+      numFmt: null,
+      value: null,
+    };
     return cell;
   };
 

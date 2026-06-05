@@ -10,7 +10,7 @@
 ```
 Nama Project     : ClearTask
 Deskripsi Singkat: Task Management web application with local storage (IndexedDB via Dexie)
-Versi Saat Ini   : v3.2.0
+Versi Saat Ini   : v3.3.0
 Status           : [x] Planning  [x] In Progress  [x] Done  [ ] On Hold
 Jenis            : [ ] Baru  [x] Legacy (Strangler Fig Mode)
 ```
@@ -62,7 +62,7 @@ Fase saat ini    : Fase 8 — Go Live & Deployment
 URG terakhir     : URG-8 (Release Gate)
 Status URG       : [x] Approved (RELEASED)
 Agent aktif      : QA (Go Live Mode)
-Sesi terakhir    : 2026-05-30
+Sesi terakhir    : 2026-06-06
 ```
 
 ---

@@ -35,7 +35,10 @@ export function escapeCSVValue(value: any): string {
  * @param {Session} session - The closed session object
  * @returns {void}
  */
-export async function exportSessionCSV(transactions: Transaction[], session: Session): Promise<void> {
+export async function exportSessionCSV(
+  transactions: Transaction[],
+  session: Session
+): Promise<void> {
   const header = [
     'ID Transaksi',
     'Tanggal',

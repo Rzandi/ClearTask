@@ -35,7 +35,12 @@ export default defineConfig([
     },
   },
   {
-    files: ['playwright.config.js', 'src/__tests__/**/*.js', 'eslint.config.js'],
+    files: [
+      'playwright.config.js',
+      'src/__tests__/**/*.js',
+      'eslint.config.js',
+      'src/test-setup.js',
+    ],
     languageOptions: {
       globals: {
         ...globals.node,

@@ -117,7 +117,9 @@ describe('MergePreviewModal', () => {
 
   it('menampilkan peringatan saat orphanTransactions > 0', () => {
     renderModal({ mergeResult: { ...defaultMergeResult, orphanTransactions: 3 } });
-    expect(screen.getByText(/3 transaksi mereferensikan sesi yang tidak ditemukan/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/3 transaksi mereferensikan sesi yang tidak ditemukan/i)
+    ).toBeInTheDocument();
   });
 
   // ── Buttons ────────────────────────────────────────────────────────────────

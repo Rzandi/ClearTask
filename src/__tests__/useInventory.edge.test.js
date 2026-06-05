@@ -15,12 +15,20 @@ beforeEach(async () => {
   await db.inventory.clear();
 });
 
+const renderHookAndReady = async () => {
+  let hookResult;
+  await act(async () => {
+    hookResult = renderHook(() => useInventory());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  return hookResult;
+};
+
 // ── Unicode & Emoji ───────────────────────────────────────
 
 describe('useInventory — Unicode & Emoji Edge Cases', () => {
   it('menyimpan nama barang dengan emoji panjang tanpa error', async () => {
-    const { result } = renderHook(() => useInventory());
-    await waitFor(() => expect(result.current.inventory).toBeDefined());
+    const { result } = await renderHookAndReady();
 
     const emojiName = '🍔🍟🌮🌯🥙🧆🥚🍳🥘🍲🥣🥗🍿🧂🥫🍱🍘🍙🍚🍛';
     let savedItem;
@@ -40,8 +48,7 @@ describe('useInventory — Unicode & Emoji Edge Cases', () => {
   });
 
   it('menyimpan nama dengan karakter Zalgo/Unicode ekstrem', async () => {
-    const { result } = renderHook(() => useInventory());
-    await waitFor(() => expect(result.current.inventory).toBeDefined());
+    const { result } = await renderHookAndReady();
 
     const zalgoName = 'Z̷a̷l̷g̷o̷ ̷T̷e̷x̷t̷';
     await act(async () => {
@@ -54,8 +61,7 @@ describe('useInventory — Unicode & Emoji Edge Cases', () => {
   });
 
   it('menyimpan nama dengan karakter Arab/RTL', async () => {
-    const { result } = renderHook(() => useInventory());
-    await waitFor(() => expect(result.current.inventory).toBeDefined());
+    const { result } = await renderHookAndReady();
 
     const arabicName = 'قهوة سوداء';
     await act(async () => {
@@ -76,8 +82,7 @@ describe('useInventory — Unicode & Emoji Edge Cases', () => {
 
 describe('useInventory — Extreme Numeric Values', () => {
   it('menyimpan harga Rp0 tanpa error', async () => {
-    const { result } = renderHook(() => useInventory());
-    await waitFor(() => expect(result.current.inventory).toBeDefined());
+    const { result } = await renderHookAndReady();
 
     await act(async () => {
       await result.current.addInventoryItem({ nama: 'Gratis', harga: 0, kategori: 'Lainnya' });
@@ -89,8 +94,7 @@ describe('useInventory — Extreme Numeric Values', () => {
   });
 
   it('menyimpan harga sangat besar (Rp999.999.999) tanpa error', async () => {
-    const { result } = renderHook(() => useInventory());
-    await waitFor(() => expect(result.current.inventory).toBeDefined());
+    const { result } = await renderHookAndReady();
 
     await act(async () => {
       await result.current.addInventoryItem({
@@ -110,8 +114,7 @@ describe('useInventory — Extreme Numeric Values', () => {
 
 describe('useInventory — CRUD Idempotency', () => {
   it('delete item yang tidak ada tidak throw error', async () => {
-    const { result } = renderHook(() => useInventory());
-    await waitFor(() => expect(result.current.inventory).toBeDefined());
+    const { result } = await renderHookAndReady();
 
     await expect(
       act(async () => {
@@ -121,8 +124,7 @@ describe('useInventory — CRUD Idempotency', () => {
   });
 
   it('update item yang tidak ada tidak throw error', async () => {
-    const { result } = renderHook(() => useInventory());
-    await waitFor(() => expect(result.current.inventory).toBeDefined());
+    const { result } = await renderHookAndReady();
 
     await expect(
       act(async () => {
@@ -148,8 +150,7 @@ describe('PBT: useInventory bulk add tidak crash', () => {
         ),
         async (items) => {
           await db.inventory.clear();
-          const { result } = renderHook(() => useInventory());
-          await waitFor(() => expect(result.current.inventory).toBeDefined());
+          const { result } = await renderHookAndReady();
 
           await act(async () => {
             for (const item of items) {

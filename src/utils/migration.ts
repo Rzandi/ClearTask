@@ -165,7 +165,7 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
         if (Array.isArray(sessions) && sessions.length > 0) {
           const sessionData = sessions.map((s: any, idx: number) => ({
             ...s,
-            id: s.id || `legacy-session-${Date.now()}-${idx}`
+            id: s.id || `legacy-session-${Date.now()}-${idx}`,
           }));
           await db.sessions.bulkPut(sessionData);
         }
@@ -174,7 +174,7 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
         if (Array.isArray(inventory) && inventory.length > 0) {
           const invData = inventory.map((inv: any, idx: number) => ({
             ...inv,
-            id: inv.id || `legacy-inv-${Date.now()}-${idx}`
+            id: inv.id || `legacy-inv-${Date.now()}-${idx}`,
           }));
           await db.inventory.bulkPut(invData);
         }

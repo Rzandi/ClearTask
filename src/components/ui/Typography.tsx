@@ -32,7 +32,13 @@ export interface TypographyProps extends React.HTMLAttributes<HTMLElement> {
   as?: React.ElementType;
 }
 
-export default function Typography({ children, variant = 'body', as, className, ...props }: TypographyProps) {
+export default function Typography({
+  children,
+  variant = 'body',
+  as,
+  className,
+  ...props
+}: TypographyProps) {
   const config = variantMap[variant] ?? variantMap.body;
   const Tag = as || config.tag;
 

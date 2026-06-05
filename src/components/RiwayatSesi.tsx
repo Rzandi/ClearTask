@@ -21,7 +21,10 @@ export interface RiwayatSesiProps {
   getSessionTransactions: (sessionId: string) => Promise<any[]>;
 }
 
-export default function RiwayatSesi({ allSessions = [], getSessionTransactions }: RiwayatSesiProps) {
+export default function RiwayatSesi({
+  allSessions = [],
+  getSessionTransactions,
+}: RiwayatSesiProps) {
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const [selectedTransactions, setSelectedTransactions] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -64,7 +67,7 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions }
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(sortedSessions.length / ITEMS_PER_PAGE));
   const safeCurrentPage = totalPages > 0 && currentPage > totalPages ? totalPages : currentPage;
-  
+
   const startIdx = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
   const visibleSessions = sortedSessions.slice(startIdx, startIdx + ITEMS_PER_PAGE);
 
@@ -237,7 +240,8 @@ export default function RiwayatSesi({ allSessions = [], getSessionTransactions }
         <div className="flex items-center justify-between px-1 mt-2">
           <p className="text-xs text-text-muted">
             Menampilkan {Math.min(startIdx + 1, sortedSessions.length)}-
-            {Math.min(startIdx + ITEMS_PER_PAGE, sortedSessions.length)} dari {sortedSessions.length} sesi
+            {Math.min(startIdx + ITEMS_PER_PAGE, sortedSessions.length)} dari{' '}
+            {sortedSessions.length} sesi
           </p>
           <div className="flex items-center gap-1">
             <button

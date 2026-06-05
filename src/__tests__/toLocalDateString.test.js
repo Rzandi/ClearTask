@@ -31,22 +31,19 @@ describe('toLocalDateString', () => {
 
   it('property: matches YYYY-MM-DD from getFullYear/getMonth/getDate for any valid date', () => {
     fc.assert(
-      fc.property(
-        fc.date({ min: new Date('2000-01-01'), max: new Date('2099-12-31') }),
-        (date) => {
-          if (isNaN(date.getTime())) return true;
-          const result = toLocalDateString(date);
-          // Verify format is YYYY-MM-DD
-          const match = result.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-          if (!match) return false;
-          // Verify components match the date's local values
-          return (
-            Number(match[1]) === date.getFullYear() &&
-            Number(match[2]) === date.getMonth() + 1 &&
-            Number(match[3]) === date.getDate()
-          );
-        }
-      ),
+      fc.property(fc.date({ min: new Date('2000-01-01'), max: new Date('2099-12-31') }), (date) => {
+        if (isNaN(date.getTime())) return true;
+        const result = toLocalDateString(date);
+        // Verify format is YYYY-MM-DD
+        const match = result.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return false;
+        // Verify components match the date's local values
+        return (
+          Number(match[1]) === date.getFullYear() &&
+          Number(match[2]) === date.getMonth() + 1 &&
+          Number(match[3]) === date.getDate()
+        );
+      }),
       { numRuns: 200 }
     );
   });

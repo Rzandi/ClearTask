@@ -13,7 +13,12 @@ export interface MergePreviewModalProps {
   onCancel: () => void;
 }
 
-export default function MergePreviewModal({ isOpen, mergeResult, onConfirm, onCancel }: MergePreviewModalProps) {
+export default function MergePreviewModal({
+  isOpen,
+  mergeResult,
+  onConfirm,
+  onCancel,
+}: MergePreviewModalProps) {
   const [merged, setMerged] = useState(false);
 
   // Return null when modal is closed
@@ -41,7 +46,6 @@ export default function MergePreviewModal({ isOpen, mergeResult, onConfirm, onCa
 
       {/* Modal card */}
       <div className="relative glass-card w-full max-w-md mx-4 p-6 animate-slide-up">
-
         {/* Header */}
         <div className="mb-6">
           <h2 className="text-lg font-bold text-text-primary">Konfirmasi Merge Database</h2>
@@ -74,9 +78,14 @@ export default function MergePreviewModal({ isOpen, mergeResult, onConfirm, onCa
               <span className="font-semibold text-primary">Merge berhasil!</span>
             </div>
             <p className="text-sm text-text-secondary">
-              {mergeResult?.newTransactions ?? 0} transaksi,{' '}
-              {mergeResult?.newSessions ?? 0} sesi,{' '}
-              {mergeResult?.newCategories ?? 0} kategori ditambahkan.
+              {mergeResult?.newTransactions ?? 0} transaksi, {mergeResult?.newSessions ?? 0} sesi,{' '}
+              {mergeResult?.newCategories ?? 0} kategori
+              {mergeResult?.newExpenses > 0 ? `, ${mergeResult.newExpenses} pengeluaran` : ''}
+              {mergeResult?.newArchiveTransactions > 0
+                ? `, ${mergeResult.newArchiveTransactions} arsip`
+                : ''}
+              {mergeResult?.newSawHistory > 0 ? `, ${mergeResult.newSawHistory} riwayat SAW` : ''}
+              {mergeResult?.sawCriteriaUpdated ? ', kriteria SAW diperbarui' : ''} ditambahkan.
             </p>
           </div>
         ) : (
@@ -85,7 +94,16 @@ export default function MergePreviewModal({ isOpen, mergeResult, onConfirm, onCa
             <div className="space-y-3 mb-5">
               <SummaryRow
                 icon={
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
@@ -98,7 +116,16 @@ export default function MergePreviewModal({ isOpen, mergeResult, onConfirm, onCa
               />
               <SummaryRow
                 icon={
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                     <line x1="16" y1="2" x2="16" y2="6" />
                     <line x1="8" y1="2" x2="8" y2="6" />
@@ -110,7 +137,16 @@ export default function MergePreviewModal({ isOpen, mergeResult, onConfirm, onCa
               />
               <SummaryRow
                 icon={
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
                     <line x1="7" y1="7" x2="7.01" y2="7" />
                   </svg>
@@ -118,9 +154,105 @@ export default function MergePreviewModal({ isOpen, mergeResult, onConfirm, onCa
                 label="Kategori baru"
                 value={mergeResult?.newCategories ?? 0}
               />
+              {mergeResult?.newExpenses > 0 && (
+                <SummaryRow
+                  icon={
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="12" y1="1" x2="12" y2="23" />
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                  }
+                  label="Pengeluaran baru"
+                  value={mergeResult.newExpenses}
+                />
+              )}
+              {mergeResult?.newArchiveTransactions > 0 && (
+                <SummaryRow
+                  icon={
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="21 8 21 21 3 21 3 8" />
+                      <rect x="1" y="3" width="22" height="5" rx="1" />
+                      <line x1="10" y1="12" x2="14" y2="12" />
+                    </svg>
+                  }
+                  label="Arsip transaksi baru"
+                  value={mergeResult.newArchiveTransactions}
+                />
+              )}
+              {mergeResult?.newSawHistory > 0 && (
+                <SummaryRow
+                  icon={
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                  }
+                  label="Riwayat SAW baru"
+                  value={mergeResult.newSawHistory}
+                />
+              )}
+              {mergeResult?.sawCriteriaUpdated && (
+                <SummaryRow
+                  icon={
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                      <polyline points="2 17 12 22 22 17" />
+                      <polyline points="2 12 12 17 22 12" />
+                    </svg>
+                  }
+                  label="Kriteria SAW"
+                  value={1}
+                  valueLabel="Diperbarui"
+                />
+              )}
               <SummaryRow
                 icon={
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -154,8 +286,8 @@ export default function MergePreviewModal({ isOpen, mergeResult, onConfirm, onCa
                   <div>
                     <p className="text-sm font-medium text-amber-400">Peringatan</p>
                     <p className="text-xs text-amber-300/80 mt-0.5">
-                      {mergeResult.orphanTransactions} transaksi mereferensikan sesi yang tidak ditemukan.
-                      Transaksi tersebut akan tetap disimpan dengan sessionId aslinya.
+                      {mergeResult.orphanTransactions} transaksi mereferensikan sesi yang tidak
+                      ditemukan. Transaksi tersebut akan tetap disimpan dengan sessionId aslinya.
                     </p>
                   </div>
                 </div>
@@ -193,17 +325,22 @@ interface SummaryRowProps {
   icon: React.ReactNode;
   label: string;
   value: number;
+  valueLabel?: string;
   muted?: boolean;
 }
-function SummaryRow({ icon, label, value, muted = false }: SummaryRowProps) {
+function SummaryRow({ icon, label, value, valueLabel, muted = false }: SummaryRowProps) {
   return (
     <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.03] border border-border-default">
-      <div className={`flex items-center gap-2.5 ${muted ? 'text-text-muted' : 'text-text-secondary'}`}>
+      <div
+        className={`flex items-center gap-2.5 ${muted ? 'text-text-muted' : 'text-text-secondary'}`}
+      >
         <span className={muted ? 'text-text-muted' : 'text-primary'}>{icon}</span>
         <span className="text-sm">{label}</span>
       </div>
-      <span className={`text-sm font-semibold tabular-nums ${muted ? 'text-text-muted' : 'text-text-primary'}`}>
-        {value}
+      <span
+        className={`text-sm font-semibold tabular-nums ${muted ? 'text-text-muted' : 'text-text-primary'}`}
+      >
+        {valueLabel !== undefined ? valueLabel : value}
       </span>
     </div>
   );

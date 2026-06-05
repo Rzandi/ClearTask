@@ -46,7 +46,10 @@ export interface ClosingReportStats {
  * @param {Transaction[]} transactions - Array of transactions in the session
  * @returns {ClosingReportStats} ClosingReportStats object
  */
-export function calculateSessionStats(session: Session, transactions: Transaction[]): ClosingReportStats {
+export function calculateSessionStats(
+  session: Session,
+  transactions: Transaction[]
+): ClosingReportStats {
   // Handle empty transactions case (7.2)
   if (!transactions || transactions.length === 0) {
     return {
@@ -67,14 +70,29 @@ export function calculateSessionStats(session: Session, transactions: Transactio
   // Calculate breakdown by kategori
   const kategoriMap = new Map();
   transactions.forEach((tx) => {
-    const existing = kategoriMap.get(tx.kategori) || {
-      kategori: tx.kategori,
-      jumlahTransaksi: 0,
-      totalPemasukan: 0,
-    };
-    existing.jumlahTransaksi += 1;
-    existing.totalPemasukan += (Number(tx.total) || 0);
-    kategoriMap.set(tx.kategori, existing);
+    if (tx.items && Array.isArray(tx.items) && tx.items.length > 0) {
+      tx.items.forEach((item: any) => {
+        const cat = item.kategori || 'Lainnya';
+        const existing = kategoriMap.get(cat) || {
+          kategori: cat,
+          jumlahTransaksi: 0,
+          totalPemasukan: 0,
+        };
+        existing.jumlahTransaksi += Number(item.qty) || 1;
+        existing.totalPemasukan += Number(item.total) || 0;
+        kategoriMap.set(cat, existing);
+      });
+    } else {
+      const cat = tx.kategori || 'Lainnya';
+      const existing = kategoriMap.get(cat) || {
+        kategori: cat,
+        jumlahTransaksi: 0,
+        totalPemasukan: 0,
+      };
+      existing.jumlahTransaksi += 1;
+      existing.totalPemasukan += Number(tx.total) || 0;
+      kategoriMap.set(cat, existing);
+    }
   });
   const breakdownKategori = Array.from(kategoriMap.values());
 
@@ -87,7 +105,7 @@ export function calculateSessionStats(session: Session, transactions: Transactio
       totalPemasukan: 0,
     };
     existing.jumlahTransaksi += 1;
-    existing.totalPemasukan += (Number(tx.total) || 0);
+    existing.totalPemasukan += Number(tx.total) || 0;
     metodeMap.set(tx.metode, existing);
   });
   const breakdownMetode = Array.from(metodeMap.values());
@@ -107,7 +125,8 @@ export function calculateSessionStats(session: Session, transactions: Transactio
   });
 
   // Detect if all transactions have the same total
-  const allSameTotal = (Number(transaksiTertinggi?.total) || 0) === (Number(transaksiTerendah?.total) || 0);
+  const allSameTotal =
+    (Number(transaksiTertinggi?.total) || 0) === (Number(transaksiTerendah?.total) || 0);
 
   return {
     session,

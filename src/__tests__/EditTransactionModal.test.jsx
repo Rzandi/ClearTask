@@ -240,16 +240,88 @@ describe('Task 10 — Property Tests: EditTransactionModal', () => {
   // Feature: edit-transaction, Property 1: Kalkulasi total
   // Untuk setiap pasangan (qty, hargaSatuan), verifikasi total === qty * hargaSatuan
   // atau 0 jika salah satu <= 0
-  it('Property 1: Kalkulasi total — total === qty * hargaSatuan atau 0 jika salah satu <= 0 — Validates: Requirements 3.1, 3.2, 3.4, 3.5', { timeout: 30000 }, () => {
-    // Feature: edit-transaction, Property 1: Kalkulasi total
-    fc.assert(
-      fc.property(
-        fc.integer({ min: 1, max: 1000 }),
-        fc.integer({ min: 1, max: 1000000 }),
-        (qty, hargaSatuan) => {
+  it(
+    'Property 1: Kalkulasi total — total === qty * hargaSatuan atau 0 jika salah satu <= 0 — Validates: Requirements 3.1, 3.2, 3.4, 3.5',
+    { timeout: 30000 },
+    () => {
+      // Feature: edit-transaction, Property 1: Kalkulasi total
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 1, max: 1000 }),
+          fc.integer({ min: 1, max: 1000000 }),
+          (qty, hargaSatuan) => {
+            const onClose = vi.fn();
+            const onSave = vi.fn();
+            const tx = makeTx({ qty, hargaSatuan });
+
+            const { unmount } = render(
+              <EditTransactionModal
+                transaction={tx}
+                isOpen={true}
+                onClose={onClose}
+                onSave={onSave}
+              />
+            );
+
+            const qtyInput = document.getElementById('edit-qty');
+            const hargaInput = document.getElementById('edit-hargaSatuan');
+            const totalDisplay = document.querySelector('[data-testid="total-display"]');
+
+            // Ubah nilai field
+            fireEvent.change(qtyInput, { target: { name: 'qty', value: String(qty) } });
+            fireEvent.change(hargaInput, {
+              target: { name: 'hargaSatuan', value: String(hargaSatuan) },
+            });
+
+            const expectedTotal = qty > 0 && hargaSatuan > 0 ? qty * hargaSatuan : 0;
+            const expectedDisplay = expectedTotal > 0 ? expectedTotal.toLocaleString('id-ID') : '0';
+
+            const result = totalDisplay.value === expectedDisplay;
+
+            unmount();
+            return result;
+          }
+        )
+      );
+    }
+  );
+
+  // Property 2: Validasi mencegah simpan
+  // Feature: edit-transaction, Property 2: Validasi mencegah simpan
+  // Untuk setiap input tidak valid (namaBarang kosong, qty < 1, atau hargaSatuan < 0),
+  // verifikasi tombol Simpan disabled setelah submit
+  it(
+    'Property 2: Validasi mencegah simpan — tombol Simpan disabled untuk input tidak valid — Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5',
+    { timeout: 30000 },
+    () => {
+      // Feature: edit-transaction, Property 2: Validasi mencegah simpan
+      // Generator untuk input tidak valid: salah satu dari tiga kondisi invalid
+      const invalidInputArb = fc.oneof(
+        // namaBarang kosong
+        fc.record({
+          namaBarang: fc.constant(''),
+          qty: fc.integer({ min: 1, max: 100 }),
+          hargaSatuan: fc.integer({ min: 0, max: 1000000 }),
+        }),
+        // qty < 1
+        fc.record({
+          namaBarang: fc.string({ minLength: 1, maxLength: 20 }),
+          qty: fc.integer({ min: -100, max: 0 }),
+          hargaSatuan: fc.integer({ min: 0, max: 1000000 }),
+        }),
+        // hargaSatuan < 0
+        fc.record({
+          namaBarang: fc.string({ minLength: 1, maxLength: 20 }),
+          qty: fc.integer({ min: 1, max: 100 }),
+          hargaSatuan: fc.integer({ min: -1000000, max: -1 }),
+        })
+      );
+
+      fc.assert(
+        fc.property(invalidInputArb, ({ namaBarang, qty, hargaSatuan }) => {
           const onClose = vi.fn();
           const onSave = vi.fn();
-          const tx = makeTx({ qty, hargaSatuan });
+          const tx = makeTx({ namaBarang: 'Laptop', qty: 2, hargaSatuan: 5000000 });
 
           const { unmount } = render(
             <EditTransactionModal
@@ -260,138 +332,83 @@ describe('Task 10 — Property Tests: EditTransactionModal', () => {
             />
           );
 
+          // Ubah field ke nilai tidak valid
+          const namaInput = document.getElementById('edit-namaBarang');
           const qtyInput = document.getElementById('edit-qty');
           const hargaInput = document.getElementById('edit-hargaSatuan');
-          const totalDisplay = document.querySelector('[data-testid="total-display"]');
 
-          // Ubah nilai field
+          fireEvent.change(namaInput, { target: { name: 'namaBarang', value: namaBarang } });
           fireEvent.change(qtyInput, { target: { name: 'qty', value: String(qty) } });
-          fireEvent.change(hargaInput, { target: { name: 'hargaSatuan', value: String(hargaSatuan) } });
+          fireEvent.change(hargaInput, {
+            target: { name: 'hargaSatuan', value: String(hargaSatuan) },
+          });
 
-          const expectedTotal = qty > 0 && hargaSatuan > 0 ? qty * hargaSatuan : 0;
-          const expectedDisplay =
-            expectedTotal > 0 ? expectedTotal.toLocaleString('id-ID') : '0';
+          // Submit form untuk trigger validasi
+          const form = document.getElementById('form-edit-transaksi');
+          fireEvent.submit(form);
 
-          const result = totalDisplay.value === expectedDisplay;
+          // Tombol Simpan harus disabled
+          const btnSimpan = document.querySelector('button[type="submit"]');
+          const isDisabled = btnSimpan.disabled === true;
 
           unmount();
-          return result;
-        }
-      )
-    );
-  });
-
-  // Property 2: Validasi mencegah simpan
-  // Feature: edit-transaction, Property 2: Validasi mencegah simpan
-  // Untuk setiap input tidak valid (namaBarang kosong, qty < 1, atau hargaSatuan < 0),
-  // verifikasi tombol Simpan disabled setelah submit
-  it('Property 2: Validasi mencegah simpan — tombol Simpan disabled untuk input tidak valid — Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5', { timeout: 30000 }, () => {
-    // Feature: edit-transaction, Property 2: Validasi mencegah simpan
-    // Generator untuk input tidak valid: salah satu dari tiga kondisi invalid
-    const invalidInputArb = fc.oneof(
-      // namaBarang kosong
-      fc.record({
-        namaBarang: fc.constant(''),
-        qty: fc.integer({ min: 1, max: 100 }),
-        hargaSatuan: fc.integer({ min: 0, max: 1000000 }),
-      }),
-      // qty < 1
-      fc.record({
-        namaBarang: fc.string({ minLength: 1, maxLength: 20 }),
-        qty: fc.integer({ min: -100, max: 0 }),
-        hargaSatuan: fc.integer({ min: 0, max: 1000000 }),
-      }),
-      // hargaSatuan < 0
-      fc.record({
-        namaBarang: fc.string({ minLength: 1, maxLength: 20 }),
-        qty: fc.integer({ min: 1, max: 100 }),
-        hargaSatuan: fc.integer({ min: -1000000, max: -1 }),
-      })
-    );
-
-    fc.assert(
-      fc.property(invalidInputArb, ({ namaBarang, qty, hargaSatuan }) => {
-        const onClose = vi.fn();
-        const onSave = vi.fn();
-        const tx = makeTx({ namaBarang: 'Laptop', qty: 2, hargaSatuan: 5000000 });
-
-        const { unmount } = render(
-          <EditTransactionModal
-            transaction={tx}
-            isOpen={true}
-            onClose={onClose}
-            onSave={onSave}
-          />
-        );
-
-        // Ubah field ke nilai tidak valid
-        const namaInput = document.getElementById('edit-namaBarang');
-        const qtyInput = document.getElementById('edit-qty');
-        const hargaInput = document.getElementById('edit-hargaSatuan');
-
-        fireEvent.change(namaInput, { target: { name: 'namaBarang', value: namaBarang } });
-        fireEvent.change(qtyInput, { target: { name: 'qty', value: String(qty) } });
-        fireEvent.change(hargaInput, { target: { name: 'hargaSatuan', value: String(hargaSatuan) } });
-
-        // Submit form untuk trigger validasi
-        const form = document.getElementById('form-edit-transaksi');
-        fireEvent.submit(form);
-
-        // Tombol Simpan harus disabled
-        const btnSimpan = document.querySelector('button[type="submit"]');
-        const isDisabled = btnSimpan.disabled === true;
-
-        unmount();
-        return isDisabled;
-      })
-    );
-  });
+          return isDisabled;
+        })
+      );
+    }
+  );
 
   // Property 3: Batal tidak mengubah data
   // Feature: edit-transaction, Property 3: Batal tidak mengubah data
   // Untuk setiap perubahan form, klik Batal tidak memanggil onSave
-  it('Property 3: Batal tidak mengubah data — klik Batal tidak memanggil onSave — Validates: Requirements 2.5, 2.6, 2.7', { timeout: 30000 }, () => {
-    // Feature: edit-transaction, Property 3: Batal tidak mengubah data
-    const formChangeArb = fc.record({
-      namaBarang: fc.string({ minLength: 1, maxLength: 30 }),
-      qty: fc.integer({ min: 1, max: 100 }),
-      hargaSatuan: fc.integer({ min: 1, max: 1000000 }),
-    });
+  it(
+    'Property 3: Batal tidak mengubah data — klik Batal tidak memanggil onSave — Validates: Requirements 2.5, 2.6, 2.7',
+    { timeout: 30000 },
+    () => {
+      // Feature: edit-transaction, Property 3: Batal tidak mengubah data
+      const formChangeArb = fc.record({
+        namaBarang: fc.string({ minLength: 1, maxLength: 30 }),
+        qty: fc.integer({ min: 1, max: 100 }),
+        hargaSatuan: fc.integer({ min: 1, max: 1000000 }),
+      });
 
-    fc.assert(
-      fc.property(formChangeArb, ({ namaBarang, qty, hargaSatuan }) => {
-        const onClose = vi.fn();
-        const onSave = vi.fn();
-        const tx = makeTx();
+      fc.assert(
+        fc.property(formChangeArb, ({ namaBarang, qty, hargaSatuan }) => {
+          const onClose = vi.fn();
+          const onSave = vi.fn();
+          const tx = makeTx();
 
-        const { unmount } = render(
-          <EditTransactionModal
-            transaction={tx}
-            isOpen={true}
-            onClose={onClose}
-            onSave={onSave}
-          />
-        );
+          const { unmount } = render(
+            <EditTransactionModal
+              transaction={tx}
+              isOpen={true}
+              onClose={onClose}
+              onSave={onSave}
+            />
+          );
 
-        // Ubah beberapa field
-        const namaInput = document.getElementById('edit-namaBarang');
-        const qtyInput = document.getElementById('edit-qty');
-        const hargaInput = document.getElementById('edit-hargaSatuan');
+          // Ubah beberapa field
+          const namaInput = document.getElementById('edit-namaBarang');
+          const qtyInput = document.getElementById('edit-qty');
+          const hargaInput = document.getElementById('edit-hargaSatuan');
 
-        fireEvent.change(namaInput, { target: { name: 'namaBarang', value: namaBarang } });
-        fireEvent.change(qtyInput, { target: { name: 'qty', value: String(qty) } });
-        fireEvent.change(hargaInput, { target: { name: 'hargaSatuan', value: String(hargaSatuan) } });
+          fireEvent.change(namaInput, { target: { name: 'namaBarang', value: namaBarang } });
+          fireEvent.change(qtyInput, { target: { name: 'qty', value: String(qty) } });
+          fireEvent.change(hargaInput, {
+            target: { name: 'hargaSatuan', value: String(hargaSatuan) },
+          });
 
-        // Klik Batal
-        const btnBatal = document.querySelector('button[type="button"][class*="border"]');
-        fireEvent.click(btnBatal);
+          // Klik Batal
+          const btnBatal = document.querySelector('button[type="button"][class*="border"]');
+          fireEvent.click(btnBatal);
 
-        // onSave tidak boleh dipanggil
-        const result = onSave.mock.calls.length === 0;
+          // onSave tidak boleh dipanggil
+          const result = onSave.mock.calls.length === 0;
 
-        unmount();
-        return result;
-      })
-    );
-  });
+          unmount();
+          return result;
+        })
+      );
+    }
+  );
 });

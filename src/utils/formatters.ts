@@ -107,7 +107,8 @@ export function generateTransactionId(seq: number): string {
  * @returns {string} e.g. "5", "1,5", "10,25"
  */
 export function formatQuantity(value: number | string | null | undefined): string {
-  if (value === null || value === undefined || isNaN(Number(value)) || !isFinite(Number(value))) return '0';
+  if (value === null || value === undefined || isNaN(Number(value)) || !isFinite(Number(value)))
+    return '0';
   return Number(value).toLocaleString('id-ID', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
