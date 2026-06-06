@@ -54,6 +54,34 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <!-- Cache-buster: auto-clear stale SW cache on version mismatch -->
+    <script>
+      (function() {
+        var SW_VERSION = 'v3.3.0';
+        var FLAG = 'cleartask_sw_version';
+        try {
+          var prev = localStorage.getItem(FLAG);
+          if (prev && prev === SW_VERSION) return; // already up to date
+          // Version changed or first visit — clean up
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              regs.forEach(function(r) { r.unregister(); });
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              names.forEach(function(n) { caches.delete(n); });
+            });
+          }
+          localStorage.setItem(FLAG, SW_VERSION);
+          if (prev) {
+            // Only reload if upgrading (prev existed but was different)
+            location.reload();
+            return;
+          }
+        } catch(e) { /* localStorage unavailable — ignore */ }
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
