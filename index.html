@@ -53,7 +53,33 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Loading indicator (replaced when React mounts) -->
+      <div id="app-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;color:#a0a0b0;font-family:system-ui,sans-serif;gap:1rem;">
+        <div style="width:40px;height:40px;border:3px solid rgba(0,255,163,0.2);border-top-color:#00ffa3;border-radius:50%;animation:spin .8s linear infinite;"></div>
+        <p>Memuat ClearTask...</p>
+        <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+      </div>
+    </div>
+    <!-- Global error catcher: show JS errors on screen for mobile debugging -->
+    <script>
+      window.onerror = function(msg, src, line, col, err) {
+        var d = document.getElementById('app-loader') || document.getElementById('root');
+        if (d) {
+          d.innerHTML = '<div style="padding:2rem;background:#0a0a0f;color:#ff6b6b;font-family:monospace;font-size:13px;min-height:100vh;">'
+            + '<h2 style="color:#ff4a4a;margin-bottom:1rem;">⚠️ ClearTask Error</h2>'
+            + '<p style="color:#ccc;margin-bottom:.5rem;word-break:break-all;"><b>Error:</b> ' + msg + '</p>'
+            + '<p style="color:#888;margin-bottom:.5rem;word-break:break-all;"><b>File:</b> ' + (src||'unknown') + ':' + (line||'?') + '</p>'
+            + '<p style="color:#888;margin-bottom:1.5rem;word-break:break-all;"><b>Detail:</b> ' + (err && err.stack ? err.stack : 'none') + '</p>'
+            + '<button onclick="location.reload()" style="padding:.6rem 1.5rem;background:#00ffa3;color:#0a0a0f;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Reload</button>'
+            + '</div>';
+        }
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        var msg = e.reason ? (e.reason.message || e.reason.toString()) : 'Unknown promise rejection';
+        window.onerror(msg, '', 0, 0, e.reason);
+      });
+    </script>
     <!-- Cache-buster: auto-clear stale SW cache on version mismatch -->
     <script>
       (function() {
@@ -61,8 +87,7 @@
         var FLAG = 'cleartask_sw_version';
         try {
           var prev = localStorage.getItem(FLAG);
-          if (prev && prev === SW_VERSION) return; // already up to date
-          // Version changed or first visit — clean up
+          if (prev && prev === SW_VERSION) return;
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
               regs.forEach(function(r) { r.unregister(); });
@@ -74,12 +99,8 @@
             });
           }
           localStorage.setItem(FLAG, SW_VERSION);
-          if (prev) {
-            // Only reload if upgrading (prev existed but was different)
-            location.reload();
-            return;
-          }
-        } catch(e) { /* localStorage unavailable — ignore */ }
+          if (prev) { location.reload(); return; }
+        } catch(e) {}
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
