@@ -150,7 +150,7 @@ export class ClearTaskDB extends Dexie {
         expensesTemp: '++id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
       })
       .upgrade(async (tx: DexieTransaction) => {
-        if (tx.db.objectStoreNames.contains('expenses')) {
+        if (tx.idbtrans.db.objectStoreNames.contains('expenses')) {
           const expenses = await tx.table('expenses').toArray();
           const migrated = expenses.map((record: any) => {
             if (typeof record.id === 'number') {
@@ -175,7 +175,7 @@ export class ClearTaskDB extends Dexie {
         expensesTemp: null,
       })
       .upgrade(async (tx: DexieTransaction) => {
-        if (tx.db.objectStoreNames.contains('expensesTemp')) {
+        if (tx.idbtrans.db.objectStoreNames.contains('expensesTemp')) {
           const expenses = await tx.table('expensesTemp').toArray();
           const migrated = expenses.map((record: any) => {
             if (typeof record.id === 'number') {
