@@ -3,7 +3,7 @@
    Cache-first for assets, Network-first for navigation
    ═══════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v3.3.0';
 const STATIC_CACHE = `cleartask-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `cleartask-dynamic-${CACHE_VERSION}`;
 
@@ -11,8 +11,6 @@ const APP_SHELL = [
   '/',
   '/index.html',
   '/offline.html',
-  '/assets/icons/icon-192.png',
-  '/assets/icons/icon-512.png',
 ];
 
 // ─── Install ──────────────────────────────────────────────
