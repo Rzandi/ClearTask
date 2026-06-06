@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClearTask — Clear Cache</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Outfit', system-ui, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 2rem;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 0.5rem; color: #00ffa3; }
+    p { color: #a0a0b0; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }
+    .status {
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+      text-align: left;
+      min-height: 80px;
+    }
+    .status .line {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0;
+    }
+    .status .line.ok { color: #00ffa3; }
+    .status .line.warn { color: #ffb703; }
+    .status .line.err { color: #ff4a4a; }
+    .status .line.wait { color: #a0a0b0; }
+    button {
+      padding: 0.75rem 2rem;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    #btnClear {
+      background: #00ffa3;
+      color: #0a0a0f;
+    }
+    #btnClear:hover { background: #00e694; }
+    #btnClear:disabled { background: #333; color: #666; cursor: not-allowed; }
+    #btnGo {
+      background: rgba(0,255,163,0.15);
+      color: #00ffa3;
+      border: 1px solid rgba(0,255,163,0.3);
+      margin-top: 0.75rem;
+      display: none;
+    }
+    .safe-note {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: rgba(0,255,163,0.06);
+      border: 1px solid rgba(0,255,163,0.15);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: #80ffcc;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔧 Clear Cache</h1>
+    <p>Hapus cache Service Worker yang usang <strong>tanpa menghapus data transaksi</strong>. Data IndexedDB kamu tetap aman.</p>
+    
+    <div class="status" id="status">
+      <div class="line wait">⏳ Tekan tombol di bawah untuk mulai...</div>
+    </div>
+
+    <button id="btnClear" onclick="clearCache()">Clear Cache & Fix App</button>
+    <button id="btnGo" onclick="location.href='/'">✅ Buka ClearTask</button>
+
+    <div class="safe-note">
+      🛡️ <strong>Aman</strong> — Hanya menghapus cache file (JS/CSS). Data transaksi, inventory, dan sesi TIDAK dihapus.
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const btnClear = document.getElementById('btnClear');
+    const btnGo = document.getElementById('btnGo');
+
+    function log(msg, type) {
+      const div = document.createElement('div');
+      div.className = 'line ' + type;
+      const icons = { ok: '✅', warn: '⚠️', err: '❌', wait: '⏳' };
+      div.textContent = (icons[type] || '') + ' ' + msg;
+      statusEl.appendChild(div);
+    }
+
+    async function clearCache() {
+      btnClear.disabled = true;
+      statusEl.innerHTML = '';
+
+      // Step 1: Unregister all Service Workers
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          if (registrations.length === 0) {
+            log('Tidak ada Service Worker terdaftar', 'ok');
+          } else {
+            for (const reg of registrations) {
+              await reg.unregister();
+            }
+            log(registrations.length + ' Service Worker dihapus', 'ok');
+          }
+        } else {
+          log('Service Worker tidak didukung', 'warn');
+        }
+      } catch (e) {
+        log('Gagal hapus SW: ' + e.message, 'err');
+      }
+
+      // Step 2: Clear Cache Storage (NOT IndexedDB!)
+      try {
+        const cacheNames = await caches.keys();
+        if (cacheNames.length === 0) {
+          log('Cache sudah kosong', 'ok');
+        } else {
+          for (const name of cacheNames) {
+            await caches.delete(name);
+          }
+          log(cacheNames.length + ' cache dihapus (' + cacheNames.join(', ') + ')', 'ok');
+        }
+      } catch (e) {
+        log('Gagal hapus cache: ' + e.message, 'err');
+      }
+
+      // Step 3: Verify IndexedDB is untouched
+      try {
+        const dbNames = await indexedDB.databases();
+        const ctDb = dbNames.find(d => d.name === 'ClearTaskDB');
+        if (ctDb) {
+          log('Data IndexedDB AMAN (ClearTaskDB intact)', 'ok');
+        } else {
+          log('ClearTaskDB tidak ditemukan (mungkin belum ada data)', 'warn');
+        }
+      } catch (e) {
+        // indexedDB.databases() not supported in all browsers
+        log('IndexedDB tidak terpengaruh (aman)', 'ok');
+      }
+
+      log('Selesai! Silakan buka ClearTask.', 'ok');
+      btnGo.style.display = 'block';
+      btnClear.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
