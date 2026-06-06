@@ -146,15 +146,13 @@ export class ClearTaskDB extends Dexie {
 
     this.version(7)
       .stores({
-        expenses: '&id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
+        expenses: null,
+        expensesTemp: '++id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
       })
       .upgrade(async (tx: DexieTransaction) => {
-        // Migrate any expense records that have integer IDs (from old ++id schema)
-        // to string UUIDs required by the new &id schema.
-        await tx
-          .table('expenses')
-          .toCollection()
-          .modify((record: any) => {
+        if (tx.db.objectStoreNames.contains('expenses')) {
+          const expenses = await tx.table('expenses').toArray();
+          const migrated = expenses.map((record: any) => {
             if (typeof record.id === 'number') {
               record.id =
                 typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -165,7 +163,35 @@ export class ClearTaskDB extends Dexie {
                       return v.toString(16);
                     });
             }
+            return record;
           });
+          await tx.table('expensesTemp').bulkAdd(migrated);
+        }
+      });
+
+    this.version(8)
+      .stores({
+        expenses: '&id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
+        expensesTemp: null,
+      })
+      .upgrade(async (tx: DexieTransaction) => {
+        if (tx.db.objectStoreNames.contains('expensesTemp')) {
+          const expenses = await tx.table('expensesTemp').toArray();
+          const migrated = expenses.map((record: any) => {
+            if (typeof record.id === 'number') {
+              record.id =
+                typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                  ? crypto.randomUUID()
+                  : 'ex-xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                      const r = (Math.random() * 16) | 0;
+                      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                      return v.toString(16);
+                    });
+            }
+            return record;
+          });
+          await tx.table('expenses').bulkAdd(migrated);
+        }
       });
   }
 }
