@@ -68,12 +68,6 @@ const TransactionTable = memo(function TransactionTable({
                 Sub-Kategori
               </th>
               <th className="text-right px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">
-                Harga Modal (Rp)
-              </th>
-              <th className="text-right px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">
-                Keuntungan (Rp)
-              </th>
-              <th className="text-right px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider">
                 Nominal (Rp)
               </th>
               <th className="text-left px-4 py-3 font-semibold text-text-muted text-xs uppercase tracking-wider hidden lg:table-cell">
@@ -92,7 +86,7 @@ const TransactionTable = memo(function TransactionTable({
           <tbody>
             {visibleTxs.length === 0 ? (
               <tr>
-                <td colSpan={transactions.length > 0 ? 13 : 12} className="py-12">
+                <td colSpan={transactions.length > 0 ? 11 : 10} className="py-12">
                   <EmptyState
                     icon={
                       <svg
@@ -116,128 +110,115 @@ const TransactionTable = memo(function TransactionTable({
                 </td>
               </tr>
             ) : (
-              visibleTxs.map((tx: any, idx: number) => {
-                const totalModal = tx.items
-                  ? tx.items.reduce((s: number, i: any) => s + (Number(i.hargaModal) || 0) * (Number(i.qty) || 0), 0)
-                  : 0;
-                const totalProfit = (tx.total || 0) - totalModal;
-
-                return (
-                  <tr
-                    key={tx.transactionId || idx}
-                    className="border-b border-border-subtle hover:bg-white/[0.02] transition-colors"
-                  >
-                    <td className="px-4 py-3.5 font-mono text-primary text-xs font-medium">
-                      {tx.transactionId}
-                    </td>
-                    <td className="px-4 py-3.5 text-text-secondary">{formatTime(tx.createdAt)}</td>
-                    <td className="px-4 py-3.5 text-text-primary max-w-[200px]">
-                      {tx.items && tx.items.length > 0 ? (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium truncate" title={tx.items[0].namaBarang}>
-                            {tx.items[0].namaBarang}
+              visibleTxs.map((tx: any, idx: number) => (
+                <tr
+                  key={tx.transactionId || idx}
+                  className="border-b border-border-subtle hover:bg-white/[0.02] transition-colors"
+                >
+                  <td className="px-4 py-3.5 font-mono text-primary text-xs font-medium">
+                    {tx.transactionId}
+                  </td>
+                  <td className="px-4 py-3.5 text-text-secondary">{formatTime(tx.createdAt)}</td>
+                  <td className="px-4 py-3.5 text-text-primary max-w-[200px]">
+                    {tx.items && tx.items.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium truncate" title={tx.items[0].namaBarang}>
+                          {tx.items[0].namaBarang}
+                        </span>
+                        {tx.items.length > 1 && (
+                          <span className="text-[10px] text-primary bg-primary/10 w-max px-1.5 py-0.5 rounded">
+                            +{tx.items.length - 1} item
                           </span>
-                          {tx.items.length > 1 && (
-                            <span className="text-[10px] text-primary bg-primary/10 w-max px-1.5 py-0.5 rounded">
-                              +{tx.items.length - 1} item
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-text-primary flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary">
-                        {(tx.kasir || 'A')[0].toUpperCase()}
-                      </span>
-                      {tx.kasir || 'Admin'}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="inline-flex items-center gap-1.5 text-text-secondary">
-                        <MetodeIcon metode={tx.metode} />
-                        {tx.metode}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-medium text-text-secondary tabular-nums">
-                      {formatQuantity(
-                        tx.items
-                          ? tx.items.reduce((s: number, i: any) => s + (Number(i.qty) || 0), 0)
-                          : 0
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-text-secondary text-xs truncate max-w-[100px]">
-                      {tx.items && tx.items.length > 0
-                        ? tx.items.length > 1
-                          ? 'Beragam'
-                          : tx.items[0].subKategori || '—'
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-medium text-text-secondary tabular-nums">
-                      {formatRupiah(totalModal)}
-                    </td>
-                    <td className={`px-4 py-3.5 text-right font-semibold tabular-nums ${totalProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}>
-                      {formatRupiah(totalProfit)}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-semibold text-text-primary tabular-nums">
-                      {formatRupiah(tx.total)}
-                    </td>
-                    <td className="px-4 py-3.5 text-text-muted text-xs max-w-[200px] truncate hidden lg:table-cell">
-                      {tx.catatan || '-'}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <StatusBadge status={tx.status} />
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          aria-label={`Edit transaksi ${tx.transactionId}`}
-                          onClick={() => setEditingTransaction(tx)}
-                          className="w-11 h-11 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
-                        >
-                          <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Hapus transaksi ${tx.transactionId}`}
-                          onClick={() => setDeletingTransactionId(tx.id)}
-                          className="w-11 h-11 flex items-center justify-center rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                        >
-                          <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                            <path d="M10 11v6" />
-                            <path d="M14 11v6" />
-                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                          </svg>
-                        </button>
+                        )}
                       </div>
-                    </td>
-                  </tr>
-                );
-              })
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5 text-text-primary flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary">
+                      {(tx.kasir || 'A')[0].toUpperCase()}
+                    </span>
+                    {tx.kasir || 'Admin'}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className="inline-flex items-center gap-1.5 text-text-secondary">
+                      <MetodeIcon metode={tx.metode} />
+                      {tx.metode}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-medium text-text-secondary tabular-nums">
+                    {formatQuantity(
+                      tx.items
+                        ? tx.items.reduce((s: number, i: any) => s + (Number(i.qty) || 0), 0)
+                        : 0
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5 text-text-secondary text-xs truncate max-w-[100px]">
+                    {tx.items && tx.items.length > 0
+                      ? tx.items.length > 1
+                        ? 'Beragam'
+                        : tx.items[0].subKategori || '—'
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-semibold text-text-primary tabular-nums">
+                    {formatRupiah(tx.total)}
+                  </td>
+                  <td className="px-4 py-3.5 text-text-muted text-xs max-w-[200px] truncate hidden lg:table-cell">
+                    {tx.catatan || '-'}
+                  </td>
+                  <td className="px-4 py-3.5 text-center">
+                    <StatusBadge status={tx.status} />
+                  </td>
+                  <td className="px-4 py-3.5 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        aria-label={`Edit transaksi ${tx.transactionId}`}
+                        onClick={() => setEditingTransaction(tx)}
+                        className="w-11 h-11 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Hapus transaksi ${tx.transactionId}`}
+                        onClick={() => setDeletingTransactionId(tx.id)}
+                        className="w-11 h-11 flex items-center justify-center rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

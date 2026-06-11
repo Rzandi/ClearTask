@@ -281,8 +281,7 @@ describe('Task 10 — Property Tests: EditTransactionModal', () => {
             unmount();
             return result;
           }
-        ),
-        { numRuns: 20 }
+        )
       );
     }
   );
@@ -354,8 +353,7 @@ describe('Task 10 — Property Tests: EditTransactionModal', () => {
 
           unmount();
           return isDisabled;
-        }),
-        { numRuns: 20 }
+        })
       );
     }
   );
@@ -409,8 +407,7 @@ describe('Task 10 — Property Tests: EditTransactionModal', () => {
 
           unmount();
           return result;
-        }),
-        { numRuns: 20 }
+        })
       );
     }
   );

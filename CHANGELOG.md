@@ -3,27 +3,6 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [3.4.0] - 2026-06-11
-
-Versi 3.4.0 berfokus pada integrasi manajemen stok inventaris otomatis (Sales-Driven Stock Control), deteksi produk baru secara cerdas (POS-Linked Auto-Detection), pencarian cepat inventaris langsung dari layar penjualan (Right-Side Cek Stok Panel), pelaporan keuntungan bersih harian/bulanan/tahunan terperinci, dan modul cetak struk Bluetooth Thermal Printer (Web Bluetooth GATT API).
-
-### 🎉 Added & Enhanced (POS, Inventory & Printing Upgrades)
-
-- **Web Bluetooth Thermal Print Support**: Menambahkan utilitas `bluetoothPrinterHelper.ts` untuk berkomunikasi langsung dengan printer kasir termal 58mm via Web Bluetooth GATT API. Menyusun byte ESC/POS dengan format 32-kolom, cetak bold nama barang, perataan tengah otomatis, dan pengiriman data secara bertahap (chunked 20-byte write) untuk menghindari buffer overflow.
-- **StrukModal Bluetooth Print Button**: Mengintegrasikan tombol print Bluetooth dan status panel responsif yang menampilkan status pairing, koneksi, pengiriman data, dan pesan diagnostik kegagalan di footer receipt modal.
-- **Auto-Deduction of Inventory Stock**: Penjualan barang secara otomatis mengurangi kuantitas stok barang di tabel `inventory` secara atomik di dalam transaksi database Dexie, lengkap dengan pembatasan nilai minimum agar tidak negatif.
-- **Auto-Detection & Registration of New Products**: Ketika nama produk baru yang belum terdaftar dimasukkan di tab POS Input Manual, sistem secara otomatis mendeteksi status "Barang Baru" dan mendaftarkannya ke database inventaris dengan default Stok = 0, Harga Modal = 0, kategori POS, dan harga jual yang disinkronkan dari harga input penjualan.
-- **Right-Pane Cek Stok & Autocomplete**: Menambahkan tab panel "Cek Stok" di sebelah kanan POS untuk pencarian dan peninjauan stok & harga modal secara instan. Menambahkan autocomplete suggest dropdown pada input nama barang tab manual POS untuk mempermudah penjualan barang terdaftar.
-- **Keuntungan (Profit) & Harga Modal Columns**: Memperluas tabel laporan transaksi (`TransactionTable.tsx`) dengan kolom Harga Modal (total modal per faktur) dan Keuntungan Bersih (Total Jual - Total Modal), diwarnai biru (profit) atau merah (rugi) secara dinamis.
-- **Filter Tahunan (Yearly Filter)**: Menambahkan tombol pintas filter "Tahunan" pada halaman Laporan dan memperluas visualisasi SVG `ReportingChart.tsx` agar secara dinamis melakukan agregasi performa berdasarkan Bulan (Jan, Feb, Mar, dll.) ketika filter tahunan aktif.
-
-### 🛠️ Fixed & Hardened
-
-- **React Hook Initialization Order Error**: Memperbaiki `ReferenceError: Cannot access 'form' before initialization` di `InputPenjualan.tsx` akibat peletakan state form setelah hook useMemo/useCallback yang mereferensikannya.
-- **Comprehensive Test Coverage**: Menambahkan 4 file pengujian Vitest baru (`useTransactionData.test.jsx`, `ReportingChart.test.jsx`, `TransactionTable-profit.test.jsx`, dan `StrukModal.test.jsx`) untuk memverifikasi fungsionalitas baru dengan 14 unit test baru yang menguji kondisi batas, penanganan input kosong, dan stubbing print global. Total pengujian naik menjadi 291 passed.
-
----
-
 ## [3.3.0] - 2026-06-06
 
 Versi 3.3.0 berfokus pada keandalan migrasi data tingkat lanjut (Advanced Data Portability), peningkatan skema cadangan (Database Backup v2.0), penanganan pemulihan kategori secara otomatis (Self-Healing Category Sync), serta visualisasi pratinjau penggabungan data yang lebih detail dan transparan.

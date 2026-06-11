@@ -3,10 +3,9 @@
    Thermal printer style receipt modal for checkout.
    ═══════════════════════════════════════════════════════════ */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Button from './ui/Button';
-import { printBluetoothReceipt } from '../utils/bluetoothPrinterHelper';
 
 export interface StrukModalProps {
   order: any;
@@ -14,9 +13,6 @@ export interface StrukModalProps {
 }
 
 export default function StrukModal({ order, onClose }: StrukModalProps) {
-  const [btStatus, setBtStatus] = useState<string>('');
-  const [isBtPrinting, setIsBtPrinting] = useState<boolean>(false);
-
   // Prevent background scroll
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -29,14 +25,6 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const handleBluetoothPrint = async () => {
-    setIsBtPrinting(true);
-    await printBluetoothReceipt(order, (status) => {
-      setBtStatus(status);
-    });
-    setIsBtPrinting(false);
   };
 
   return createPortal(
@@ -143,66 +131,31 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
         </div>
 
         {/* Footer Modal (Hidden saat print) */}
-        <div className="p-4 border-t border-border-default bg-bg-elevated print:hidden flex flex-col gap-3">
-          {btStatus && (
-            <div
-              className={`text-[11px] font-semibold text-center py-2 px-3 rounded-lg border ${
-                btStatus.includes('sukses')
-                  ? 'bg-green-500/10 border-green-500/20 text-green-400'
-                  : btStatus.includes('Gagal') || btStatus.includes('tidak didukung') || btStatus.includes('dibatalkan')
-                  ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                  : 'bg-primary/10 border-primary/20 text-primary animate-pulse'
-              }`}
+        <div className="p-4 border-t border-border-default bg-bg-elevated print:hidden flex gap-3">
+          <Button onClick={onClose} variant="outline" className="flex-1">
+            Tutup
+          </Button>
+          <Button
+            onClick={handlePrint}
+            variant="primary"
+            className="flex-1 inline-flex items-center justify-center gap-2"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              {btStatus}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <Button onClick={onClose} variant="outline" className="flex-1 text-xs py-2.5 px-2">
-              Tutup
-            </Button>
-            <Button
-              onClick={handlePrint}
-              variant="outline"
-              className="flex-1 inline-flex items-center justify-center gap-1 text-xs py-2.5 px-2 text-primary border-primary/30 hover:bg-primary/10"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                <rect x="6" y="14" width="12" height="8"></rect>
-              </svg>
-              Standard
-            </Button>
-            <Button
-              onClick={handleBluetoothPrint}
-              variant="primary"
-              className="flex-1 inline-flex items-center justify-center gap-1 text-xs py-2.5 px-2 shadow-glow"
-              disabled={isBtPrinting}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11" />
-              </svg>
-              Bluetooth
-            </Button>
-          </div>
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Print Struk
+          </Button>
         </div>
       </div>
 

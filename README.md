@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">ClearTask v3.4.0</h1>
+  <h1 align="center">ClearTask v3.3.0</h1>
   <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Aman, Cepat, dan Bisa Dipakai Tanpa Internet.</strong></p>
 </p>
 
@@ -11,14 +11,12 @@ ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk 
 
 ### Fitur Utama
 
-- **Input Transaksi & Autocomplete** — Form kasir dengan kalkulasi total otomatis, autocomplete nama barang, badge pendeteksi barang terdaftar/baru, panel kanan Cek Stok cepat, dan kategori & sub-kategori dinamis.
-- **Auto-Deduction & New Product Auto-Detect** — Transaksi checkout otomatis memicu pengurangan stok inventaris (clamped >= 0). Input nama barang baru saat penjualan otomatis mendaftarkan item ke database Master Barang dengan default Stok = 0 dan Modal = 0.
-- **Cetak Struk Bluetooth POS** — Mencetak struk langsung dari browser ke printer termal 58mm menggunakan Web Bluetooth GATT API dengan buffer transmission chunked (20-byte write) dan fallback window.print() standar.
+- **Input Transaksi** — Form dua-kolom kasir dengan kalkulasi total otomatis, pengikatan harga modal historis, dan kategori & sub-kategori dinamis.
 - **Manajemen Sesi/Shift** — Buka/tutup sesi kasir, closing report otomatis per shift lengkap dengan **rincian barang terjual terlaris**.
 - **Kelola Pengeluaran (Expenses)** — Tab khusus pencatatan pengeluaran operasional toko dengan log history dan visualisasi mobile cards.
-- **Rapor Laba & SVG Area Chart** — Pelacakan keuntungan bersih real-time (harian, bulanan, tahunan) didukung dengan **Grafik SVG Murni** dan tabel per faktur yang menampilkan Harga Modal & Keuntungan.
+- **Rapor Laba & SVG Area Chart** — Pelacakan keuntungan bersih real-time yang didukung dengan **Grafik SVG Murni** responsif tanpa library eksternal.
 - **Master Barang (Inventaris)** — CRUD lengkap Master Barang terintegrasi dengan setelan **Harga Modal** dan peringatan stok rendah.
-- **Laporan & Export** — Export ke Excel (.xlsx) dan CSV, filter rentang tanggal (Hari Ini, Mingguan, Bulanan, Tahunan), pencarian barang, dan pengaturan kustomisasi profil usaha.
+- **Laporan & Export** — Export ke Excel (.xlsx) dan CSV, filter rentang tanggal, pencarian barang, dan pengaturan kustomisasi profil usaha.
 - **Database Manager** — Backup/restore via JSON, Smart Merge (tolak duplikasi otomatis) untuk sinkronisasi lokal aman.
 - **PWA Installable** — Bisa diinstall di Android/iOS/Desktop, 100% offline.
 

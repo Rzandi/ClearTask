@@ -110,14 +110,6 @@ export default function LaporanExport({
         end: toLocalDateString(end),
         label: 'Bulanan',
       });
-    } else if (type === 'year') {
-      const start = new Date(today.getFullYear(), 0, 1);
-      const end = new Date(today.getFullYear(), 11, 31);
-      setFilterDate({
-        start: toLocalDateString(start),
-        end: toLocalDateString(end),
-        label: 'Tahunan',
-      });
     }
   };
 
@@ -164,11 +156,7 @@ export default function LaporanExport({
       </div>
 
       {/* SVG Reporting Chart */}
-      <ReportingChart
-        transactions={transactions}
-        expenses={filteredExpenses}
-        filterType={filterDate?.label || 'Custom'}
-      />
+      <ReportingChart transactions={transactions} expenses={filteredExpenses} />
 
       {/* Filters Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -296,16 +284,6 @@ export default function LaporanExport({
           }`}
         >
           Bulanan
-        </button>
-        <button
-          onClick={() => handleQuickFilter('year')}
-          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-            filterDate?.label === 'Tahunan'
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
-          }`}
-        >
-          Tahunan
         </button>
       </div>
 

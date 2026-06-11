@@ -1,20 +1,20 @@
 # 🏗️ Software Design Document Delta (SDD-Delta) — ClearTask
 
-> **Project:** ClearTask v3.4.0  
+> **Project:** ClearTask v3.1.0  
 > **Status:** Pending Approval (URG-3c)  
-> **Date:** 2026-06-11  
+> **Date:** 2026-05-30  
 > **Language:** Bahasa Indonesia
 
 ---
 
 ## 1. System Architecture Overview
 
-ClearTask v3.4.0 adalah aplikasi berbasis klien 100% (_Fully Offline_). Seluruh modul logika bisnis, validasi, penunjang keputusan (SAW), manajemen penyimpanan, dan integrasi printer Bluetooth tertanam secara lokal di browser.
+ClearTask v3.1.0 adalah aplikasi berbasis klien 100% (_Fully Offline_). Seluruh modul logika bisnis, validasi, penunjang keputusan (SAW), dan manajemen penyimpanan tertanam secara lokal di browser.
 
 ### Perubahan Arsitektur (Legacy ➔ Delta):
 
 - **Sebelumnya (Legacy v2.5.0):** Data transaksi dan sesi disimpan dalam format string serialized di `localStorage`. Seluruh kalkulasi, pelaporan, dan query memicu operasi pembacaan & penulisan _write-then-re-read_ ke localStorage secara repetitif yang menyebabkan bottleneck render UI harian.
-- **Sekarang (v3.4.0):** Penyimpanan bermigrasi penuh ke **IndexedDB** menggunakan **Dexie.js**. Integrasi reactive binding menggunakan `dexie-react-hooks` (`useLiveQuery`) secara langsung melacak mutasi data untuk memperbarui state UI secara efisien tanpa re-read manual. Proses perhitungan matriks prioritas SAW didelegasikan penuh ke background thread asinkron menggunakan HTML5 **Web Workers**. Koneksi printer Bluetooth termal berjalan asinkron langsung dari browser via Web Bluetooth GATT API.
+- **Sekarang (v3.1.0):** Penyimpanan bermigrasi penuh ke **IndexedDB** menggunakan **Dexie.js**. Integrasi reactive binding menggunakan `dexie-react-hooks` (`useLiveQuery`) secara langsung melacak mutasi data untuk memperbarui state UI secara efisien tanpa re-read manual. Proses perhitungan matriks prioritas SAW didelegasikan penuh ke background thread asinkron menggunakan HTML5 **Web Workers**.
 
 ```
   ┌────────────────────────────────────────────────────────┐

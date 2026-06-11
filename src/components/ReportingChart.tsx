@@ -5,54 +5,35 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useMemo } from 'react';
-import { formatRupiah, toLocalDateString } from '../utils/formatters';
+import { formatRupiah } from '../utils/formatters';
 import Card from './ui/Card';
 import EmptyState from './ui/EmptyState';
 
 export interface ReportingChartProps {
   transactions: any[];
   expenses: any[];
-  filterType?: string;
 }
 
-export default function ReportingChart({ transactions, expenses, filterType = 'Custom' }: ReportingChartProps) {
+export default function ReportingChart({ transactions, expenses }: ReportingChartProps) {
   // Group Pemasukan, Keluaran & Profit by Date
   const chartData = useMemo(() => {
     const dataMap: Record<
       string,
-      { label: string; key: string; pemasukan: number; modal: number; keluaran: number }
+      { tanggal: string; pemasukan: number; modal: number; keluaran: number }
     > = {};
-
-    const getGroupInfo = (dateStr: string, createdAtStr: string) => {
-      const dateObj = createdAtStr ? new Date(createdAtStr) : (dateStr ? new Date(dateStr) : new Date());
-      
-      if (filterType === 'Hari Ini') {
-        const hour = dateObj.getHours();
-        const hourLabel = `${String(hour).padStart(2, '0')}:00`;
-        return { key: hourLabel, label: hourLabel };
-      } else if (filterType === 'Tahunan') {
-        const month = dateObj.getMonth();
-        const year = dateObj.getFullYear();
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
-        const key = `${year}-${String(month + 1).padStart(2, '0')}`;
-        return { key, label: monthNames[month] };
-      } else {
-        const key = dateStr || toLocalDateString(dateObj);
-        const label = key.substring(5); // MM-DD
-        return { key, label };
-      }
-    };
 
     // Group Transactions
     transactions.forEach((tx) => {
-      const { key, label } = getGroupInfo(tx.tanggal, tx.createdAt);
-      let entry = dataMap[key];
+      const date = tx.tanggal;
+      if (!date) return;
+      let entry = dataMap[date];
       if (!entry) {
-        entry = { label, key, pemasukan: 0, modal: 0, keluaran: 0 };
-        dataMap[key] = entry;
+        entry = { tanggal: date, pemasukan: 0, modal: 0, keluaran: 0 };
+        dataMap[date] = entry;
       }
       entry.pemasukan += tx.total || 0;
 
+      // Group historical cost price of items sold
       if (tx.items && Array.isArray(tx.items)) {
         tx.items.forEach((item: any) => {
           if (entry) {
@@ -64,27 +45,22 @@ export default function ReportingChart({ transactions, expenses, filterType = 'C
 
     // Group Expenses
     expenses.forEach((ex) => {
-      const { key, label } = getGroupInfo(ex.tanggal, ex.createdAt);
-      let entry = dataMap[key];
+      const date = ex.tanggal;
+      if (!date) return;
+      let entry = dataMap[date];
       if (!entry) {
-        entry = { label, key, pemasukan: 0, modal: 0, keluaran: 0 };
-        dataMap[key] = entry;
+        entry = { tanggal: date, pemasukan: 0, modal: 0, keluaran: 0 };
+        dataMap[date] = entry;
       }
       entry.keluaran += ex.jumlah || 0;
     });
 
-    const sorted = Object.values(dataMap).sort((a, b) => a.key.localeCompare(b.key));
+    // Sort chronologically
+    const sorted = Object.values(dataMap).sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 
-    if (filterType === 'Hari Ini') {
-      return sorted;
-    } else if (filterType === 'Tahunan') {
-      return sorted;
-    } else if (filterType === 'Bulanan') {
-      return sorted.slice(-31);
-    } else {
-      return sorted.slice(-10);
-    }
-  }, [transactions, expenses, filterType]);
+    // Limit to latest 10 days for optimal spacing on mobile/desktop
+    return sorted.slice(-10);
+  }, [transactions, expenses]);
 
   // Dimension settings
   const width = 600;
@@ -141,7 +117,7 @@ export default function ReportingChart({ transactions, expenses, filterType = 'C
       const yProfit = Math.min(maxYBound, Math.max(minYBound, rawYProfit));
 
       list.push({
-        tanggal: d.label,
+        tanggal: d.tanggal,
         pemasukan: d.pemasukan,
         keluaran: d.keluaran,
         profit,

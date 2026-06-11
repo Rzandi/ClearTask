@@ -52,48 +52,6 @@ export default memo(function InputPenjualan({
   const [activeTab, setActiveTab] = useState('katalog'); // 'katalog' | 'manual'
   const [formError, setFormError] = useState('');
   const [showMobileCart, setShowMobileCart] = useState(false);
-  // Manual Form State
-  const [form, setForm] = useState({
-    kategori: DEFAULT_KATEGORI,
-    subKategori: '',
-    namaBarang: '',
-    qty: '1',
-    hargaSatuan: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Autocomplete and Right Pane Stock States
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [rightPaneTab, setRightPaneTab] = useState('cart'); // 'cart' | 'stock'
-  const [stockSearchQuery, setStockSearchQuery] = useState('');
-  const [localFeedback, setLocalFeedback] = useState('');
-
-  const suggestions = useMemo(() => {
-    const q = form.namaBarang.trim().toLowerCase();
-    if (!q) return [];
-    return inventory.filter(item => 
-      item.namaBarang?.toLowerCase().includes(q)
-    ).slice(0, 5);
-  }, [inventory, form.namaBarang]);
-
-  const handleSelectSuggestion = useCallback((item: any) => {
-    setForm({
-      kategori: item.kategori || DEFAULT_KATEGORI,
-      subKategori: item.subKategori || '',
-      namaBarang: item.namaBarang || '',
-      qty: '1',
-      hargaSatuan: item.harga?.toString() || '',
-    });
-    setShowSuggestions(false);
-  }, []);
-
-  const matchedInventoryItem = useMemo(() => {
-    const name = form.namaBarang.trim().toLowerCase();
-    if (!name) return null;
-    return inventory.find(
-      (item) => (item.namaBarang || '').toLowerCase().trim() === name
-    );
-  }, [inventory, form.namaBarang]);
 
   // Catalog Filter State
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -104,6 +62,16 @@ export default memo(function InputPenjualan({
   // Modal Struk
   const [showStruk, setShowStruk] = useState(false);
   const [lastOrder, setLastOrder] = useState<any>(null);
+
+  // Manual Form State
+  const [form, setForm] = useState({
+    kategori: DEFAULT_KATEGORI,
+    subKategori: '',
+    namaBarang: '',
+    qty: '1',
+    hargaSatuan: '',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const subTotal = cart.reduce((sum, item) => sum + item.total, 0);
   const received = parseNumeric(uangDiterima);
@@ -407,47 +375,16 @@ export default memo(function InputPenjualan({
                 <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
               </FieldGroup>
               <FieldGroup label="Nama Barang">
-                <div className="relative">
-                  <Input
-                    type="text"
-                    value={form.namaBarang}
-                    onChange={(e) => {
-                      handleManualChange('namaBarang', e.target.value);
-                      setShowSuggestions(true);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
-                    onClick={() => setShowSuggestions(true)}
-                    placeholder="Nama Item..."
-                    className={errors.namaBarang ? 'border-red-500' : ''}
-                  />
-                  {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 mt-1 bg-bg-surface border border-border-default rounded-xl shadow-xl z-[60] max-h-40 overflow-y-auto divide-y divide-border-subtle">
-                      {suggestions.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onMouseDown={() => handleSelectSuggestion(item)}
-                          className="w-full text-left px-4 py-2.5 text-xs font-semibold text-text-primary hover:bg-white/[0.04] hover:text-primary transition-colors cursor-pointer"
-                        >
-                          {item.namaBarang} <span className="text-text-muted text-[10px]">({item.kategori} - Rp {item.harga?.toLocaleString('id-ID')})</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <Input
+                  type="text"
+                  value={form.namaBarang}
+                  onChange={(e) => handleManualChange('namaBarang', e.target.value)}
+                  placeholder="Nama Item..."
+                  className={errors.namaBarang ? 'border-red-500' : ''}
+                />
                 {errors.namaBarang && (
                   <span className="text-xs text-red-400 mt-1 block">{errors.namaBarang}</span>
                 )}
-                {matchedInventoryItem ? (
-                  <span className="text-xs text-green-400 mt-1 block font-medium">
-                    ✓ Terdaftar (Stok: {matchedInventoryItem.quantity || 0}, Jual: Rp {matchedInventoryItem.harga?.toLocaleString('id-ID')})
-                  </span>
-                ) : form.namaBarang.trim() ? (
-                  <span className="text-xs text-primary mt-1 block font-medium animate-pulse">
-                    ✨ Barang Baru Terdeteksi! (Stok: 0, Modal: 0)
-                  </span>
-                ) : null}
               </FieldGroup>
               <div className="flex gap-4">
                 <div className="flex-1">
@@ -561,279 +498,175 @@ export default memo(function InputPenjualan({
         </div>
       )}
 
-      {/* KANAN: Keranjang & Pembayaran / Cek Stok */}
+      {/* KANAN: Keranjang & Pembayaran */}
       <div
         className={`fixed inset-y-0 right-0 z-50 w-full max-w-md bg-bg-surface flex flex-col h-full transform transition-all duration-300 ${showMobileCart ? 'translate-x-0 shadow-2xl opacity-100 visible' : 'translate-x-full opacity-0 invisible'} lg:relative lg:translate-x-0 lg:opacity-100 lg:visible lg:w-[420px] lg:h-auto lg:min-h-[500px] lg:glass-card`}
       >
-        <div className="flex border-b border-border-default bg-bg-surface/30 shrink-0">
-          <button
-            type="button"
-            className={`flex-1 py-4 text-sm font-semibold transition-colors cursor-pointer ${rightPaneTab === 'cart' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text-primary'}`}
-            onClick={() => setRightPaneTab('cart')}
-          >
-            Keranjang ({cart.length})
-          </button>
-          <button
-            type="button"
-            className={`flex-1 py-4 text-sm font-semibold transition-colors cursor-pointer ${rightPaneTab === 'stock' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text-primary'}`}
-            onClick={() => setRightPaneTab('stock')}
-          >
-            Cek Stok
-          </button>
-          <button
-            className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full bg-bg-elevated text-text-secondary cursor-pointer self-center mr-3"
-            onClick={() => setShowMobileCart(false)}
-          >
+        <div className="p-5 border-b border-border-default flex justify-between items-center bg-bg-surface/30">
+          <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
             <svg
-              width="18"
-              height="18"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
             >
-              <path d="M18 6L6 18M6 6l12 12" />
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
             </svg>
-          </button>
-        </div>
-
-        {rightPaneTab === 'stock' ? (
-          <div className="flex-1 flex flex-col p-5 overflow-hidden">
-            <div className="relative mb-3 shrink-0">
+            Keranjang
+          </h2>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold px-2 py-1 bg-primary/10 text-primary rounded-lg">
+              {cart.length} Item
+            </span>
+            <button
+              className="lg:hidden w-8 h-8 flex items-center justify-center rounded-full bg-bg-elevated text-text-secondary cursor-pointer"
+              onClick={() => setShowMobileCart(false)}
+            >
               <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-                width="16"
-                height="16"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
               >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                <path d="M18 6L6 18M6 6l12 12" />
               </svg>
-              <input
-                type="text"
-                placeholder="Cari stok barang..."
-                value={stockSearchQuery}
-                onChange={(e) => setStockSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {cart.map((item) => (
+            <div
+              key={item.id}
+              className="flex justify-between items-center bg-bg-surface p-3 rounded-xl border border-border-default shadow-sm"
+            >
+              <div className="flex-1 min-w-0 pr-3">
+                <p className="text-sm font-medium text-text-primary truncate">{item.namaBarang}</p>
+                <p className="text-xs text-text-muted mt-1">
+                  Rp {item.hargaSatuan.toLocaleString('id-ID')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-bg-input px-1 py-1 rounded-lg border border-border-subtle">
+                <button
+                  onClick={() => updateCartQty(item.id, item.qty - 1)}
+                  className="w-7 h-7 flex items-center justify-center bg-bg-elevated rounded hover:bg-white/10 cursor-pointer text-text-secondary transition-colors"
+                >
+                  -
+                </button>
+                <span className="text-sm font-semibold w-5 text-center">{item.qty}</span>
+                <button
+                  onClick={() => updateCartQty(item.id, item.qty + 1)}
+                  className="w-7 h-7 flex items-center justify-center bg-bg-elevated rounded hover:bg-white/10 cursor-pointer text-text-secondary transition-colors"
+                >
+                  +
+                </button>
+              </div>
+              <button
+                onClick={() => removeFromCart(item.id)}
+                className="ml-3 w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:text-white hover:bg-red-500/80 transition-colors cursor-pointer"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          {cart.length === 0 && (
+            <div className="h-full">
+              <EmptyState
+                title="Keranjang Kosong"
+                description="Pilih barang dari Katalog untuk ditambahkan ke keranjang."
               />
             </div>
-            {localFeedback && (
-              <div className="text-xs text-green-400 bg-green-400/10 py-1.5 px-3 rounded-lg mb-2 text-center font-medium animate-fade-in shrink-0">
-                {localFeedback}
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 pb-16 lg:pb-0">
-              {inventory
-                .filter((item) =>
-                  (item.namaBarang || '').toLowerCase().includes(stockSearchQuery.toLowerCase())
-                )
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-3 bg-bg-surface rounded-xl border border-border-default flex flex-col gap-1.5"
-                  >
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm font-semibold text-text-primary truncate max-w-[200px]" title={item.namaBarang}>
-                        {item.namaBarang}
-                      </span>
-                      <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          (item.quantity || 0) <= 5
-                            ? 'bg-red-500/10 text-red-400'
-                            : 'bg-primary/10 text-primary'
-                        }`}
-                      >
-                        Stok: {item.quantity || 0}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center text-xs text-text-muted border-t border-border-subtle pt-2">
-                      <span>Jual: Rp {item.harga?.toLocaleString('id-ID')}</span>
-                      <span>Modal: Rp {(item.hargaModal || 0).toLocaleString('id-ID')}</span>
-                    </div>
+          )}
+        </div>
 
-                    <div className="flex gap-2 mt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setForm({
-                            kategori: item.kategori || DEFAULT_KATEGORI,
-                            subKategori: item.subKategori || '',
-                            namaBarang: item.namaBarang || '',
-                            qty: '1',
-                            hargaSatuan: item.harga?.toString() || '',
-                          });
-                          setActiveTab('manual');
-                          setLocalFeedback(`Dimasukkan ke Input Manual: ${item.namaBarang}`);
-                          setTimeout(() => setLocalFeedback(''), 3000);
-                        }}
-                        className="flex-1 py-1.5 px-2 text-[11px] font-medium rounded-lg border border-border-default text-text-secondary hover:text-primary hover:border-primary transition-colors cursor-pointer"
-                      >
-                        + Edit Manual
-                      </button>
-                      <button
-                        type="button"
-                        disabled={(item.quantity || 0) <= 0}
-                        onClick={() => {
-                          addToCart({
-                            namaBarang: item.namaBarang,
-                            kategori: item.kategori,
-                            subKategori: item.subKategori || '',
-                            hargaSatuan: item.harga || 0,
-                            hargaModal: item.hargaModal || 0,
-                            qty: 1,
-                          });
-                          setLocalFeedback(`Ditambahkan: 1x ${item.namaBarang}`);
-                          setTimeout(() => setLocalFeedback(''), 3000);
-                        }}
-                        className="flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-lg bg-primary/15 text-primary border border-primary/20 hover:bg-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-                      >
-                        + Keranjang
-                      </button>
-                    </div>
-                  </div>
-                ))}
-            </div>
+        <div className="p-5 border-t border-border-default bg-bg-surface/50 space-y-4 rounded-b-2xl">
+          <div className="flex justify-between items-end mb-2 pb-3 border-b border-border-subtle">
+            <span className="text-sm font-semibold text-text-muted">Sub Total</span>
+            <span className="text-xl font-black text-primary">
+              Rp {subTotal.toLocaleString('id-ID')}
+            </span>
           </div>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {cart.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between items-center bg-bg-surface p-3 rounded-xl border border-border-default shadow-sm"
+
+          <div className="space-y-3">
+            <div className="mb-0">
+              <FieldGroup label="Metode Pembayaran">
+                <select
+                  aria-label="Metode Pembayaran"
+                  value={metode}
+                  onChange={(e) => setMetode(e.target.value)}
+                  className="form-input w-full text-sm"
                 >
-                  <div className="flex-1 min-w-0 pr-3">
-                    <p className="text-sm font-medium text-text-primary truncate">{item.namaBarang}</p>
-                    <p className="text-xs text-text-muted mt-1">
-                      Rp {item.hargaSatuan.toLocaleString('id-ID')}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 bg-bg-input px-1 py-1 rounded-lg border border-border-subtle">
-                    <button
-                      type="button"
-                      onClick={() => updateCartQty(item.id, item.qty - 1)}
-                      className="w-7 h-7 flex items-center justify-center bg-bg-elevated rounded hover:bg-white/10 cursor-pointer text-text-secondary transition-colors"
-                    >
-                      -
-                    </button>
-                    <span className="text-sm font-semibold w-5 text-center">{item.qty}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateCartQty(item.id, item.qty + 1)}
-                      className="w-7 h-7 flex items-center justify-center bg-bg-elevated rounded hover:bg-white/10 cursor-pointer text-text-secondary transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeFromCart(item.id)}
-                    className="ml-3 w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:text-white hover:bg-red-500/80 transition-colors cursor-pointer"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-              {cart.length === 0 && (
-                <div className="h-full">
-                  <EmptyState
-                    title="Keranjang Kosong"
-                    description="Pilih barang dari Katalog untuk ditambahkan ke keranjang."
-                  />
-                </div>
-              )}
+                  {METODE_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </FieldGroup>
             </div>
 
-            <div className="p-5 border-t border-border-default bg-bg-surface/50 space-y-4 rounded-b-2xl">
-              <div className="flex justify-between items-end mb-2 pb-3 border-b border-border-subtle">
-                <span className="text-sm font-semibold text-text-muted">Sub Total</span>
-                <span className="text-xl font-black text-primary">
-                  Rp {subTotal.toLocaleString('id-ID')}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                <div className="mb-0">
-                  <FieldGroup label="Metode Pembayaran">
-                    <select
-                      aria-label="Metode Pembayaran"
-                      value={metode}
-                      onChange={(e) => setMetode(e.target.value)}
-                      className="form-input w-full text-sm"
-                    >
-                      {METODE_OPTIONS.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
+            {metode === 'Tunai' && (
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <FieldGroup label="Uang Diterima">
+                    <Input
+                      type="number"
+                      value={uangDiterima}
+                      onChange={(e) => setUangDiterima(e.target.value)}
+                      placeholder="0"
+                    />
                   </FieldGroup>
                 </div>
-
-                {metode === 'Tunai' && (
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <FieldGroup label="Uang Diterima">
-                        <Input
-                          type="number"
-                          value={uangDiterima}
-                          onChange={(e) => setUangDiterima(e.target.value)}
-                          placeholder="0"
-                        />
-                      </FieldGroup>
+                <div className="flex-1">
+                  <FieldGroup label="Kembalian">
+                    <div
+                      className={`p-[11px] rounded-xl text-sm font-semibold border flex items-center ${kembalian > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-bg-elevated border-border-default text-text-secondary'}`}
+                    >
+                      Rp {kembalian.toLocaleString('id-ID')}
                     </div>
-                    <div className="flex-1">
-                      <FieldGroup label="Kembalian">
-                        <div
-                          className={`p-[11px] rounded-xl text-sm font-semibold border flex items-center ${kembalian > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-bg-elevated border-border-default text-text-secondary'}`}
-                        >
-                          Rp {kembalian.toLocaleString('id-ID')}
-                        </div>
-                      </FieldGroup>
-                    </div>
-                  </div>
-                )}
-
-                <FieldGroup label="Catatan (Opsional)">
-                  <Input
-                    type="text"
-                    value={catatan}
-                    onChange={(e) => setCatatan(e.target.value)}
-                    placeholder="Misal: Bawa pulang"
-                  />
-                </FieldGroup>
+                  </FieldGroup>
+                </div>
               </div>
+            )}
 
-              {formError && (
-                <p className="text-xs text-red-400 font-medium text-center bg-red-400/10 py-2 rounded-lg">
-                  {formError}
-                </p>
-              )}
+            <FieldGroup label="Catatan (Opsional)">
+              <Input
+                type="text"
+                value={catatan}
+                onChange={(e) => setCatatan(e.target.value)}
+                placeholder="Misal: Bawa pulang"
+              />
+            </FieldGroup>
+          </div>
 
-              <Button
-                onClick={handleCheckout}
-                variant="primary"
-                className="w-full py-4 text-base shadow-glow mt-2"
-                disabled={cart.length === 0}
-              >
-                Bayar & Cetak Struk
-              </Button>
-            </div>
-          </>
-        )}
+          {formError && (
+            <p className="text-xs text-red-400 font-medium text-center bg-red-400/10 py-2 rounded-lg">
+              {formError}
+            </p>
+          )}
+
+          <Button
+            onClick={handleCheckout}
+            variant="primary"
+            className="w-full py-4 text-base shadow-glow mt-2"
+            disabled={cart.length === 0}
+          >
+            Bayar & Cetak Struk
+          </Button>
+        </div>
       </div>
 
       {showStruk && <StrukModal order={lastOrder} onClose={() => setShowStruk(false)} />}
