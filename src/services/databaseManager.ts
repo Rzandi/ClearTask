@@ -222,6 +222,9 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     if (seenTxIds.has(tx.transactionId)) return false;
     seenTxIds.add(tx.transactionId);
     return true;
+  }).map((tx: any) => {
+    const { id, ...rest } = tx;
+    return rest;
   });
 
   const seenSessionIds = new Set(existingSessionIds);
@@ -246,6 +249,9 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     if (seenArchiveTxIds.has(tx.transactionId)) return false;
     seenArchiveTxIds.add(tx.transactionId);
     return true;
+  }).map((tx: any) => {
+    const { id, ...rest } = tx;
+    return rest;
   });
 
   const seenSawHistoryCreatedAts = new Set(existingSawHistoryCreatedAts);
@@ -254,6 +260,9 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     if (seenSawHistoryCreatedAts.has(h.createdAt)) return false;
     seenSawHistoryCreatedAts.add(h.createdAt);
     return true;
+  }).map((h: any) => {
+    const { id, ...rest } = h;
+    return rest;
   });
 
   // SAW criteria logic: latest one wins based on updatedAt timestamp
