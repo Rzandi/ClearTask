@@ -75,10 +75,54 @@ export function useTransactionData(
       throw new Error('Total transaksi tidak valid');
 
     let newTx: Transaction | undefined;
-    await db.transaction('rw', [db.meta, db.transactions], async () => {
+    await db.transaction('rw', [db.meta, db.transactions, db.inventory], async () => {
       const metaSeq = await db.meta.get({ key: 'seq' });
       const seq = metaSeq ? metaSeq.value + 1 : 1;
       await db.meta.put({ ...(metaSeq || {}), key: 'seq', value: seq });
+
+      // Deduct stock and auto-detect new products
+      const invItems = await db.inventory.toArray();
+      
+      for (const item of orderData.items) {
+        if (!item.namaBarang || !item.namaBarang.trim()) continue;
+        
+        const itemName = item.namaBarang.trim().toLowerCase();
+        const match = invItems.find(
+          (inv) => (inv.namaBarang || '').trim().toLowerCase() === itemName
+        );
+
+        if (match) {
+          const newQty = Math.max(0, (match.quantity || 0) - (item.qty || 1));
+          await db.inventory.update(match.id, {
+            quantity: newQty,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser,
+          });
+        } else {
+          // Auto-detect new product: register with default Stock = 0, Modal = 0
+          const newProduct = {
+            id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+              ? crypto.randomUUID()
+              : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                  const r = (Math.random() * 16) | 0;
+                  const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                  return v.toString(16);
+                }),
+            namaBarang: item.namaBarang.trim(),
+            kategori: item.kategori || 'Elektronik',
+            subKategori: item.subKategori || '',
+            harga: item.hargaSatuan || 0,
+            hargaModal: 0,
+            satuan: 'Pcs',
+            quantity: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser,
+            syncStatus: 'local',
+          };
+          await db.inventory.add(newProduct);
+        }
+      }
 
       newTx = {
         ...orderData,
