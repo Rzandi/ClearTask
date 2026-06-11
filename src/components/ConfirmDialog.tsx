@@ -15,6 +15,7 @@ export interface ConfirmDialogProps {
   confirmLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: React.ReactNode;
 }
 
 const ConfirmDialog = memo(function ConfirmDialog({
@@ -24,6 +25,7 @@ const ConfirmDialog = memo(function ConfirmDialog({
   confirmLabel,
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Modal
@@ -44,6 +46,7 @@ const ConfirmDialog = memo(function ConfirmDialog({
     >
       <div data-testid="confirm-dialog">
         <p className="text-sm text-text-muted leading-relaxed">{message}</p>
+        {children}
       </div>
     </Modal>
   );

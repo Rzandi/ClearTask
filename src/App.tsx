@@ -14,7 +14,7 @@ import Skeleton from './components/ui/Skeleton';
 import { useTransactions } from './hooks/useTransactions';
 import { useSession } from './hooks/useSession';
 import { useSettings } from './contexts/SettingsContext';
-import { syncMissingCategories } from './services/databaseManager';
+import { syncMissingCategories, exportDatabase } from './services/databaseManager';
 
 // Lazy-loaded modals — only downloaded when first opened (perf-report.md W4-1)
 const SettingsModal = lazy(() => import('./components/SettingsModal'));
@@ -74,6 +74,7 @@ export default function App() {
   // ── Dialog state ──
   const [showPromptSession, setShowPromptSession] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [autoBackupOnClose, setAutoBackupOnClose] = useState(true);
 
   const { activeSession, allSessions, openSession, closeSession, getSessionTransactionsAsync } =
     useSession();
@@ -167,10 +168,20 @@ export default function App() {
     setShowConfirmClose(true);
   }, []);
 
-  const handleConfirmClose = useCallback(() => {
+  const handleConfirmClose = useCallback(async () => {
     setShowConfirmClose(false);
+    
+    if (autoBackupOnClose) {
+      try {
+        await exportDatabase();
+        setToast({ message: 'Backup database otomatis berhasil!', type: 'success' });
+      } catch (err) {
+        setToast({ message: 'Gagal melakukan backup otomatis.', type: 'error' });
+      }
+    }
+    
     handleConfirmCloseSession();
-  }, [handleConfirmCloseSession]);
+  }, [handleConfirmCloseSession, autoBackupOnClose]);
 
   // ── 18.6 handleClosingReportClose ──
   const handleClosingReportClose = useCallback(() => {
@@ -276,7 +287,20 @@ export default function App() {
         message="Yakin ingin menutup sesi ini? Transaksi baru tidak bisa ditambahkan ke sesi yang sudah ditutup."
         onConfirm={handleConfirmClose}
         onCancel={() => setShowConfirmClose(false)}
-      />
+      >
+        <div className="mt-4 flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="auto-backup"
+            checked={autoBackupOnClose}
+            onChange={(e) => setAutoBackupOnClose(e.target.checked)}
+            className="w-4 h-4 rounded border-border-default text-primary focus:ring-primary focus:ring-offset-bg-elevated bg-bg-surface"
+          />
+          <label htmlFor="auto-backup" className="text-sm font-medium text-text-primary cursor-pointer select-none">
+            Download backup database sebelum tutup
+          </label>
+        </div>
+      </ConfirmDialog>
     </>
   );
 }
