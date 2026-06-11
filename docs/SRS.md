@@ -1,8 +1,8 @@
 # 📄 Software Requirements Specification (SRS) — ClearTask
 
-> **Project:** ClearTask v3.3.0  
+> **Project:** ClearTask v3.4.0  
 > **Status:** Released (APPROVED & RELEASED)  
-> **Date:** 2026-06-06  
+> **Date:** 2026-06-11  
 > **Language:** Bahasa Indonesia
 
 ---
@@ -11,11 +11,11 @@
 
 ### 1.1 Purpose
 
-Dokumen ini mendefinisikan spesifikasi kebutuhan perangkat lunak (SRS) untuk aplikasi **ClearTask v3.3.0**. Dokumen ini ditujukan sebagai panduan teknis bagi Architect, Designer, Coder, dan QA Agent selama implementasi fitur-fitur baru, refactoring sistem legacy, dan perluasan fitur bisnis premium.
+Dokumen ini mendefinisikan spesifikasi kebutuhan perangkat lunak (SRS) untuk aplikasi **ClearTask v3.4.0**. Dokumen ini ditujukan sebagai panduan teknis bagi Architect, Designer, Coder, dan QA Agent selama implementasi fitur-fitur baru, refactoring sistem legacy, dan perluasan fitur bisnis premium.
 
 ### 1.2 Scope
 
-ClearTask v3.3.0 adalah aplikasi berbasis web kasir offline-first dengan modul penunjang keputusan (DSS) SAW untuk prioritas restock barang, terintegrasi dengan pencatatan harga modal, operasional pengeluaran (expenses), visualisasi performa SVG offline, dan laporan penutupan sesi kasir terperinci. Seluruh data disimpan lokal menggunakan IndexedDB (Dexie.js).
+ClearTask v3.4.0 adalah aplikasi berbasis web kasir offline-first dengan modul penunjang keputusan (DSS) SAW untuk prioritas restock barang, terintegrasi dengan pencatatan harga modal, operasional pengeluaran (expenses), visualisasi performa SVG offline, laporan penutupan sesi kasir terperinci, manajemen stok inventaris otomatis, dan cetak struk Bluetooth thermal printer. Seluruh data disimpan lokal menggunakan IndexedDB (Dexie.js).
 
 ### 1.3 Definitions
 
@@ -101,6 +101,17 @@ ClearTask v3.1.0 beroperasi 100% sebagai aplikasi web offline mandiri (_Fully Of
   - _Deskripsi:_ Pada saat startup, sistem harus mendeteksi dan mengembalikan kategori bawaan (preset) yang hilang ke tabel kategori kustom secara otomatis tanpa menimpa data yang sudah diubah oleh pengguna.
 - **FR-16: Detailed Merge Preview Stats**
   - _Deskripsi:_ Modal pratinjau penggabungan (Merge Preview) harus menampilkan jumlah entri baru dan konflik secara terperinci untuk setiap tabel yang terlibat sebelum pengguna mengonfirmasi penggabungan data.
+
+### 3.6 POS, Stock Control, & Printing Upgrades (v3.4.0)
+
+- **FR-17: Automatic Sales-Driven Inventory Stock Deduction**
+  - _Deskripsi:_ Setiap kali checkout transaksi sukses, sistem wajib mengurangi kuantitas stok barang (`quantity`) yang sesuai di tabel `inventory` secara otomatis dan atomic, dengan batas minimum clamped ke 0.
+- **FR-18: POS-Linked Auto-Detection of New Products**
+  - _Deskripsi:_ Ketika nama barang baru diinput manual di POS saat penjualan, sistem harus otomatis mendeteksinya sebagai barang baru, menetapkan Stok awal = 0, Harga Modal = 0, dan menyimpannya ke database inventory menggunakan harga jual dari POS.
+- **FR-19: Real-time Autocomplete & Quick Stock Check Panel**
+  - _Deskripsi:_ Menyediakan autocomplete barang terdaftar pada input nama barang, serta panel kanan "Cek Stok" untuk pencarian cepat data inventaris langsung dari layar penjualan.
+- **FR-20: Web Bluetooth Thermal Printer Integration**
+  - _Deskripsi:_ Mengintegrasikan fungsionalitas cetak struk nirkabel ke printer termal 58mm menggunakan Web Bluetooth GATT API dengan buffer transmission chunked (20 byte) dan fallback window.print() yang ramah kertas 58mm.
 
 ---
 
