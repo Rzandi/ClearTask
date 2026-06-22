@@ -30,7 +30,7 @@ self.onmessage = (e: MessageEvent) => {
     const excludedProducts: ExcludedItem[] = [];
 
     inv.forEach((item) => {
-      const name = item.nama;
+      const name = item.namaBarang || item.nama;
       const stats = aggregated[name];
 
       const c1_vol = stats ? stats.c1_vol : 0;
@@ -50,8 +50,8 @@ self.onmessage = (e: MessageEvent) => {
         return;
       }
 
-      const hargaBeli = Number(item.hargaDasar) || 0;
-      const hargaJual = Number(item.hargaJual) || 0;
+      const hargaBeli = Number(item.hargaModal) || Number(item.hargaDasar) || 0;
+      const hargaJual = Number(item.harga) || Number(item.hargaJual) || 0;
 
       if (hargaBeli <= 0) {
         excludedProducts.push({
@@ -62,7 +62,7 @@ self.onmessage = (e: MessageEvent) => {
         return;
       }
 
-      const c2_stock = Number(item.stok) || 0;
+      const c2_stock = Number(item.quantity) || Number(item.stok) || 0;
       const c3_margin_pct = ((hargaJual - hargaBeli) / hargaBeli) * 100;
 
       validProducts.push({

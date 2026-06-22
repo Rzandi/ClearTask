@@ -24,6 +24,29 @@ export default function RestockAnalysis() {
 
   const urgentCount = results.filter((r) => r.urgency_level === 'urgent').length;
 
+  let shortNarrative = '';
+  let detailedNarrative = '';
+
+  if (results.length > 0) {
+    const topItem = results[0];
+    const wValues = topItem.weighted_values;
+    
+    const contributions = [
+      { key: 'C1', val: wValues.c1, text: `Volume Penjualan tinggi (${topItem.raw_values.c1_volume} unit)` },
+      { key: 'C2', val: wValues.c2, text: `Sisa Stok sangat menipis (${topItem.raw_values.c2_stock} unit)` },
+      { key: 'C3', val: wValues.c3, text: `Profit Margin sangat besar (${topItem.raw_values.c3_margin_pct.toFixed(1)}%)` },
+      { key: 'C4', val: wValues.c4, text: `Perputarannya sangat cepat (${topItem.raw_values.c4_frequency}x transaksi)` },
+    ];
+    
+    contributions.sort((a, b) => b.val - a.val);
+
+    const topReason = contributions[0].text;
+    const secondReason = contributions[1].text;
+
+    shortNarrative = `🌟 ${topItem.product_name} diutamakan karena ${topReason.toLowerCase()} dan ${secondReason.toLowerCase()}.`;
+    detailedNarrative = `Analisis AI: Berdasarkan pengaturan bobot saat ini, algoritma SAW menempatkan **${topItem.product_name}** di Peringkat 1 dengan skor tertinggi (${topItem.score.toFixed(4)}). Alasan konkritnya adalah karena barang ini memiliki **${topReason.toLowerCase()}** serta **${secondReason.toLowerCase()}**, menjadikannya sangat krusial dan mendesak untuk segera di-restock guna memenuhi objektif toko Anda.`;
+  }
+
   const handleSaveAndCalculate = async (newWeights: any) => {
     await updateWeights(newWeights);
     await calculateSAW();
@@ -122,13 +145,14 @@ export default function RestockAnalysis() {
         </div>
       ) : (
         <>
-          <PriorityChart data={results} />
+          <PriorityChart data={results} shortNarrative={shortNarrative} />
 
           <RankingTable
             results={results}
             excluded={excluded}
             criterias={criterias || { c1_weight: 0, c2_weight: 0, c3_weight: 0, c4_weight: 0 }}
             periodLabel={periodLabelMap[period] || period}
+            detailedNarrative={detailedNarrative}
           />
 
           <HistoryTable history={history} />

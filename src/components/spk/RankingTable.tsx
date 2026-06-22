@@ -8,6 +8,7 @@ interface RankingTableProps {
   excluded: ExcludedItem[];
   criterias: SAWCriterias;
   periodLabel: string;
+  detailedNarrative?: string;
 }
 
 export const RankingTable: React.FC<RankingTableProps> = ({
@@ -15,6 +16,7 @@ export const RankingTable: React.FC<RankingTableProps> = ({
   excluded,
   criterias,
   periodLabel,
+  detailedNarrative,
 }) => {
   const [activeTab, setActiveTab] = useState<'ranking' | 'matrix' | 'excluded'>('ranking');
   const [isExporting, setIsExporting] = useState(false);
@@ -173,8 +175,16 @@ export const RankingTable: React.FC<RankingTableProps> = ({
 
       <div className="p-0 overflow-x-auto">
         {activeTab === 'ranking' && (
-          <table className="min-w-full divide-y divide-border-default text-sm">
-            <thead className="bg-bg-input">
+          <>
+            {detailedNarrative && (
+              <div className="m-4 p-4 bg-primary/10 border border-primary/20 rounded-xl">
+                <p className="text-sm font-medium text-text-primary">
+                  {detailedNarrative}
+                </p>
+              </div>
+            )}
+            <table className="min-w-full divide-y divide-border-default text-sm">
+              <thead className="bg-bg-input">
               <tr>
                 <th
                   scope="col"
@@ -260,6 +270,7 @@ export const RankingTable: React.FC<RankingTableProps> = ({
               )}
             </tbody>
           </table>
+          </>
         )}
 
         {activeTab === 'matrix' && (

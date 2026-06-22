@@ -3,9 +3,10 @@ import type { SAWResultItem } from '../../hooks/useSAWCalculation';
 
 interface PriorityChartProps {
   data: SAWResultItem[];
+  shortNarrative?: string;
 }
 
-export const PriorityChart: React.FC<PriorityChartProps> = ({ data }) => {
+export const PriorityChart: React.FC<PriorityChartProps> = ({ data, shortNarrative }) => {
   const [topN, setTopN] = useState<number>(10);
 
   if (!data || data.length === 0) {
@@ -51,6 +52,12 @@ export const PriorityChart: React.FC<PriorityChartProps> = ({ data }) => {
           </button>
         </div>
       </div>
+
+      {shortNarrative && (
+        <div className="mb-6 px-4 py-3 bg-primary/10 border border-primary/20 rounded-xl text-primary font-medium text-sm shadow-inner flex items-center">
+          {shortNarrative}
+        </div>
+      )}
 
       <div className="space-y-4">
         {chartData.map((item, index) => {

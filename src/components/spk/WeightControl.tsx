@@ -51,6 +51,55 @@ export const WeightControl: React.FC<WeightControlProps> = ({
         </div>
       </div>
 
+      <div className="mb-6 bg-bg-surface/50 p-4 rounded-xl border border-border-subtle">
+        <label className="text-sm font-bold text-text-secondary mb-3 block flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          Pilih Template Goal Toko:
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {[
+            {
+              id: 'balanced',
+              label: 'Balanced (Default)',
+              weights: { c1_weight: 0.35, c2_weight: 0.3, c3_weight: 0.2, c4_weight: 0.15 },
+              icon: '⚖️',
+              desc: 'Seimbang',
+            },
+            {
+              id: 'anti-kosong',
+              label: 'Anti-Stok Kosong',
+              weights: { c1_weight: 0.25, c2_weight: 0.5, c3_weight: 0.1, c4_weight: 0.15 },
+              icon: '🚨',
+              desc: 'Fokus Ketersediaan',
+            },
+            {
+              id: 'kejar-cuan',
+              label: 'Kejar Cuan',
+              weights: { c1_weight: 0.3, c2_weight: 0.1, c3_weight: 0.5, c4_weight: 0.1 },
+              icon: '💰',
+              desc: 'Fokus Profit Margin',
+            },
+            {
+              id: 'fast-moving',
+              label: 'Traffic / Fast Moving',
+              weights: { c1_weight: 0.3, c2_weight: 0.2, c3_weight: 0.1, c4_weight: 0.4 },
+              icon: '🔄',
+              desc: 'Fokus Perputaran',
+            },
+          ].map((tpl) => (
+            <button
+              key={tpl.id}
+              onClick={() => setWeights(tpl.weights)}
+              className="flex items-center gap-2 px-3 py-2 bg-bg-input hover:bg-bg-elevated border border-border-default rounded-lg text-sm text-text-primary transition-colors cursor-pointer group"
+              title={tpl.desc}
+            >
+              <span>{tpl.icon}</span>
+              <span className="font-medium">{tpl.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* C1 */}
         <div className="bg-bg-input border border-border-default rounded-xl p-4 shadow-inner">
