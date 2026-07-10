@@ -168,7 +168,8 @@ export async function printBluetoothReceipt(
   settings: AppSettings,
   onStatusChange: (status: string) => void
 ): Promise<boolean> {
-  if (typeof navigator === 'undefined' || !navigator.bluetooth) {
+  const nav = typeof navigator !== 'undefined' ? (navigator as any) : null;
+  if (!nav || !nav.bluetooth) {
     onStatusChange("Bluetooth tidak didukung oleh browser/perangkat ini.");
     return false;
   }
@@ -178,7 +179,7 @@ export async function printBluetoothReceipt(
     
     // Request any bluetooth device.
     // Standard custom printer service UUIDs are included.
-    const device = await navigator.bluetooth.requestDevice({
+    const device = await nav.bluetooth.requestDevice({
       acceptAllDevices: true,
       optionalServices: [
         '000018f0-0000-1000-8000-00805f9b34fb', // standard printer service
@@ -197,7 +198,7 @@ export async function printBluetoothReceipt(
     const server = await device.gatt.connect();
     onStatusChange("Mengirim data print...");
 
-    let printerChar: BluetoothRemoteGATTCharacteristic | null = null;
+    let printerChar: any = null;
     const serviceUUIDs = [
       '000018f0-0000-1000-8000-00805f9b34fb',
       '0000e7e1-0000-1000-8000-00805f9b34fb',
@@ -211,7 +212,7 @@ export async function printBluetoothReceipt(
         const service = await server.getPrimaryService(sUuid);
         const characteristics = await service.getCharacteristics();
         const writeChar = characteristics.find(
-          c => c.properties.write || c.properties.writeWithoutResponse
+          (c: any) => c.properties.write || c.properties.writeWithoutResponse
         );
         if (writeChar) {
           printerChar = writeChar;
@@ -229,7 +230,7 @@ export async function printBluetoothReceipt(
         for (const service of services) {
           const characteristics = await service.getCharacteristics();
           const writeChar = characteristics.find(
-            c => c.properties.write || c.properties.writeWithoutResponse
+            (c: any) => c.properties.write || c.properties.writeWithoutResponse
           );
           if (writeChar) {
             printerChar = writeChar;

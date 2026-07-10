@@ -25,7 +25,7 @@ const parseNumeric = (val: any) => {
 };
 
 export interface InputPenjualanProps {
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: any) => Promise<any>;
   activeSession?: any;
 }
 
