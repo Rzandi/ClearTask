@@ -1,108 +1,107 @@
 <!doctype html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws:;"
-    />
 
-    <!-- SEO -->
-    <title>ClearTask — Aplikasi Pencatatan Penjualan Digital</title>
-    <meta
-      name="description"
-      content="ClearTask membantu pemilik bisnis dan kasir mencatat transaksi harian, memantau penjualan real-time, dan mengekspor laporan ke Excel."
-    />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws:;" />
 
-    <!-- Favicons -->
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="192x192"
-      href="/assets/icons/manifest-icon-192.maskable.png"
-    />
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-icon-180.png" />
+  <!-- SEO -->
+  <title>ClearTask — Aplikasi Pencatatan Penjualan Digital</title>
+  <meta name="description"
+    content="ClearTask membantu pemilik bisnis dan kasir mencatat transaksi harian, memantau penjualan real-time, dan mengekspor laporan ke Excel." />
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/manifest-icon-192.maskable.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-icon-180.png" />
 
-    <!-- Theme Color -->
-    <meta name="theme-color" content="#00f0ff" />
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
 
-    <!-- iOS PWA -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="ClearTask" />
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#00f0ff" />
 
-    <!-- Open Graph -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="ClearTask — Pencatatan Penjualan Digital" />
-    <meta
-      property="og:description"
-      content="Catat transaksi harian, pantau penjualan real-time, dan ekspor laporan ke Excel."
-    />
-    <meta property="og:image" content="/assets/logo.png" />
+  <!-- iOS PWA -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ClearTask" />
 
-    <!-- Google Fonts: Outfit -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="root">
-      <!-- Loading indicator (replaced when React mounts) -->
-      <div id="app-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;color:#a0a0b0;font-family:system-ui,sans-serif;gap:1rem;">
-        <div style="width:40px;height:40px;border:3px solid rgba(0,255,163,0.2);border-top-color:#00ffa3;border-radius:50%;animation:spin .8s linear infinite;"></div>
-        <p>Memuat ClearTask...</p>
-        <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="ClearTask" />
+  <meta property="og:description"
+    content="Catat transaksi harian, pantau penjualan real-time, dan ekspor laporan ke Excel." />
+  <meta property="og:image" content="/assets/logo.png" />
+
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body>
+  <div id="root">
+    <!-- Loading indicator (replaced when React mounts) -->
+    <div id="app-loader"
+      style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;color:#a0a0b0;font-family:system-ui,sans-serif;gap:1rem;">
+      <div
+        style="width:40px;height:40px;border:3px solid rgba(0,255,163,0.2);border-top-color:#00ffa3;border-radius:50%;animation:spin .8s linear infinite;">
       </div>
-    </div>
-    <!-- Global error catcher: show JS errors on screen for mobile debugging -->
-    <script>
-      window.onerror = function(msg, src, line, col, err) {
-        var d = document.getElementById('app-loader') || document.getElementById('root');
-        if (d) {
-          d.innerHTML = '<div style="padding:2rem;background:#0a0a0f;color:#ff6b6b;font-family:monospace;font-size:13px;min-height:100vh;">'
-            + '<h2 style="color:#ff4a4a;margin-bottom:1rem;">⚠️ ClearTask Error</h2>'
-            + '<p style="color:#ccc;margin-bottom:.5rem;word-break:break-all;"><b>Error:</b> ' + msg + '</p>'
-            + '<p style="color:#888;margin-bottom:.5rem;word-break:break-all;"><b>File:</b> ' + (src||'unknown') + ':' + (line||'?') + '</p>'
-            + '<p style="color:#888;margin-bottom:1.5rem;word-break:break-all;"><b>Detail:</b> ' + (err && err.stack ? err.stack : 'none') + '</p>'
-            + '<button onclick="location.reload()" style="padding:.6rem 1.5rem;background:#00ffa3;color:#0a0a0f;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Reload</button>'
-            + '</div>';
+      <p>Memuat ClearTask...</p>
+      <style>
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
         }
-      };
-      window.addEventListener('unhandledrejection', function(e) {
-        var msg = e.reason ? (e.reason.message || e.reason.toString()) : 'Unknown promise rejection';
-        window.onerror(msg, '', 0, 0, e.reason);
-      });
-    </script>
-    <!-- Cache-buster: auto-clear stale SW cache on version mismatch -->
-    <script>
-      (function() {
-        var SW_VERSION = 'v3.3.0';
-        var FLAG = 'cleartask_sw_version';
-        try {
-          var prev = localStorage.getItem(FLAG);
-          if (prev && prev === SW_VERSION) return;
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(regs) {
-              regs.forEach(function(r) { r.unregister(); });
-            });
-          }
-          if ('caches' in window) {
-            caches.keys().then(function(names) {
-              names.forEach(function(n) { caches.delete(n); });
-            });
-          }
-          localStorage.setItem(FLAG, SW_VERSION);
-          if (prev) { location.reload(); return; }
-        } catch(e) {}
-      })();
-    </script>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+      </style>
+    </div>
+  </div>
+  <!-- Global error catcher: show JS errors on screen for mobile debugging -->
+  <script>
+    window.onerror = function (msg, src, line, col, err) {
+      var d = document.getElementById('app-loader') || document.getElementById('root');
+      if (d) {
+        d.innerHTML = '<div style="padding:2rem;background:#0a0a0f;color:#ff6b6b;font-family:monospace;font-size:13px;min-height:100vh;">'
+          + '<h2 style="color:#ff4a4a;margin-bottom:1rem;">⚠️ ClearTask Error</h2>'
+          + '<p style="color:#ccc;margin-bottom:.5rem;word-break:break-all;"><b>Error:</b> ' + msg + '</p>'
+          + '<p style="color:#888;margin-bottom:.5rem;word-break:break-all;"><b>File:</b> ' + (src || 'unknown') + ':' + (line || '?') + '</p>'
+          + '<p style="color:#888;margin-bottom:1.5rem;word-break:break-all;"><b>Detail:</b> ' + (err && err.stack ? err.stack : 'none') + '</p>'
+          + '<button onclick="location.reload()" style="padding:.6rem 1.5rem;background:#00ffa3;color:#0a0a0f;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Reload</button>'
+          + '</div>';
+      }
+    };
+    window.addEventListener('unhandledrejection', function (e) {
+      var msg = e.reason ? (e.reason.message || e.reason.toString()) : 'Unknown promise rejection';
+      window.onerror(msg, '', 0, 0, e.reason);
+    });
+  </script>
+  <!-- Cache-buster: auto-clear stale SW cache on version mismatch -->
+  <script>
+    (function () {
+      var SW_VERSION = 'v3.3.0';
+      var FLAG = 'cleartask_sw_version';
+      try {
+        var prev = localStorage.getItem(FLAG);
+        if (prev && prev === SW_VERSION) return;
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { r.unregister(); });
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function (names) {
+            names.forEach(function (n) { caches.delete(n); });
+          });
+        }
+        localStorage.setItem(FLAG, SW_VERSION);
+        if (prev) { location.reload(); return; }
+      } catch (e) { }
+    })();
+  </script>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

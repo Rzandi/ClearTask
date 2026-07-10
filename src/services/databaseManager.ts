@@ -170,6 +170,14 @@ export function validateImport(jsonString: string): {
   return { valid: true, data: parsed, error: null };
 }
 
+function isSameTransaction(tx1: any, tx2: any): boolean {
+  return (
+    tx1.tanggal === tx2.tanggal &&
+    tx1.total === tx2.total &&
+    tx1.createdAt === tx2.createdAt
+  );
+}
+
 /**
  * Calculate what would be added by a merge, without modifying the database.
  * @param {object} importData - A validated DatabaseExport object
@@ -216,11 +224,87 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     : [];
   const importSawHistory = Array.isArray(importData.saw_history) ? importData.saw_history : [];
 
-  const seenTxIds = new Set(existingTxIds);
+  // Maps for fast conflict lookup
+  const existingTxMap = new Map<string, any>();
+  for (const tx of existingTransactions) {
+    if (tx.transactionId) {
+      existingTxMap.set(tx.transactionId, tx);
+    }
+  }
+
+  const existingArchiveTxMap = new Map<string, any>();
+  for (const tx of existingArchiveTransactions) {
+    if (tx.transactionId) {
+      existingArchiveTxMap.set(tx.transactionId, tx);
+    }
+  }
+
+  // Calculate maximum sequence number across existing & imported transactions
+  let nextSeq = 0;
+  const parseSeq = (txId: string) => {
+    if (typeof txId === 'string' && txId.startsWith('TRX-')) {
+      const num = parseInt(txId.slice(4), 10);
+      if (!isNaN(num)) return num;
+    }
+    return 0;
+  };
+
+  for (const tx of existingTransactions) {
+    nextSeq = Math.max(nextSeq, parseSeq(tx.transactionId));
+  }
+  for (const tx of existingArchiveTransactions) {
+    nextSeq = Math.max(nextSeq, parseSeq(tx.transactionId));
+  }
+  for (const tx of importTransactions) {
+    nextSeq = Math.max(nextSeq, parseSeq(tx.transactionId));
+  }
+  for (const tx of importArchiveTransactions) {
+    nextSeq = Math.max(nextSeq, parseSeq(tx.transactionId));
+  }
+
+  let currentNewSeq = nextSeq + 1;
+
+  const seenTxMap = new Map<string, any>();
   const transactionsToAdd = importTransactions.filter((tx: any) => {
     if (!tx.transactionId) return false;
-    if (seenTxIds.has(tx.transactionId)) return false;
-    seenTxIds.add(tx.transactionId);
+
+    // Check conflict with database
+    const existing = existingTxMap.get(tx.transactionId);
+    if (existing) {
+      if (isSameTransaction(existing, tx)) {
+        return false;
+      }
+      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+    }
+
+    // Check conflict with archive table
+    const existingArchive = existingArchiveTxMap.get(tx.transactionId);
+    if (existingArchive) {
+      if (isSameTransaction(existingArchive, tx)) {
+        return false;
+      }
+      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+    }
+
+    // Check conflict with already seen transactions in this import
+    const seen = seenTxMap.get(tx.transactionId);
+    if (seen) {
+      if (isSameTransaction(seen, tx)) {
+        return false;
+      }
+      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+    }
+
+    // Double check that the new re-numbered ID does not conflict with any seen or existing ones
+    while (
+      seenTxMap.has(tx.transactionId) ||
+      existingTxMap.has(tx.transactionId) ||
+      existingArchiveTxMap.has(tx.transactionId)
+    ) {
+      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+    }
+
+    seenTxMap.set(tx.transactionId, tx);
     return true;
   }).map((tx: any) => {
     const { id, ...rest } = tx;
@@ -243,11 +327,44 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     return true;
   });
 
-  const seenArchiveTxIds = new Set(existingArchiveTxIds);
+  const seenArchiveTxMap = new Map<string, any>();
   const archiveTransactionsToAdd = importArchiveTransactions.filter((tx: any) => {
     if (!tx.transactionId) return false;
-    if (seenArchiveTxIds.has(tx.transactionId)) return false;
-    seenArchiveTxIds.add(tx.transactionId);
+
+    const existing = existingTxMap.get(tx.transactionId);
+    if (existing) {
+      if (isSameTransaction(existing, tx)) {
+        return false;
+      }
+      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+    }
+
+    const existingArchive = existingArchiveTxMap.get(tx.transactionId);
+    if (existingArchive) {
+      if (isSameTransaction(existingArchive, tx)) {
+        return false;
+      }
+      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+    }
+
+    const seen = seenArchiveTxMap.get(tx.transactionId);
+    if (seen) {
+      if (isSameTransaction(seen, tx)) {
+        return false;
+      }
+      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+    }
+
+    while (
+      seenTxMap.has(tx.transactionId) ||
+      seenArchiveTxMap.has(tx.transactionId) ||
+      existingTxMap.has(tx.transactionId) ||
+      existingArchiveTxMap.has(tx.transactionId)
+    ) {
+      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+    }
+
+    seenArchiveTxMap.set(tx.transactionId, tx);
     return true;
   }).map((tx: any) => {
     const { id, ...rest } = tx;
@@ -634,6 +751,7 @@ export async function applyMerge(data: any): Promise<{ success: boolean; error: 
         db.archive_transactions,
         db.saw_criterias,
         db.saw_history,
+        db.meta,
       ],
       async () => {
         if (transactionsToAdd.length > 0) {
@@ -674,6 +792,30 @@ export async function applyMerge(data: any): Promise<{ success: boolean; error: 
         }
         if (inventoryToAdd.length > 0) {
           await db.inventory.bulkAdd(inventoryToAdd);
+        }
+
+        // Recalculate and update seq in db.meta
+        const allTx = await db.transactions.toArray();
+        const allArchiveTx = await db.archive_transactions.toArray();
+        let maxSeq = 0;
+        const parseSeq = (txId: string) => {
+          if (typeof txId === 'string' && txId.startsWith('TRX-')) {
+            const num = parseInt(txId.slice(4), 10);
+            if (!isNaN(num)) return num;
+          }
+          return 0;
+        };
+        for (const tx of allTx) {
+          maxSeq = Math.max(maxSeq, parseSeq(tx.transactionId));
+        }
+        for (const tx of allArchiveTx) {
+          maxSeq = Math.max(maxSeq, parseSeq(tx.transactionId));
+        }
+
+        const metaSeq = await db.meta.get({ key: 'seq' });
+        const currentSeqValue = metaSeq ? metaSeq.value : 0;
+        if (maxSeq > currentSeqValue) {
+          await db.meta.put({ ...(metaSeq || {}), key: 'seq', value: maxSeq });
         }
       }
     );

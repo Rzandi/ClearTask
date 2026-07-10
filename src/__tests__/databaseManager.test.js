@@ -520,7 +520,8 @@ describe('v2.0 additional tables merging & sync', () => {
 
     const merge = await calculateMerge(importData);
     expect(merge.newArchiveTransactions).toBe(1);
-    expect(merge.archiveTransactionsToAdd).toEqual([newArc]);
+    const { id, ...expectedArc } = newArc;
+    expect(merge.archiveTransactionsToAdd).toEqual([expectedArc]);
 
     const result = await applyMerge(merge);
     expect(result.success).toBe(true);
