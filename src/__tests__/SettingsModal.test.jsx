@@ -21,6 +21,9 @@ const defaultMockSettings = {
   appSubtitle: 'Pencatatan Penjualan',
   theme: 'dark',
   accentColor: '#00f0ff',
+  tokoAlamat: '',
+  tokoTelepon: '',
+  strukFooter: '',
 };
 
 vi.mock('../contexts/SettingsContext', () => ({

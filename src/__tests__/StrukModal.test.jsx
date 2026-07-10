@@ -31,7 +31,7 @@ describe('StrukModal and Bluetooth Printing Integration', () => {
     render(<StrukModal order={sampleOrder} onClose={vi.fn()} />);
 
     // Verify receipt data
-    expect(screen.getByText('ClearTask POS')).not.toBeNull();
+    expect(screen.getByText('Toko Test')).not.toBeNull();
     expect(screen.getByText('TRX-00001')).not.toBeNull();
     expect(screen.getByText('Kopi Susu')).not.toBeNull();
     expect(screen.getByText('Roti Bakar')).not.toBeNull();
@@ -53,7 +53,7 @@ describe('StrukModal and Bluetooth Printing Integration', () => {
   it('3. Triggers Bluetooth print workflow and displays status on success', async () => {
     const printBluetoothSpy = vi
       .spyOn(bluetoothHelper, 'printBluetoothReceipt')
-      .mockImplementation((order, onStatusChange) => {
+      .mockImplementation((order, settings, onStatusChange) => {
         onStatusChange('Mencari printer bluetooth...');
         onStatusChange('Menghubungkan ke Printer...');
         onStatusChange('Mengirim data print...');
@@ -77,7 +77,7 @@ describe('StrukModal and Bluetooth Printing Integration', () => {
 
   it('4. Displays failure message when Bluetooth print fails', async () => {
     vi.spyOn(bluetoothHelper, 'printBluetoothReceipt').mockImplementation(
-      (order, onStatusChange) => {
+      (order, settings, onStatusChange) => {
         onStatusChange('Gagal print: GATT Connection Timeout');
         return Promise.resolve(false);
       }

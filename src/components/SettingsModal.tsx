@@ -47,6 +47,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [localTokoName, setLocalTokoName] = useState('');
   const [localAppName, setLocalAppName] = useState('');
   const [localAppSubtitle, setLocalAppSubtitle] = useState('');
+  const [localTokoAlamat, setLocalTokoAlamat] = useState('');
+  const [localTokoTelepon, setLocalTokoTelepon] = useState('');
+  const [localStrukFooter, setLocalStrukFooter] = useState('');
   const [newCatInput, setNewCatInput] = useState('');
 
   async function handleAddCategory() {
@@ -93,6 +96,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setLocalTokoName(settings.tokoName || '');
       setLocalAppName(settings.appName || 'ClearTask');
       setLocalAppSubtitle(settings.appSubtitle || 'Pencatatan Penjualan');
+      setLocalTokoAlamat(settings.tokoAlamat || '');
+      setLocalTokoTelepon(settings.tokoTelepon || '');
+      setLocalStrukFooter(settings.strukFooter || '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -109,6 +115,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         tokoName: localTokoName,
         appName: localAppName,
         appSubtitle: localAppSubtitle,
+        tokoAlamat: localTokoAlamat,
+        tokoTelepon: localTokoTelepon,
+        strukFooter: localStrukFooter,
       });
       onClose();
     } catch (err: any) {
@@ -237,6 +246,67 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 onChange={(e) => setLocalTokoName(e.target.value)}
                 placeholder="Masukkan nama toko/usaha"
                 maxLength={100}
+              />
+            </div>
+          </div>
+
+          {/* Seksi Pengaturan Struk */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-text-primary border-b border-border-subtle pb-2">
+              Pengaturan Struk
+            </h3>
+
+            {/* Alamat Toko */}
+            <div>
+              <label
+                htmlFor="toko-alamat-input"
+                className="block text-sm font-medium text-text-secondary mb-1.5"
+              >
+                Alamat Toko
+              </label>
+              <Input
+                id="toko-alamat-input"
+                type="text"
+                value={localTokoAlamat}
+                onChange={(e) => setLocalTokoAlamat(e.target.value)}
+                placeholder="Masukkan alamat toko (cth: Jl. Contoh Alamat No. 12)"
+                maxLength={200}
+              />
+            </div>
+
+            {/* No. Telepon Toko */}
+            <div>
+              <label
+                htmlFor="toko-telepon-input"
+                className="block text-sm font-medium text-text-secondary mb-1.5"
+              >
+                No. Telepon Toko
+              </label>
+              <Input
+                id="toko-telepon-input"
+                type="text"
+                value={localTokoTelepon}
+                onChange={(e) => setLocalTokoTelepon(e.target.value)}
+                placeholder="Masukkan nomor telepon (cth: 0812-3456-7890)"
+                maxLength={20}
+              />
+            </div>
+
+            {/* Pesan Kaki Struk */}
+            <div>
+              <label
+                htmlFor="struk-footer-input"
+                className="block text-sm font-medium text-text-secondary mb-1.5"
+              >
+                Pesan Kaki Struk (Footer)
+              </label>
+              <Input
+                id="struk-footer-input"
+                type="text"
+                value={localStrukFooter}
+                onChange={(e) => setLocalStrukFooter(e.target.value)}
+                placeholder="Masukkan footer struk (cth: Terima Kasih)"
+                maxLength={150}
               />
             </div>
           </div>

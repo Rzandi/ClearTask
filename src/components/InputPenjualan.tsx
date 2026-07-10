@@ -244,9 +244,18 @@ export default memo(function InputPenjualan({
     };
 
     // Panggil onSubmit untuk menyimpan ke DB
-    await onSubmit(orderData);
+    const savedTx = await onSubmit(orderData);
 
-    setLastOrder(orderData);
+    const finalOrder =
+      savedTx && typeof savedTx === 'object' && Array.isArray(savedTx.items)
+        ? savedTx
+        : {
+            ...orderData,
+            transactionId:
+              savedTx && typeof savedTx === 'object' ? savedTx.transactionId : undefined,
+          };
+
+    setLastOrder(finalOrder);
     setShowStruk(true);
     setShowMobileCart(false);
 

@@ -2,6 +2,7 @@
  * Helper for printing receipts to standard 58mm Bluetooth Thermal Printers
  * using the browser's Web Bluetooth API (GATT).
  */
+import { type AppSettings } from '../config/settingsConfig';
 
 export interface ReceiptItem {
   namaBarang: string;
@@ -57,7 +58,7 @@ function formatNumber(num: number): string {
 /**
  * Generate ESC/POS commands for the transaction
  */
-export function generateEscPosBytes(order: ReceiptOrder): Uint8Array {
+export function generateEscPosBytes(order: ReceiptOrder, settings?: AppSettings): Uint8Array {
   const encoder = new TextEncoder();
   const bytesList: number[] = [];
 
@@ -83,12 +84,12 @@ export function generateEscPosBytes(order: ReceiptOrder): Uint8Array {
   addCommand([ESC, 0x61, 0x01]); // Align Center
   addCommand([ESC, 0x45, 0x01]); // Bold ON
   addCommand([GS, 0x21, 0x11]);  // Double width & double height
-  addLine("ClearTask POS");
+  addLine(settings?.tokoName || "ClearTask POS");
   
   addCommand([GS, 0x21, 0x00]);  // Normal font size
   addCommand([ESC, 0x45, 0x00]); // Bold OFF
-  addLine("Jl. Contoh Alamat No. 123");
-  addLine("Telp: 0812-3456-7890");
+  addLine(settings?.tokoAlamat || "Jl. Contoh Alamat No. 123");
+  addLine(`Telp: ${settings?.tokoTelepon || "0812-3456-7890"}`);
   
   // Divider
   addCommand([ESC, 0x61, 0x00]); // Align Left
@@ -144,8 +145,13 @@ export function generateEscPosBytes(order: ReceiptOrder): Uint8Array {
   addCommand([ESC, 0x61, 0x01]); // Align Center
   addLine("Terima Kasih");
   addLine("Atas Kunjungan Anda");
-  addLine("Barang yang sudah dibeli");
-  addLine("tidak dapat ditukar/dikembalikan");
+  
+  // Print footer message (split by newline if it's too long or print as is)
+  const footerText = settings?.strukFooter || "Barang yang sudah dibeli\ntidak dapat ditukar/dikembalikan";
+  const footerLines = footerText.split('\n');
+  footerLines.forEach((line) => {
+    addLine(line);
+  });
   
   // Paper feed & Cut (some printers feed automatically but we do it manually to be safe)
   addLine("\n\n\n\n");
@@ -159,6 +165,7 @@ export function generateEscPosBytes(order: ReceiptOrder): Uint8Array {
  */
 export async function printBluetoothReceipt(
   order: ReceiptOrder,
+  settings: AppSettings,
   onStatusChange: (status: string) => void
 ): Promise<boolean> {
   if (typeof navigator === 'undefined' || !navigator.bluetooth) {
@@ -238,7 +245,7 @@ export async function printBluetoothReceipt(
       throw new Error("Karakteristik write printer tidak ditemukan.");
     }
 
-    const dataBytes = generateEscPosBytes(order);
+    const dataBytes = generateEscPosBytes(order, settings);
     
     // Chunk size of 20 bytes is safest for Bluetooth LE SPP converters
     const CHUNK_SIZE = 20;

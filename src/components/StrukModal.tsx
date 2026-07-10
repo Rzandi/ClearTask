@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Button from './ui/Button';
 import { printBluetoothReceipt } from '../utils/bluetoothPrinterHelper';
+import { useSettings } from '../contexts/SettingsContext';
 
 export interface StrukModalProps {
   order: any;
@@ -14,6 +15,7 @@ export interface StrukModalProps {
 }
 
 export default function StrukModal({ order, onClose }: StrukModalProps) {
+  const { settings } = useSettings();
   const [btStatus, setBtStatus] = useState<string>('');
   const [isBtPrinting, setIsBtPrinting] = useState<boolean>(false);
 
@@ -33,7 +35,7 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
 
   const handleBluetoothPrint = async () => {
     setIsBtPrinting(true);
-    await printBluetoothReceipt(order, (status) => {
+    await printBluetoothReceipt(order, settings, (status) => {
       setBtStatus(status);
     });
     setIsBtPrinting(false);
@@ -71,9 +73,9 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
           id="printable-struk"
         >
           <div className="text-center mb-4">
-            <h1 className="text-lg font-bold mb-1">ClearTask POS</h1>
-            <p className="text-[10px]">Jl. Contoh Alamat No. 123</p>
-            <p className="text-[10px]">Telp: 0812-3456-7890</p>
+            <h1 className="text-lg font-bold mb-1">{settings.tokoName || 'ClearTask POS'}</h1>
+            <p className="text-[10px]">{settings.tokoAlamat || 'Jl. Contoh Alamat No. 123'}</p>
+            <p className="text-[10px]">Telp: {settings.tokoTelepon || '0812-3456-7890'}</p>
           </div>
 
           <div className="border-b border-dashed border-gray-400 pb-2 mb-2">
@@ -138,7 +140,7 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
 
           <div className="text-center mt-4 pt-2">
             <p className="text-[10px]">Terima Kasih Atas Kunjungan Anda</p>
-            <p className="text-[10px]">Barang yang sudah dibeli tidak dapat ditukar/dikembalikan</p>
+            <p className="text-[10px]">{settings.strukFooter || 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan'}</p>
           </div>
         </div>
 

@@ -98,8 +98,9 @@ export default function App() {
   const handleSubmit = useCallback(
     async (data: any) => {
       try {
-        await addTransaction(data);
+        const result = await addTransaction(data);
         setToast({ message: 'Transaksi berhasil disimpan!', type: 'success' });
+        return result;
       } catch (err: any) {
         const isQuota =
           err.name === 'QuotaExceededError' ||
