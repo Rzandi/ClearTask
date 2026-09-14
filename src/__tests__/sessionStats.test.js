@@ -151,13 +151,13 @@ describe('calculateSessionStats — multiple transactions', () => {
     expect(qris.totalPemasukan).toBe(15000);
   });
 
-  it('normalizes category names with case insensitivity and trimming', () => {
+  it('normalizes category names with case insensitivity and displays in Title Case', () => {
     const tx1 = { ...sampleTransaction1, kategori: 'Kebutuhan pokok' };
     const tx2 = { ...sampleTransaction2, kategori: 'kebutuhan pokok' };
     const stats = calculateSessionStats(sampleSession, [tx1, tx2]);
 
     expect(stats.breakdownKategori).toHaveLength(1);
-    expect(stats.breakdownKategori[0].kategori).toBe('Kebutuhan pokok');
+    expect(stats.breakdownKategori[0].kategori).toBe('Kebutuhan Pokok');
     expect(stats.breakdownKategori[0].jumlahTransaksi).toBe(2);
     expect(stats.breakdownKategori[0].totalPemasukan).toBe(45000);
   });

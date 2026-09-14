@@ -130,3 +130,18 @@ export function formatTrend(percent: number): { text: string; isPositive: boolea
     isPositive: percent >= 0,
   };
 }
+
+/**
+ * Convert string to Title Case (e.g. "kebutuhan pokok" -> "Kebutuhan Pokok")
+ * @param {string} str
+ * @returns {string}
+ */
+export function toTitleCase(str: string | null | undefined): string {
+  if (!str || !str.trim()) return 'Lainnya';
+  return str
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+

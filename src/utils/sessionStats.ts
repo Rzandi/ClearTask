@@ -4,6 +4,8 @@
    Feature: session-management
    ═══════════════════════════════════════════════════════════ */
 
+import { toTitleCase } from './formatters';
+
 export interface Session {
   id?: string;
   kasirName?: string;
@@ -74,8 +76,8 @@ export function calculateSessionStats(
       tx.items.forEach((item: any) => {
         const rawCat = (item.kategori || 'Lainnya').trim();
         const key = rawCat.toLowerCase();
-        // Capitalize first letter of category or keep original
-        const displayCat = rawCat ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1) : 'Lainnya';
+        // Convert to Title Case for proper UI display (e.g. "Kebutuhan Pokok")
+        const displayCat = toTitleCase(rawCat);
         const existing = kategoriMap.get(key) || {
           kategori: displayCat,
           jumlahTransaksi: 0,
@@ -88,7 +90,7 @@ export function calculateSessionStats(
     } else {
       const rawCat = (tx.kategori || 'Lainnya').trim();
       const key = rawCat.toLowerCase();
-      const displayCat = rawCat ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1) : 'Lainnya';
+      const displayCat = toTitleCase(rawCat);
       const existing = kategoriMap.get(key) || {
         kategori: displayCat,
         jumlahTransaksi: 0,

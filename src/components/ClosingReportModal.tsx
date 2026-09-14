@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { calculateSessionStats } from '../utils/sessionStats';
 import { exportSessionExcel } from '../utils/exportExcel';
 import { exportSessionCSV } from '../utils/exportCSV';
-import { formatRupiah, formatDate, formatTime } from '../utils/formatters';
+import { formatRupiah, formatDate, formatTime, toTitleCase } from '../utils/formatters';
 import { useSettings } from '../contexts/SettingsContext';
 
 /**
@@ -50,7 +50,7 @@ export default function ClosingReportModal({
           if (!item.namaBarang) return;
           const key = item.namaBarang.toLowerCase().trim();
           if (!itemsMap[key]) {
-            itemsMap[key] = { namaBarang: item.namaBarang.trim(), qty: 0, total: 0 };
+            itemsMap[key] = { namaBarang: toTitleCase(item.namaBarang), qty: 0, total: 0 };
           }
           itemsMap[key].qty += item.qty || 1;
           itemsMap[key].total += item.total || (item.hargaSatuan || 0) * (item.qty || 1);
