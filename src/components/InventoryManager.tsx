@@ -21,8 +21,13 @@ export default function InventoryManager() {
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterKategori, setFilterKategori] = useState('all');
+  const [onlyLowStock, setOnlyLowStock] = useState(false);
 
-  const isFilterActive = filterKategori !== 'all' || searchQuery.trim().length > 0;
+  const lowStockCount = useMemo(() => {
+    return inventory.filter((item) => (item.quantity || 0) <= (item.minStock || LOW_STOCK_THRESHOLD)).length;
+  }, [inventory]);
+
+  const isFilterActive = filterKategori !== 'all' || searchQuery.trim().length > 0 || onlyLowStock;
 
   // Unique categories from inventory
   const categories = useMemo(() => {
@@ -33,6 +38,9 @@ export default function InventoryManager() {
   // Filtered & sorted
   const filteredInventory = useMemo(() => {
     let items = [...inventory];
+    if (onlyLowStock) {
+      items = items.filter((item) => (item.quantity || 0) <= (item.minStock || LOW_STOCK_THRESHOLD));
+    }
     if (filterKategori !== 'all') {
       items = items.filter((item) => item.kategori === filterKategori);
     }
@@ -42,13 +50,14 @@ export default function InventoryManager() {
         (item) =>
           item.namaBarang?.toLowerCase().includes(q) ||
           item.kategori?.toLowerCase().includes(q) ||
-          item.subKategori?.toLowerCase().includes(q)
+          item.subKategori?.toLowerCase().includes(q) ||
+          item.sku?.toLowerCase().includes(q)
       );
     }
     return items.sort(
       (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
-  }, [inventory, filterKategori, searchQuery]);
+  }, [inventory, filterKategori, searchQuery, onlyLowStock]);
 
   // ── Pagination ───────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
@@ -176,6 +185,159 @@ export default function InventoryManager() {
     }
   }
 
+  function handleQuickAdjustStock(item: any, delta: number) {
+    const newQty = Math.max(0, (item.quantity || 0) + delta);
+    updateInventoryItem(item.id, { quantity: newQty });
+  }
+
+  function handleExportCSV() {
+    if (inventory.length === 0) {
+      alert('Tidak ada data inventaris untuk diekspor.');
+      return;
+    }
+    const headers = ['SKU', 'Nama Barang', 'Kategori', 'Sub Kategori', 'Harga Modal', 'Harga Jual', 'Stok', 'Stok Minim', 'Satuan'];
+    const rows = inventory.map((i) => [
+      `"${i.sku || i.barcode || ''}"`,
+      `"${(i.namaBarang || '').replace(/"/g, '""')}"`,
+      `"${(i.kategori || '').replace(/"/g, '""')}"`,
+      `"${(i.subKategori || '').replace(/"/g, '""')}"`,
+      i.hargaModal || 0,
+      i.harga || 0,
+      i.quantity || 0,
+      i.minStock || 5,
+      `"${i.satuan || 'Pcs'}"`
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inventaris_cleartask_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadTemplateCSV() {
+    const headers = ['SKU', 'Nama Barang', 'Kategori', 'Sub Kategori', 'Harga Modal', 'Harga Jual', 'Stok', 'Stok Minim', 'Satuan'];
+    const sample = ['SKU-10001', 'Kopi Hitam', 'Minuman', 'Kopi', 5000, 10000, 50, 5, 'Pcs'];
+    const csvContent = [headers.join(','), sample.join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `template_inventaris_cleartask.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportCSV(e: any) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const lines = text.split('\n').filter((l) => l.trim().length > 0);
+        if (lines.length <= 1) {
+          alert('File CSV kosong atau tidak memiliki baris data.');
+          return;
+        }
+
+        let count = 0;
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line) continue;
+          const cols = line.split(',').map((c) => c.replace(/^"|"$/g, '').trim());
+          if (cols.length >= 3 && cols[1]) {
+            const sku = cols[0] || `SKU-${Date.now().toString().slice(-6)}${i}`;
+            const namaBarang = cols[1] || '';
+            const kategori = cols[2] || 'Umum';
+            const subKategori = cols[3] || '';
+            const hargaModal = parseInt(cols[4] || '0', 10) || 0;
+            const harga = parseInt(cols[5] || '0', 10) || 0;
+            const quantity = parseInt(cols[6] || '0', 10) || 0;
+            const minStock = parseInt(cols[7] || '5', 10) || 5;
+            const satuan = cols[8] || 'Pcs';
+
+            addInventoryItem({
+              sku,
+              namaBarang,
+              kategori,
+              subKategori,
+              hargaModal,
+              harga,
+              quantity,
+              minStock,
+              satuan,
+            });
+            count++;
+          }
+        }
+        alert(`Berhasil mengimpor ${count} barang inventaris.`);
+      } catch (err: any) {
+        alert('Gagal mengimpor file CSV: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  function handleUnpackDus(item: any) {
+    const packStock = item.packStock || 0;
+    const packRatio = item.packRatio || 24;
+    const packUnit = item.packUnit || 'Dus';
+
+    if (packStock <= 0) {
+      alert(`Stok ${packUnit} kosong (0). Tidak dapat melakukan unpack.`);
+      return;
+    }
+
+    const confirmUnpack = window.confirm(
+      `Konfirmasi Unpack 1 ${packUnit} ${item.namaBarang}?\n` +
+        `• Stok ${packUnit} berkurang 1 (${packStock} -> ${packStock - 1})\n` +
+        `• Stok Pcs bertambah +${packRatio} (${item.quantity || 0} -> ${(item.quantity || 0) + packRatio})`
+    );
+
+    if (confirmUnpack) {
+      updateInventoryItem(item.id, {
+        quantity: (item.quantity || 0) + packRatio,
+        packStock: packStock - 1,
+      });
+    }
+  }
+
+  function handleExportRestockSupplier() {
+    const lowStockItems = inventory.filter(
+      (item) => (item.quantity || 0) <= (item.minStock || LOW_STOCK_THRESHOLD)
+    );
+
+    if (lowStockItems.length === 0) {
+      alert('Semua stok barang dalam kondisi aman. Tidak ada item restock.');
+      return;
+    }
+
+    const textLines = [
+      `*📋 DAFTAR BELANJA RESTOCK SUPPLIER - CLEARTASK*`,
+      `Tanggal: ${new Date().toLocaleDateString('id-ID')}`,
+      `Total Item Menipis: ${lowStockItems.length} barang`,
+      `----------------------------------`,
+      ...lowStockItems.map(
+        (i, idx) =>
+          `${idx + 1}. *${i.namaBarang}* (Sisa: ${i.quantity || 0} ${i.satuan || 'Pcs'}${
+            i.packStock ? ` | Stok ${i.packUnit || 'Dus'}: ${i.packStock}` : ''
+          })`
+      ),
+      `----------------------------------`,
+      `Mohon diproses untuk pengiriman ulang. Terima kasih!`
+    ];
+
+    const message = encodeURIComponent(textLines.join('\n'));
+    const waUrl = `https://wa.me/?text=${message}`;
+    window.open(waUrl, '_blank');
+  }
+
   return (
     <div className="space-y-6 animate-slide-up">
       {/* Header */}
@@ -185,14 +347,50 @@ export default function InventoryManager() {
           <p className="text-sm text-text-muted">Kelola daftar barang inventaris Anda.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* CSV Import/Export */}
+          <input
+            type="file"
+            id="csv-import-input"
+            accept=".csv"
+            onChange={handleImportCSV}
+            className="hidden"
+          />
+          <button
+            onClick={() => document.getElementById('csv-import-input')?.click()}
+            title="Impor barang dari file CSV"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-primary hover:border-primary/50 transition-colors"
+          >
+            📥 Import CSV
+          </button>
+          <button
+            onClick={handleExportCSV}
+            title="Ekspor seluruh barang ke CSV"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-primary hover:border-primary/50 transition-colors"
+          >
+            📤 Export CSV
+          </button>
+          <button
+            onClick={handleDownloadTemplateCSV}
+            title="Unduh contoh template CSV"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-bg-surface border border-border-default text-text-muted hover:text-text-primary transition-colors text-[11px]"
+          >
+            📄 Template
+          </button>
+          <button
+            onClick={handleExportRestockSupplier}
+            title="Kirim daftar restock barang menipis ke Supplier via WA"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25 transition-colors"
+          >
+            📋 Restock Supplier
+          </button>
           <button
             onClick={handleSyncFromHistory}
             title="Tarik barang unik dari riwayat transaksi"
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-primary hover:border-primary/50 transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-primary hover:border-primary/50 transition-colors shrink-0"
           >
             <svg
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -205,15 +403,15 @@ export default function InventoryManager() {
               <path d="M3 22v-6h6"></path>
               <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
             </svg>
-            <span className="hidden sm:inline">Sinkronisasi Riwayat</span>
+            <span className="hidden sm:inline">Sinkronisasi</span>
           </button>
           <button
             onClick={handleAdd}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors shrink-0"
           >
             <svg
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -224,7 +422,7 @@ export default function InventoryManager() {
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            <span className="hidden sm:inline">Tambah Barang</span>
+            <span>Tambah Barang</span>
           </button>
         </div>
       </div>
@@ -273,7 +471,7 @@ export default function InventoryManager() {
           </svg>
           <input
             type="text"
-            placeholder="Cari barang..."
+            placeholder="Cari barang / SKU..."
             aria-label="Cari produk"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -293,6 +491,21 @@ export default function InventoryManager() {
             </option>
           ))}
         </select>
+        <button
+          onClick={() => setOnlyLowStock((prev) => !prev)}
+          className={`flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-xl border transition-colors shrink-0 ${
+            onlyLowStock
+              ? 'bg-accent-red/20 border-accent-red text-accent-red'
+              : 'bg-bg-input border-border-default text-text-secondary hover:border-accent-red/50'
+          }`}
+        >
+          <span>⚠️ Stok Menipis</span>
+          {lowStockCount > 0 && (
+            <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-accent-red text-white">
+              {lowStockCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Table / Cards */}
@@ -353,7 +566,14 @@ export default function InventoryManager() {
                   {visibleInventory.map((item) => (
                     <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-text-primary">{item.namaBarang}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-text-primary">{item.namaBarang}</p>
+                          {(item.sku || item.barcode) && (
+                            <span className="px-1.5 py-0.5 rounded bg-bg-elevated border border-border-subtle text-[10px] font-mono text-text-muted">
+                              {item.sku || item.barcode}
+                            </span>
+                          )}
+                        </div>
                         {item.subKategori && (
                           <p className="text-[11px] text-text-muted">{item.subKategori}</p>
                         )}
@@ -366,15 +586,77 @@ export default function InventoryManager() {
                       <td className="px-4 py-3 text-right font-medium text-text-secondary">
                         {formatRupiah(item.hargaModal || 0)}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-primary">
-                        {formatRupiah(item.harga)}
+                      <td className="px-4 py-3 text-right">
+                        <div className="font-semibold text-primary">{formatRupiah(item.harga)}</div>
+                        {item.wholesaleMinQty > 0 && item.wholesalePrice > 0 && (
+                          <div className="text-[10px] text-text-muted">
+                            <span className="text-warning font-semibold">Grosir:</span> ≥{item.wholesaleMinQty} {item.satuan} ({formatRupiah(item.wholesalePrice)})
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span
-                          className={`font-bold ${item.quantity <= LOW_STOCK_THRESHOLD ? 'text-accent-red' : 'text-text-primary'}`}
-                        >
-                          {item.quantity}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`font-bold ${item.quantity <= (item.minStock || LOW_STOCK_THRESHOLD) ? 'text-accent-red' : 'text-text-primary'}`}
+                            >
+                              {item.quantity}
+                            </span>
+                            {item.quantity <= (item.minStock || LOW_STOCK_THRESHOLD) && (
+                              <span className="px-1.5 py-0.2 rounded bg-accent-red/20 text-accent-red text-[10px] font-bold">
+                                ⚠️ Minim
+                              </span>
+                            )}
+                          </div>
+                          {/* Multi-UOM Dus Stock & Unpack Action */}
+                          {(item.packStock > 0 || item.packUnit) && (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-text-muted font-medium">
+                                Stok {item.packUnit || 'Dus'}: <strong className="text-text-primary">{item.packStock || 0}</strong>
+                              </span>
+                              {item.packStock > 0 && (
+                                <button
+                                  onClick={() => handleUnpackDus(item)}
+                                  title={`Unpack 1 ${item.packUnit || 'Dus'} (+${item.packRatio || 24} ${item.satuan || 'Pcs'})`}
+                                  className="px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40 font-bold transition-colors"
+                                >
+                                  ⚡ Unpack
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {/* Quick Inline Restock Buttons */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleQuickAdjustStock(item, -1)}
+                              title="Kurangi 1"
+                              className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-bg-elevated text-text-muted hover:text-accent-red hover:bg-accent-red/10 border border-border-default"
+                            >
+                              -1
+                            </button>
+                            <button
+                              onClick={() => handleQuickAdjustStock(item, 1)}
+                              title="Tambah 1"
+                              className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-bg-elevated text-text-muted hover:text-primary hover:bg-primary/10 border border-border-default"
+                            >
+                              +1
+                            </button>
+                            <button
+                              onClick={() => handleQuickAdjustStock(item, 5)}
+                              title="Tambah 5"
+                              className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-bg-elevated text-primary hover:bg-primary/20 border border-primary/30"
+                            >
+                              +5
+                            </button>
+                            <button
+                              onClick={() => handleQuickAdjustStock(item, 10)}
+                              title="Tambah 10"
+                              className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-bg-elevated text-primary hover:bg-primary/20 border border-primary/30"
+                            >
+                              +10
+                            </button>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center text-text-muted">{item.satuan}</td>
                       <td className="px-4 py-3">
@@ -497,14 +779,48 @@ export default function InventoryManager() {
                     <p className="text-sm font-bold text-primary">{formatRupiah(item.harga)}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
                   <div>
                     <p className="text-[10px] text-text-muted">Stok</p>
-                    <p
-                      className={`text-sm font-bold ${item.quantity <= 5 ? 'text-accent-red' : 'text-text-primary'}`}
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`text-sm font-bold ${item.quantity <= (item.minStock || LOW_STOCK_THRESHOLD) ? 'text-accent-red' : 'text-text-primary'}`}
+                      >
+                        {item.quantity} {item.satuan}
+                      </span>
+                      {item.quantity <= (item.minStock || LOW_STOCK_THRESHOLD) && (
+                        <span className="px-1.5 py-0.2 rounded bg-accent-red/20 text-accent-red text-[10px] font-bold">
+                          ⚠️ Minim
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Quick Inline Restock */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleQuickAdjustStock(item, -1)}
+                      className="px-2 py-1 text-xs font-bold rounded bg-bg-elevated text-text-muted hover:text-accent-red border border-border-default"
                     >
-                      {item.quantity} {item.satuan}
-                    </p>
+                      -1
+                    </button>
+                    <button
+                      onClick={() => handleQuickAdjustStock(item, 1)}
+                      className="px-2 py-1 text-xs font-bold rounded bg-bg-elevated text-primary border border-border-default"
+                    >
+                      +1
+                    </button>
+                    <button
+                      onClick={() => handleQuickAdjustStock(item, 5)}
+                      className="px-2 py-1 text-xs font-bold rounded bg-primary/20 text-primary border border-primary/30"
+                    >
+                      +5
+                    </button>
+                    <button
+                      onClick={() => handleQuickAdjustStock(item, 10)}
+                      className="px-2 py-1 text-xs font-bold rounded bg-primary/20 text-primary border border-primary/30"
+                    >
+                      +10
+                    </button>
                   </div>
                 </div>
               </div>

@@ -3,6 +3,34 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.5.0] - 2026-09-14
+
+Versi 3.5.0 menghadirkan perombakan spesifikasi & fitur khusus **Sektor Retail, Minimarket & Toko Kelontong** (Wholesale Tiered Pricing, Multi-UOM Auto Unpack Dus → Pcs, Purchase Requisition Restock Supplier), peningkatan **Quality of Life (QOL) & Mikro-Interaksi POS** (Quick Cash, Cash Change Breakdown, Pending Orders, Audio & Haptic Feedback, Inline Syntax Command Parser, Soft Delete & Trash Manager), serta ketahanan sistem tingkat tinggi (**Live Resiliency & Offline Edge Cases**).
+
+### 🎉 Added & Enhanced (Retail Sector, QOL & Live Resiliency)
+
+- **Engine Harga Grosir (Tiered Pricing Engine)**: Menambahkan skema diskon kuantitas grosir pada Master Barang (`wholesaleMinQty`, `wholesalePrice`). Otomatis mendeteksi dan menerapkan harga grosir di keranjang POS saat kuantitas tercapai, dihiasi badge `🏷️ Grosir` dan menjaga kalkulasi HPP (`hargaModal * qty`) tetap presisi.
+- **Multi-UOM Konversi Stok (Dus → Pcs Auto Unpack)**: Pengelolaan stok kemasan grosir (`packUnit`, `packRatio`, `packStock`). Tombol 1-klik _⚡ Unpack_ di Master Barang serta prompt konfirmasi otomatis di layar POS saat stok eceran Pcs habis tetapi stok Dus masih ada di gudang.
+- **Purchase Requisition (Daftar Belanja Restock Supplier)**: Tombol `📋 Restock Supplier` untuk menyaring barang menipis (`stok <= minStock`) dan membagikan daftar belanja terformat rapi 1-tap ke WhatsApp Supplier (`wa.me`) atau file CSV.
+- **Quick Cash & Cash Change Breakdown**: Tombol pecahan nominal instan (`10k`, `20k`, `50k`, `100k`) & widget visual rincian pecahan lembaran uang kertas (20rb, 10rb, 5rb, 2rb, 1rb).
+- **Hero Change Display (40px Bold Text)**: Tampilan nominal kembalian berukuran `40px` bold berwarna hijau murni/merah tegas pada modal checkout POS.
+- **Pending Orders (Simpan Keranjang Sementara)**: Menyimpan transaksi tertunda ke slot temporary dan memulihkannya kembali ke keranjang POS dengan 1 klik.
+- **Inline Syntax Command Parser**: Pengetikan string cepat di POS (`Susu 2x @15000`) yang otomatis terurai menjadi objek keranjang lengkap dengan 25 unit test pendukung (`inlineSyntaxParser.test.js`).
+- **Audio & Haptic Feedback Utility**: Modul audio murni `AudioContext` untuk efek suara _beep_ kasir (suara beda jika barang tidak terdaftar) & getaran mikro (`navigator.vibrate`) saat barang ditambahkan.
+- **Soft Delete & Trash Manager**: Mengubah mekanisme hapus transaksi/produk dari _hard delete_ menjadi **Soft Delete** (`deletedAt`). Menambahkan tab **Tong Sampah** dengan fitur Restore 1-klik dan auto-purge > 30 hari.
+- **Contextual Hotkey Sheet Overlay (`?` / `Shift+/`)**: Komponen `HotkeyModal.tsx` dengan tampilan visual tombol fisik (`<kbd>F1</kbd>`-`<kbd>F4</kbd>`, `<kbd>F8</kbd>`, `<kbd>Alt+O</kbd>`, `<kbd>Ctrl+Enter</kbd>`).
+- **First-Time Kiosk Setup Wizard**: Komponen onboarding `SetupWizardModal.tsx` 3 langkah (Profil Toko -> QRIS & Nota -> Tes Cetak) yang otomatis muncul pada pemasangan awal.
+- **Auto-Draft Cart Persistence**: Keranjang kasir disimpan otomatis di `localStorage` (`cleartask_draft_cart`) dan dipulihkan secara otomatis jika tab browser tidak sengaja tertutup/ter-refresh.
+- **Lazy Chunk Retry & Dexie v11**: Wrapper `lazyWithRetry()` untuk menangani kegagalan pemuatan JS chunk pasca-update Service Worker (`v3.5.0`), serta peningkatan skema Dexie ke versi 11.
+- **Multi-Tab Sync & Resilience Guards**: Penyelarasan keranjang & state aplikasi antar tab browser via `BroadcastChannel`, deteksi Incognito mode, request `navigator.storage.persist()`, Storage Quota Guard (< 50MB warning), Monotonic Sequence Clock Tampering guard, dan Offline Collision-Free Device Prefix (`TRX-${kasirSlug}-${seq}`).
+
+### 🛠️ Fixed & Hardened
+
+- **TypeScript Strict Compliance**: `npx tsc --noEmit` berjalan **100% bersih tanpa error (0 error)** pada seluruh komponen, hooks, dan service.
+- **Unit Test Alignment**: Memperbarui ekspektasi format ID transaksi pada `useTransactionData.test.jsx` agar selaras dengan format Device Prefix `TRX-KASI-00001`. Total pengujian unit test dan PBT lulus 100%.
+
+---
+
 ## [3.4.0] - 2026-06-11
 
 Versi 3.4.0 berfokus pada integrasi manajemen stok inventaris otomatis (Sales-Driven Stock Control), deteksi produk baru secara cerdas (POS-Linked Auto-Detection), pencarian cepat inventaris langsung dari layar penjualan (Right-Side Cek Stok Panel), pelaporan keuntungan bersih harian/bulanan/tahunan terperinci, dan modul cetak struk Bluetooth Thermal Printer (Web Bluetooth GATT API).

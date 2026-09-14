@@ -19,6 +19,7 @@ export interface UseTransactionsResult extends TransactionFilterState {
   addTransaction: (tx: any) => Promise<Transaction>;
   updateTransaction: (id: string | number, updates: any) => Promise<Transaction | null>;
   deleteTransaction: (id: string | number) => Promise<void>;
+  restoreTransaction: (id: string | number) => Promise<void>;
 }
 
 export function useTransactions(): UseTransactionsResult {
@@ -27,7 +28,7 @@ export function useTransactions(): UseTransactionsResult {
     useTransactionFilter();
 
   // Core data + CRUD (filtered via DB)
-  const { isLoading, transactions, addTransaction, updateTransaction, deleteTransaction } =
+  const { isLoading, transactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction } =
     useTransactionData(filterDate, searchQuery, sortOrder);
 
   // Daily metrics derived independently
@@ -53,5 +54,6 @@ export function useTransactions(): UseTransactionsResult {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    restoreTransaction,
   };
 }

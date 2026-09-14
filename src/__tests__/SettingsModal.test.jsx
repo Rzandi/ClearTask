@@ -24,6 +24,8 @@ const defaultMockSettings = {
   tokoAlamat: '',
   tokoTelepon: '',
   strukFooter: '',
+  qrisImageUrl: '',
+  qrisNsm: '',
 };
 
 vi.mock('../contexts/SettingsContext', () => ({

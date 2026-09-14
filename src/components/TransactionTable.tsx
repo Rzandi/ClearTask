@@ -118,7 +118,10 @@ const TransactionTable = memo(function TransactionTable({
             ) : (
               visibleTxs.map((tx: any, idx: number) => {
                 const totalModal = tx.items
-                  ? tx.items.reduce((s: number, i: any) => s + (Number(i.hargaModal) || 0) * (Number(i.qty) || 0), 0)
+                  ? tx.items.reduce(
+                      (s: number, i: any) => s + (Number(i.hargaModal) || 0) * (Number(i.qty) || 0),
+                      0
+                    )
                   : 0;
                 const totalProfit = (tx.total || 0) - totalModal;
 
@@ -176,7 +179,9 @@ const TransactionTable = memo(function TransactionTable({
                     <td className="px-4 py-3.5 text-right font-medium text-text-secondary tabular-nums">
                       {formatRupiah(totalModal)}
                     </td>
-                    <td className={`px-4 py-3.5 text-right font-semibold tabular-nums ${totalProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}>
+                    <td
+                      className={`px-4 py-3.5 text-right font-semibold tabular-nums ${totalProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}
+                    >
                       {formatRupiah(totalProfit)}
                     </td>
                     <td className="px-4 py-3.5 text-right font-semibold text-text-primary tabular-nums">

@@ -13,8 +13,6 @@ export class ClearTaskDB extends Dexie {
   categories!: Table<any, number>;
   settings!: Table<any, number>;
   meta!: Table<any, number>;
-  saw_criterias!: Table<any, number>;
-  saw_history!: Table<any, number>;
   archive_transactions!: Table<any, number>;
   expenses!: Table<any, string>;
 
@@ -147,7 +145,8 @@ export class ClearTaskDB extends Dexie {
     this.version(7)
       .stores({
         expenses: null,
-        expensesTemp: '++id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
+        expensesTemp:
+          '++id, tanggal, kategori, namaKeluaran, jumlah, createdAt, updatedAt, syncStatus',
       })
       .upgrade(async (tx: DexieTransaction) => {
         if (tx.idbtrans.db.objectStoreNames.contains('expenses')) {
@@ -193,6 +192,47 @@ export class ClearTaskDB extends Dexie {
           await tx.table('expenses').bulkAdd(migrated);
         }
       });
+
+    this.version(9).stores({
+      saw_criterias: null,
+      saw_history: null,
+    });
+
+    // QOL v3.5: Soft Delete — add deletedAt index for transactions & inventory
+    this.version(10).stores({
+      transactions:
+        '++id, transactionId, tanggal, sessionId, createdAt, kasir, updatedAt, syncStatus, deletedAt',
+      inventory: '&id, nama, kategori, createdAt, updatedAt, syncStatus, deletedAt',
+    });
+
+    // Retail Spec: Wholesale Pricing & Multi-UOM Pack Stock fields
+    this.version(11)
+      .stores({
+        inventory: '&id, nama, kategori, createdAt, updatedAt, syncStatus, deletedAt',
+      })
+      .upgrade(async (tx: DexieTransaction) => {
+        await tx
+          .table('inventory')
+          .toCollection()
+          .modify((item: any) => {
+            item.wholesaleMinQty = item.wholesaleMinQty ?? 0;
+            item.wholesalePrice = item.wholesalePrice ?? 0;
+            item.packUnit = item.packUnit || '';
+            item.packRatio = item.packRatio ?? 0;
+            item.packStock = item.packStock ?? 0;
+          });
+      });
+
+    // Item 25: Dexie Blocked & Versionchange Event Handlers
+    this.on('blocked', () => {
+      console.warn('Database upgrade is blocked by another open tab.');
+      alert('Pembaruan database tertahan karena ada tab ClearTask lain yang terbuka. Harap tutup tab lain untuk melanjutkan.');
+    });
+
+    this.on('versionchange', () => {
+      this.close();
+      console.warn('Database version changed in another tab.');
+    });
   }
 }
 

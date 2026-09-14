@@ -6,19 +6,24 @@
 
 import { useState, useEffect } from 'react';
 import { migrateToIndexedDB } from '../utils/migration';
+import {
+  checkIsIncognito,
+  checkStorageQuota,
+  requestPersistentStorage,
+} from '../utils/resiliencyGuards';
 
 /**
  * Bootstrap component that:
  * 1. Runs localStorage → IndexedDB migration (if needed)
- * 2. Initializes the in-memory cache from IndexedDB
- * 3. Renders children only after both steps complete
- *
- * @param {{ children: React.ReactNode }} props
+ * 2. Initializes persistent storage & resiliency checks
+ * 3. Renders children only after boot completes
  */
 export default function AppBootstrap({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [migrationWarning, setMigrationWarning] = useState<string | null>(null);
+  const [incognitoWarning, setIncognitoWarning] = useState(false);
+  const [lowStorageWarning, setLowStorageWarning] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,7 +34,6 @@ export default function AppBootstrap({ children }: { children: React.ReactNode }
         const result = await migrateToIndexedDB();
         if (!result.success) {
           console.warn('[Boot] Migration issue:', result.error);
-          // Show a dismissible warning banner instead of silencing it completely
           if (!cancelled) {
             setMigrationWarning(result.error || 'Beberapa data lokal gagal dimigrasikan.');
           }
@@ -37,7 +41,22 @@ export default function AppBootstrap({ children }: { children: React.ReactNode }
           console.log('[Boot] Migration complete:', result.counts);
         }
 
-        // Step 2: Cache in-memory digantikan sepenuhnya oleh Dexie live queries.
+        // Step 2: Request Persistent Storage (iOS 7-Day Purge Guard - Item 32)
+        await requestPersistentStorage();
+
+        // Step 3: Check Incognito Mode (Item 31)
+        const isIncognito = await checkIsIncognito();
+        if (isIncognito && !cancelled) {
+          setIncognitoWarning(true);
+        }
+
+        // Step 4: Storage Quota Guard (Item 27)
+        const quota = await checkStorageQuota();
+        if (quota.isLowSpace && !cancelled) {
+          setLowStorageWarning(
+            `Sisa ruang penyimpanan perangkat Anda tinggal ${quota.remainingMB} MB. Harap bersihkan memori agar data transaksi aman.`
+          );
+        }
 
         if (!cancelled) {
           setReady(true);
@@ -159,6 +178,30 @@ export default function AppBootstrap({ children }: { children: React.ReactNode }
           </button>
         </div>
       )}
+      {incognitoWarning && (
+        <div className="bg-amber-500/20 border-b border-amber-500/40 text-amber-300 px-4 py-2 text-xs font-semibold text-center flex items-center justify-center gap-2 relative z-[1000]">
+          <span>🕵️ Mode Penyamaran (Incognito) Terdeteksi: Data transaksi IndexedDB dapat terhapus otomatis saat browser ditutup.</span>
+          <button
+            onClick={() => setIncognitoWarning(false)}
+            className="px-2 py-0.5 bg-amber-500/30 hover:bg-amber-500/40 text-amber-200 rounded text-[11px]"
+          >
+            Mengerti
+          </button>
+        </div>
+      )}
+
+      {lowStorageWarning && (
+        <div className="bg-rose-500/20 border-b border-rose-500/40 text-rose-300 px-4 py-2 text-xs font-semibold text-center flex items-center justify-center gap-2 relative z-[1000]">
+          <span>⚠️ {lowStorageWarning}</span>
+          <button
+            onClick={() => setLowStorageWarning(null)}
+            className="px-2 py-0.5 bg-rose-500/30 hover:bg-rose-500/40 text-rose-200 rounded text-[11px]"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
+
       {children}
     </>
   );

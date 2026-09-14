@@ -26,7 +26,7 @@ export default function Sidebar({
     { id: 'laporan', label: 'Riwayat Laporan', icon: LaporanIcon },
     { id: 'riwayat-sesi', label: 'Riwayat Sesi', icon: SessionHistoryIcon },
     { id: 'database', label: 'Database', icon: DatabaseIcon },
-    { id: 'spk', label: 'Analisis Restock', icon: SpkIcon },
+    { id: 'trash', label: 'Tong Sampah', icon: TrashIcon },
   ];
 
   return (
@@ -278,24 +278,6 @@ function SessionHistoryIcon({ active }: { active: boolean }) {
   );
 }
 
-function SpkIcon({ active }: { active: boolean }) {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={active ? '#00ffa3' : '#6e7681'}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 3v18h18" />
-      <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
-    </svg>
-  );
-}
-
 function KeluaranIcon({ active }: { active: boolean }) {
   return (
     <svg
@@ -311,6 +293,25 @@ function KeluaranIcon({ active }: { active: boolean }) {
       <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
       <line x1="2" y1="10" x2="22" y2="10" />
       <line x1="12" y1="15" x2="16" y2="15" />
+    </svg>
+  );
+}
+
+function TrashIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={active ? '#00ffa3' : '#6e7681'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
+      <path d="M10 11v6M14 11v6" />
     </svg>
   );
 }

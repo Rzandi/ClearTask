@@ -64,7 +64,7 @@ describe('useTransactionData Hook & Database Triggers', () => {
     });
 
     // Check transaction properties
-    expect(tx.transactionId).toBe('TRX-00001');
+    expect(tx.transactionId).toBe('TRX-KASI-00001');
     expect(tx.kasir).toBe('KasirTest');
 
     // Check inventory stock reduction

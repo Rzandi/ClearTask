@@ -18,6 +18,7 @@ import Toast from './Toast';
 import { useTransactions } from '../hooks/useTransactions';
 import { useSession } from '../hooks/useSession';
 import InventoryManager from './InventoryManager';
+import TrashManager from './TrashManager';
 
 // ── Main Component ────────────────────────────────────────
 
@@ -195,6 +196,17 @@ export default function TabDatabase() {
     setMergeResult(null);
   }
 
+  // ── Web Share API Backup ──────────────────────────
+  async function handleWebShareBackup() {
+    try {
+      // Export database blob / json
+      await exportDatabase();
+      showToast('Database berhasil diekspor & siap dibagikan!', 'success');
+    } catch (err: any) {
+      showToast('Gagal berbagi backup: ' + (err.message || 'error'), 'error');
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────
   return (
     <div className="space-y-6 animate-slide-up">
@@ -242,7 +254,7 @@ export default function TabDatabase() {
           aria-selected={subTab === 'inventaris'}
           aria-controls="panel-inventaris"
           onClick={() => setSubTab('inventaris')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+          className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 ${
             subTab === 'inventaris'
               ? 'bg-primary/15 text-primary shadow-sm'
               : 'text-text-muted hover:text-text-secondary hover:bg-white/[0.04]'
@@ -262,12 +274,42 @@ export default function TabDatabase() {
           </svg>
           Master Barang
         </button>
+        <button
+          role="tab"
+          aria-selected={subTab === 'trash'}
+          aria-controls="panel-trash"
+          onClick={() => setSubTab('trash')}
+          className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 ${
+            subTab === 'trash'
+              ? 'bg-primary/15 text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary hover:bg-white/[0.04]'
+          }`}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+          Tong Sampah
+        </button>
       </div>
 
       {/* Sub-tab Content */}
       {subTab === 'inventaris' ? (
         <div role="tabpanel" id="panel-inventaris">
           <InventoryManager />
+        </div>
+      ) : subTab === 'trash' ? (
+        <div role="tabpanel" id="panel-trash">
+          <TrashManager />
         </div>
       ) : (
         <div role="tabpanel" id="panel-data" className="space-y-6 mt-2">

@@ -20,6 +20,7 @@ export function useTransactionData(
   addTransaction: (orderData: any) => Promise<Transaction>;
   updateTransaction: (id: string | number, data: any) => Promise<Transaction | null>;
   deleteTransaction: (id: string | number) => Promise<void>;
+  restoreTransaction: (id: string | number) => Promise<void>;
 } {
   const { settings } = useSettings();
   const currentUser = settings?.kasirName || 'Admin';
@@ -38,6 +39,9 @@ export function useTransactionData(
     }
 
     let txs: Transaction[] = await collection.toArray();
+
+    // QOL C: Filter out soft-deleted items
+    txs = txs.filter((tx) => !tx.deletedAt);
 
     // JS filtering for text search (safe since data is already date-bounded or limited)
     if (searchQuery && searchQuery.trim()) {
@@ -82,10 +86,10 @@ export function useTransactionData(
 
       // Deduct stock and auto-detect new products
       const invItems = await db.inventory.toArray();
-      
+
       for (const item of orderData.items) {
         if (!item.namaBarang || !item.namaBarang.trim()) continue;
-        
+
         const itemName = item.namaBarang.trim().toLowerCase();
         const match = invItems.find(
           (inv) => (inv.namaBarang || '').trim().toLowerCase() === itemName
@@ -101,13 +105,14 @@ export function useTransactionData(
         } else {
           // Auto-detect new product: register with default Stock = 0, Modal = 0
           const newProduct = {
-            id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-              ? crypto.randomUUID()
-              : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-                  const r = (Math.random() * 16) | 0;
-                  const v = c === 'x' ? r : (r & 0x3) | 0x8;
-                  return v.toString(16);
-                }),
+            id:
+              typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID()
+                : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                    const r = (Math.random() * 16) | 0;
+                    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                    return v.toString(16);
+                  }),
             namaBarang: item.namaBarang.trim(),
             kategori: item.kategori || 'Elektronik',
             subKategori: item.subKategori || '',
@@ -124,12 +129,43 @@ export function useTransactionData(
         }
       }
 
+      // Item 28: Clock Tampering Guard — Monotonic timestamp verification
+      const lastTx = await db.transactions.orderBy('createdAt').last();
+      let nowMs = Date.now();
+      if (lastTx && lastTx.createdAt) {
+        const lastTxMs = new Date(lastTx.createdAt).getTime();
+        if (lastTxMs >= nowMs) {
+          nowMs = lastTxMs + 1000; // Monotonic sequence guarantee
+        }
+      }
+      const safeIsoTime = new Date(nowMs).toISOString();
+
+      // Item 34: Floating Point Precision Guard — Round all currency values
+      const roundedTotal = Math.round(Number(orderData.total) || 0);
+      const roundedUangDiterima = Math.round(Number(orderData.uangDiterima) || roundedTotal);
+      const roundedKembalian = Math.round(Number(orderData.kembalian) || 0);
+
+      const sanitizedItems = (orderData.items || []).map((item: any) => ({
+        ...item,
+        hargaSatuan: Math.round(Number(item.hargaSatuan) || 0),
+        hargaModal: Math.round(Number(item.hargaModal) || 0),
+        total: Math.round(Number(item.total) || (item.qty * item.hargaSatuan) || 0),
+      }));
+
+      // Item 33: Collision-Free Device Prefix
+      const kasirSlug = (orderData.kasir || currentUser).replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4) || 'KSR';
+      const txId = orderData.transactionId || `TRX-${kasirSlug}-${String(seq).padStart(5, '0')}`;
+
       newTx = {
         ...orderData,
+        items: sanitizedItems,
+        total: roundedTotal,
+        uangDiterima: roundedUangDiterima,
+        kembalian: roundedKembalian,
         kasir: orderData.kasir || currentUser,
-        transactionId: `TRX-${String(seq).padStart(5, '0')}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        transactionId: txId,
+        createdAt: safeIsoTime,
+        updatedAt: safeIsoTime,
         syncStatus: 'local',
         status: 'Selesai',
       };
@@ -158,9 +194,23 @@ export function useTransactionData(
     [currentUser]
   );
 
-  // ── Delete Transaction ──
+  // ── Delete Transaction (Soft Delete — QOL C) ──
   const deleteTransaction = useCallback(async (id: string | number) => {
-    await db.transactions.delete(Number(id));
+    await db.transactions.update(Number(id), {
+      deletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }, []);
+
+  // ── Restore Soft-Deleted Transaction ──
+  const restoreTransaction = useCallback(async (id: string | number) => {
+    const numId = Number(id);
+    const record = await db.transactions.get(numId);
+    if (!record) return;
+    // Remove deletedAt field entirely
+    delete record.deletedAt;
+    record.updatedAt = new Date().toISOString();
+    await db.transactions.put(record);
   }, []);
 
   return {
@@ -169,5 +219,6 @@ export function useTransactionData(
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    restoreTransaction,
   };
 }

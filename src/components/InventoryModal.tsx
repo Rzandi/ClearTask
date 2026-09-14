@@ -39,10 +39,17 @@ export default function InventoryModal({
     namaBarang: '',
     kategori: '',
     subKategori: '',
+    sku: '',
     harga: '',
     hargaModal: '',
     satuan: 'Pcs',
     quantity: '',
+    minStock: '5',
+    wholesaleMinQty: '',
+    wholesalePrice: '',
+    packUnit: 'Dus',
+    packRatio: '24',
+    packStock: '0',
   });
 
   // When modal opens or editItem changes, fill form
@@ -58,20 +65,34 @@ export default function InventoryModal({
           namaBarang: editItem.namaBarang || '',
           kategori: editItem.kategori || '',
           subKategori: editItem.subKategori || '',
+          sku: editItem.sku || editItem.barcode || '',
           harga: editItem.harga?.toString() || '',
           hargaModal: editItem.hargaModal?.toString() || '',
           satuan: editItem.satuan || 'Pcs',
           quantity: editItem.quantity?.toString() || '',
+          minStock: editItem.minStock?.toString() || '5',
+          wholesaleMinQty: editItem.wholesaleMinQty?.toString() || '',
+          wholesalePrice: editItem.wholesalePrice?.toString() || '',
+          packUnit: editItem.packUnit || 'Dus',
+          packRatio: editItem.packRatio?.toString() || '24',
+          packStock: editItem.packStock?.toString() || '0',
         });
       } else {
         setForm({
           namaBarang: '',
           kategori: '',
           subKategori: '',
+          sku: `SKU-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 90 + 10)}`,
           harga: '',
           hargaModal: '',
           satuan: 'Pcs',
           quantity: '',
+          minStock: '5',
+          wholesaleMinQty: '',
+          wholesalePrice: '',
+          packUnit: 'Dus',
+          packRatio: '24',
+          packStock: '0',
         });
       }
     }
@@ -103,10 +124,17 @@ export default function InventoryModal({
       namaBarang: form.namaBarang.trim(),
       kategori: form.kategori.trim(),
       subKategori: form.subKategori.trim(),
+      sku: form.sku.trim(),
       harga,
       hargaModal,
       satuan: form.satuan.trim(),
       quantity,
+      minStock: parseInt(form.minStock, 10) || 5,
+      wholesaleMinQty: parseInt(form.wholesaleMinQty, 10) || 0,
+      wholesalePrice: parseInt(form.wholesalePrice, 10) || 0,
+      packUnit: form.packUnit.trim() || 'Dus',
+      packRatio: parseInt(form.packRatio, 10) || 0,
+      packStock: parseInt(form.packStock, 10) || 0,
     });
 
     onClose();
@@ -256,8 +284,35 @@ export default function InventoryModal({
             </div>
           </div>
 
-          {/* Satuan & Stok */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* SKU / Barcode */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-text-secondary">SKU / Barcode</label>
+              <button
+                type="button"
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    sku: `SKU-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 90 + 10)}`,
+                  }))
+                }
+                className="text-[11px] text-primary hover:underline"
+              >
+                ⚡ Auto Generate SKU
+              </button>
+            </div>
+            <input
+              type="text"
+              name="sku"
+              value={form.sku}
+              onChange={handleChange}
+              placeholder="Contoh: SKU-109283"
+              className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none font-mono"
+            />
+          </div>
+
+          {/* Satuan, Stok & Batas Stok Minim */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">
                 Satuan *
@@ -286,6 +341,107 @@ export default function InventoryModal({
                 placeholder="0"
                 className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5" title="Batas peringatan stok menipis">
+                Stok Minim
+              </label>
+              <input
+                type="number"
+                name="minStock"
+                value={form.minStock}
+                onChange={handleChange}
+                min="0"
+                placeholder="5"
+                className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Sektor Retail: Harga Grosir / Tiered Pricing */}
+          <div className="p-3 bg-white/[0.02] border border-border-default/60 rounded-xl space-y-3">
+            <h3 className="text-xs font-semibold text-primary flex items-center gap-1.5">
+              <span>🏷️</span> Skema Harga Grosir (Beli Banyak Lebih Murah)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Min. Qty Grosir
+                </label>
+                <input
+                  type="number"
+                  name="wholesaleMinQty"
+                  value={form.wholesaleMinQty}
+                  onChange={handleChange}
+                  min="0"
+                  placeholder="Contoh: 5"
+                  className="w-full px-3 py-2 text-xs bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Harga Grosir (/Pcs)
+                </label>
+                <input
+                  type="number"
+                  name="wholesalePrice"
+                  value={form.wholesalePrice}
+                  onChange={handleChange}
+                  min="0"
+                  placeholder="Contoh: 3200"
+                  className="w-full px-3 py-2 text-xs bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Sektor Retail: Multi-UOM Pack Stock (Dus / Karton) */}
+          <div className="p-3 bg-white/[0.02] border border-border-default/60 rounded-xl space-y-3">
+            <h3 className="text-xs font-semibold text-primary flex items-center gap-1.5">
+              <span>📦</span> Stok Kemasan Grosir (Dus / Karton / Pack)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Satuan Grosir
+                </label>
+                <input
+                  type="text"
+                  name="packUnit"
+                  value={form.packUnit}
+                  onChange={handleChange}
+                  placeholder="Dus / Pack"
+                  className="w-full px-3 py-2 text-xs bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Rasio (Pcs/Dus)
+                </label>
+                <input
+                  type="number"
+                  name="packRatio"
+                  value={form.packRatio}
+                  onChange={handleChange}
+                  min="1"
+                  placeholder="24"
+                  className="w-full px-3 py-2 text-xs bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Stok Grosir
+                </label>
+                <input
+                  type="number"
+                  name="packStock"
+                  value={form.packStock}
+                  onChange={handleChange}
+                  min="0"
+                  placeholder="0"
+                  className="w-full px-3 py-2 text-xs bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary outline-none"
+                />
+              </div>
             </div>
           </div>
 

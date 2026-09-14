@@ -83,9 +83,8 @@ export default function MergePreviewModal({
               {mergeResult?.newExpenses > 0 ? `, ${mergeResult.newExpenses} pengeluaran` : ''}
               {mergeResult?.newArchiveTransactions > 0
                 ? `, ${mergeResult.newArchiveTransactions} arsip`
-                : ''}
-              {mergeResult?.newSawHistory > 0 ? `, ${mergeResult.newSawHistory} riwayat SAW` : ''}
-              {mergeResult?.sawCriteriaUpdated ? ', kriteria SAW diperbarui' : ''} ditambahkan.
+                : ''}{' '}
+              ditambahkan.
             </p>
           </div>
         ) : (
@@ -195,50 +194,6 @@ export default function MergePreviewModal({
                   }
                   label="Arsip transaksi baru"
                   value={mergeResult.newArchiveTransactions}
-                />
-              )}
-              {mergeResult?.newSawHistory > 0 && (
-                <SummaryRow
-                  icon={
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <polyline points="12 6 12 12 16 14" />
-                    </svg>
-                  }
-                  label="Riwayat SAW baru"
-                  value={mergeResult.newSawHistory}
-                />
-              )}
-              {mergeResult?.sawCriteriaUpdated && (
-                <SummaryRow
-                  icon={
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                      <polyline points="2 17 12 22 22 17" />
-                      <polyline points="2 12 12 17 22 12" />
-                    </svg>
-                  }
-                  label="Kriteria SAW"
-                  value={1}
-                  valueLabel="Diperbarui"
                 />
               )}
               <SummaryRow

@@ -15,7 +15,11 @@ export interface ReportingChartProps {
   filterType?: string;
 }
 
-export default function ReportingChart({ transactions, expenses, filterType = 'Custom' }: ReportingChartProps) {
+export default function ReportingChart({
+  transactions,
+  expenses,
+  filterType = 'Custom',
+}: ReportingChartProps) {
   // Group Pemasukan, Keluaran & Profit by Date
   const chartData = useMemo(() => {
     const dataMap: Record<
@@ -24,8 +28,12 @@ export default function ReportingChart({ transactions, expenses, filterType = 'C
     > = {};
 
     const getGroupInfo = (dateStr: string, createdAtStr: string) => {
-      const dateObj = createdAtStr ? new Date(createdAtStr) : (dateStr ? new Date(dateStr) : new Date());
-      
+      const dateObj = createdAtStr
+        ? new Date(createdAtStr)
+        : dateStr
+          ? new Date(dateStr)
+          : new Date();
+
       if (filterType === 'Hari Ini') {
         const hour = dateObj.getHours();
         const hourLabel = `${String(hour).padStart(2, '0')}:00`;
@@ -33,12 +41,25 @@ export default function ReportingChart({ transactions, expenses, filterType = 'C
       } else if (filterType === 'Tahunan') {
         const month = dateObj.getMonth();
         const year = dateObj.getFullYear();
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+        const monthNames = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'Mei',
+          'Jun',
+          'Jul',
+          'Agt',
+          'Sep',
+          'Okt',
+          'Nov',
+          'Des',
+        ];
         const key = `${year}-${String(month + 1).padStart(2, '0')}`;
-        return { key, label: monthNames[month] };
+        return { key, label: monthNames[month] || `Bulan ${month + 1}` };
       } else {
-        const key = dateStr || toLocalDateString(dateObj);
-        const label = key.substring(5); // MM-DD
+        const key = dateStr || toLocalDateString(dateObj) || 'unknown';
+        const label = key.length >= 5 ? key.substring(5) : key;
         return { key, label };
       }
     };
@@ -46,18 +67,15 @@ export default function ReportingChart({ transactions, expenses, filterType = 'C
     // Group Transactions
     transactions.forEach((tx) => {
       const { key, label } = getGroupInfo(tx.tanggal, tx.createdAt);
-      let entry = dataMap[key];
-      if (!entry) {
-        entry = { label, key, pemasukan: 0, modal: 0, keluaran: 0 };
-        dataMap[key] = entry;
+      if (!dataMap[key]) {
+        dataMap[key] = { label, key, pemasukan: 0, modal: 0, keluaran: 0 };
       }
+      const entry = dataMap[key]!;
       entry.pemasukan += tx.total || 0;
 
       if (tx.items && Array.isArray(tx.items)) {
         tx.items.forEach((item: any) => {
-          if (entry) {
-            entry.modal += (item.hargaModal || 0) * (item.qty || 1);
-          }
+          entry.modal += (item.hargaModal || 0) * (item.qty || 1);
         });
       }
     });
@@ -65,11 +83,10 @@ export default function ReportingChart({ transactions, expenses, filterType = 'C
     // Group Expenses
     expenses.forEach((ex) => {
       const { key, label } = getGroupInfo(ex.tanggal, ex.createdAt);
-      let entry = dataMap[key];
-      if (!entry) {
-        entry = { label, key, pemasukan: 0, modal: 0, keluaran: 0 };
-        dataMap[key] = entry;
+      if (!dataMap[key]) {
+        dataMap[key] = { label, key, pemasukan: 0, modal: 0, keluaran: 0 };
       }
+      const entry = dataMap[key]!;
       entry.keluaran += ex.jumlah || 0;
     });
 

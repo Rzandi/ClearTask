@@ -91,6 +91,20 @@ export default function LaporanExport({
     if (type === 'today') {
       const d = getTodayISO();
       setFilterDate({ start: d, end: d, label: 'Hari Ini' });
+    } else if (type === 'yesterday') {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const d = toLocalDateString(yesterday);
+      setFilterDate({ start: d, end: d, label: 'Kemarin' });
+    } else if (type === 'last7') {
+      const end = getTodayISO();
+      const start7 = new Date(today);
+      start7.setDate(start7.getDate() - 6);
+      setFilterDate({
+        start: toLocalDateString(start7),
+        end,
+        label: '7 Hari Terakhir',
+      });
     } else if (type === 'week') {
       const day = today.getDay();
       const diff = today.getDate() - day + (day === 0 ? -6 : 1);
@@ -109,6 +123,14 @@ export default function LaporanExport({
         start: toLocalDateString(start),
         end: toLocalDateString(end),
         label: 'Bulanan',
+      });
+    } else if (type === 'lastMonth') {
+      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const end = new Date(today.getFullYear(), today.getMonth(), 0);
+      setFilterDate({
+        start: toLocalDateString(start),
+        end: toLocalDateString(end),
+        label: 'Bulan Lalu',
       });
     } else if (type === 'year') {
       const start = new Date(today.getFullYear(), 0, 1);
@@ -149,14 +171,28 @@ export default function LaporanExport({
           </p>
         </div>
 
-        {/* Profit Card */}
+        {/* Profit Card with Margin % */}
         <div className="glass-card p-5">
           <p className="text-xs font-semibold text-text-muted mb-1">Keuntungan Bersih (Profit)</p>
-          <p
-            className={`text-2xl font-bold ${netProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}
-          >
-            {formatRupiah(netProfit)}
-          </p>
+          <div className="flex items-baseline gap-2">
+            <p
+              className={`text-2xl font-bold ${netProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}
+            >
+              {formatRupiah(netProfit)}
+            </p>
+            {/* QOL E.2: Profit Margin Percentage */}
+            {totalRevenue > 0 && (
+              <span
+                className={`text-sm font-bold px-1.5 py-0.5 rounded-md ${
+                  netProfit >= 0
+                    ? 'bg-blue-500/10 text-blue-400'
+                    : 'bg-red-500/10 text-red-400'
+                }`}
+              >
+                {((netProfit / totalRevenue) * 100).toFixed(1)}%
+              </span>
+            )}
+          </div>
           <p className="text-[10px] text-text-muted mt-2">
             Margin: Pemasukan - Modal ({formatRupiah(totalCostOfSales)}) - Keluaran
           </p>
@@ -265,48 +301,29 @@ export default function LaporanExport({
         )}
       </div>
 
-      {/* Quick Filters */}
+      {/* Quick Filters — QOL E.1: Enhanced with Kemarin, 7 Hari, Bulan Lalu */}
       <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => handleQuickFilter('today')}
-          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-            filterDate?.label === 'Hari Ini'
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
-          }`}
-        >
-          Hari Ini
-        </button>
-        <button
-          onClick={() => handleQuickFilter('week')}
-          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-            filterDate?.label === 'Mingguan'
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
-          }`}
-        >
-          Mingguan
-        </button>
-        <button
-          onClick={() => handleQuickFilter('month')}
-          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-            filterDate?.label === 'Bulanan'
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
-          }`}
-        >
-          Bulanan
-        </button>
-        <button
-          onClick={() => handleQuickFilter('year')}
-          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-            filterDate?.label === 'Tahunan'
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
-          }`}
-        >
-          Tahunan
-        </button>
+        {[
+          { type: 'today', label: 'Hari Ini' },
+          { type: 'yesterday', label: 'Kemarin' },
+          { type: 'last7', label: '7 Hari Terakhir' },
+          { type: 'week', label: 'Mingguan' },
+          { type: 'month', label: 'Bulanan' },
+          { type: 'lastMonth', label: 'Bulan Lalu' },
+          { type: 'year', label: 'Tahunan' },
+        ].map((btn) => (
+          <button
+            key={btn.type}
+            onClick={() => handleQuickFilter(btn.type)}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+              filterDate?.label === btn.label
+                ? 'bg-primary/10 text-primary border-primary/30'
+                : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
+            }`}
+          >
+            {btn.label}
+          </button>
+        ))}
       </div>
 
       {isFilterActive && (

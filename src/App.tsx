@@ -16,16 +16,21 @@ import { useSession } from './hooks/useSession';
 import { useSettings } from './contexts/SettingsContext';
 import { syncMissingCategories, exportDatabase } from './services/databaseManager';
 
-// Lazy-loaded modals — only downloaded when first opened (perf-report.md W4-1)
-const SettingsModal = lazy(() => import('./components/SettingsModal'));
-const HelpModal = lazy(() => import('./components/HelpModal'));
-const ClosingReportModal = lazy(() => import('./components/ClosingReportModal'));
-const ConfirmDialog = lazy(() => import('./components/ConfirmDialog'));
-const LaporanExport = lazy(() => import('./components/LaporanExport'));
-const TabDatabase = lazy(() => import('./components/TabDatabase'));
-const RiwayatSesi = lazy(() => import('./components/RiwayatSesi'));
-const RestockAnalysis = lazy(() => import('./pages/RestockAnalysis'));
-const InputKeluaran = lazy(() => import('./components/InputKeluaran'));
+import { lazyWithRetry } from './utils/resiliencyGuards';
+
+import HotkeyModal from './components/HotkeyModal';
+import SetupWizardModal from './components/SetupWizardModal';
+
+// Lazy-loaded modals with Chunk Retry Handler (Item 23)
+const SettingsModal = lazyWithRetry(() => import('./components/SettingsModal'));
+const HelpModal = lazyWithRetry(() => import('./components/HelpModal'));
+const ClosingReportModal = lazyWithRetry(() => import('./components/ClosingReportModal'));
+const ConfirmDialog = lazyWithRetry(() => import('./components/ConfirmDialog'));
+const LaporanExport = lazyWithRetry(() => import('./components/LaporanExport'));
+const TabDatabase = lazyWithRetry(() => import('./components/TabDatabase'));
+const RiwayatSesi = lazyWithRetry(() => import('./components/RiwayatSesi'));
+const InputKeluaran = lazyWithRetry(() => import('./components/InputKeluaran'));
+const TrashManager = lazyWithRetry(() => import('./components/TrashManager'));
 
 export default function App() {
   const { settings } = useSettings();
@@ -62,6 +67,61 @@ export default function App() {
     setActiveTab(newTab);
     window.history.pushState(null, '', '#' + newTab);
   }, []);
+
+  const [showHotkeyModal, setShowHotkeyModal] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(() => {
+    try {
+      return localStorage.getItem('cleartask_setup_completed') !== 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Subkategori F17 & F18: Global Keyboard Shortcuts & Kiosk/Outdoor mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)) {
+        if (
+          !['F1', 'F2', 'F3', 'F4', 'F8', 'Escape'].includes(e.key) &&
+          !(e.altKey && e.key.toLowerCase() === 'h') &&
+          !(e.key === '?' || (e.shiftKey && e.key === '/'))
+        ) {
+          return;
+        }
+      }
+
+      if (e.key === 'F1' || (e.altKey && e.key.toLowerCase() === 'h')) {
+        e.preventDefault();
+        setShowHotkeyModal((prev) => !prev);
+      } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowHotkeyModal((prev) => !prev);
+      } else if (e.key === 'F2') {
+        e.preventDefault();
+        handleTabChange('input');
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        handleTabChange('inventaris');
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        handleTabChange('laporan');
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      } else if (e.altKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        document.documentElement.classList.toggle('outdoor-high-contrast');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleTabChange]);
   const [toast, setToast] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
@@ -171,7 +231,7 @@ export default function App() {
 
   const handleConfirmClose = useCallback(async () => {
     setShowConfirmClose(false);
-    
+
     if (autoBackupOnClose) {
       try {
         await exportDatabase();
@@ -180,7 +240,7 @@ export default function App() {
         setToast({ message: 'Gagal melakukan backup otomatis.', type: 'error' });
       }
     }
-    
+
     handleConfirmCloseSession();
   }, [handleConfirmCloseSession, autoBackupOnClose]);
 
@@ -237,8 +297,8 @@ export default function App() {
               allSessions={allSessions}
               getSessionTransactions={getSessionTransactionsAsync}
             />
-          ) : activeTab === 'spk' ? (
-            <RestockAnalysis />
+          ) : activeTab === 'trash' ? (
+            <TrashManager />
           ) : (
             <LaporanExport
               transactions={transactions}
@@ -264,6 +324,8 @@ export default function App() {
 
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      <HotkeyModal isOpen={showHotkeyModal} onClose={() => setShowHotkeyModal(false)} />
+      <SetupWizardModal isOpen={showSetupWizard} onClose={() => setShowSetupWizard(false)} />
 
       {/* 18.8 ClosingReportModal */}
       <ClosingReportModal
@@ -297,7 +359,10 @@ export default function App() {
             onChange={(e) => setAutoBackupOnClose(e.target.checked)}
             className="w-4 h-4 rounded border-border-default text-primary focus:ring-primary focus:ring-offset-bg-elevated bg-bg-surface"
           />
-          <label htmlFor="auto-backup" className="text-sm font-medium text-text-primary cursor-pointer select-none">
+          <label
+            htmlFor="auto-backup"
+            className="text-sm font-medium text-text-primary cursor-pointer select-none"
+          >
             Download backup database sebelum tutup
           </label>
         </div>

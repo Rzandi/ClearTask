@@ -44,8 +44,6 @@ async function setupDexie(data = {}) {
   await db.inventory.clear();
   await db.expenses.clear();
   await db.archive_transactions.clear();
-  await db.saw_criterias.clear();
-  await db.saw_history.clear();
 
   if (data.cleartask_transactions) {
     const txs =
@@ -93,20 +91,6 @@ async function setupDexie(data = {}) {
         ? JSON.parse(data.cleartask_archive_transactions)
         : data.cleartask_archive_transactions;
     if (arcTxs.length) await db.archive_transactions.bulkAdd(arcTxs);
-  }
-  if (data.cleartask_saw_criterias) {
-    const criteria =
-      typeof data.cleartask_saw_criterias === 'string'
-        ? JSON.parse(data.cleartask_saw_criterias)
-        : data.cleartask_saw_criterias;
-    if (criteria.length) await db.saw_criterias.bulkAdd(criteria);
-  }
-  if (data.cleartask_saw_history) {
-    const history =
-      typeof data.cleartask_saw_history === 'string'
-        ? JSON.parse(data.cleartask_saw_history)
-        : data.cleartask_saw_history;
-    if (history.length) await db.saw_history.bulkAdd(history);
   }
 }
 
@@ -520,7 +504,7 @@ describe('v2.0 additional tables merging & sync', () => {
 
     const merge = await calculateMerge(importData);
     expect(merge.newArchiveTransactions).toBe(1);
-    const { id, ...expectedArc } = newArc;
+    const { id: _id, ...expectedArc } = newArc;
     expect(merge.archiveTransactionsToAdd).toEqual([expectedArc]);
 
     const result = await applyMerge(merge);
@@ -528,75 +512,6 @@ describe('v2.0 additional tables merging & sync', () => {
 
     const stored = await db.archive_transactions.toArray();
     expect(stored).toHaveLength(2);
-  });
-
-  it('menggabungkan saw_history dengan deduplikasi createdAt', async () => {
-    const hist1 = {
-      period: 'last_30_days',
-      createdAt: '2026-06-05T14:54:02.870Z',
-      weights: {},
-      results_snapshot: [],
-    };
-    await setupDexie({
-      cleartask_saw_history: [hist1],
-    });
-
-    const hist2 = {
-      period: 'last_30_days',
-      createdAt: '2026-06-05T15:00:00.000Z',
-      weights: {},
-      results_snapshot: [],
-    };
-    const importData = {
-      ...validExportData,
-      version: '2.0',
-      saw_history: [hist1, hist2],
-    };
-
-    const merge = await calculateMerge(importData);
-    expect(merge.newSawHistory).toBe(1);
-
-    await applyMerge(merge);
-    const stored = await db.saw_history.toArray();
-    expect(stored).toHaveLength(2);
-  });
-
-  it('kriteria SAW: imported lebih baru -> update kriteria yang ada', async () => {
-    const critOld = {
-      id: 1,
-      c1_weight: 0.35,
-      c2_weight: 0.3,
-      c3_weight: 0.2,
-      c4_weight: 0.15,
-      updatedAt: '2026-06-05T10:00:00.000Z',
-    };
-    await setupDexie({
-      cleartask_saw_criterias: [critOld],
-    });
-
-    const critNew = {
-      id: 2,
-      c1_weight: 0.4,
-      c2_weight: 0.3,
-      c3_weight: 0.2,
-      c4_weight: 0.1,
-      updatedAt: '2026-06-05T11:00:00.000Z',
-    };
-    const importData = {
-      ...validExportData,
-      version: '2.0',
-      saw_criterias: [critNew],
-    };
-
-    const merge = await calculateMerge(importData);
-    expect(merge.sawCriteriaUpdated).toBe(true);
-    expect(merge.sawCriteriasToPut.c1_weight).toBe(0.4);
-    expect(merge.sawCriteriasToPut.id).toBe(1); // retain existing ID for overwrite
-
-    await applyMerge(merge);
-    const stored = await db.saw_criterias.toArray();
-    expect(stored).toHaveLength(1);
-    expect(stored[0].c1_weight).toBe(0.4);
   });
 
   it('syncMissingCategories: memulihkan kategori/subkategori dari data yang sudah ada', async () => {

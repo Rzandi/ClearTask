@@ -1,41 +1,55 @@
 <p align="center">
-  <h1 align="center">ClearTask v3.4.0</h1>
-  <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Aman, Cepat, dan Bisa Dipakai Tanpa Internet.</strong></p>
+  <h1 align="center">ClearTask v3.5.0</h1>
+  <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Sektor Retail, Minimarket & High-Resiliency POS.</strong></p>
 </p>
 
 ---
 
 ## Tentang ClearTask
 
-ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk kasir dan pemilik usaha kecil. Semua data tersimpan **100% lokal** di perangkat pengguna menggunakan IndexedDB — tidak ada server, tidak ada akun, tidak ada biaya langganan.
+ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk kasir, toko kelontong, minimarket, dan UMKM. Semua data tersimpan **100% lokal** di perangkat pengguna menggunakan IndexedDB — tidak ada server, tidak ada akun wajib, tidak ada biaya langganan, dan dapat bekerja secara penuh tanpa jaringan internet.
 
-### Fitur Utama
+### Fitur Utama ClearTask v3.5.0
 
-- **Input Transaksi & Autocomplete** — Form kasir dengan kalkulasi total otomatis, autocomplete nama barang, badge pendeteksi barang terdaftar/baru, panel kanan Cek Stok cepat, dan kategori & sub-kategori dinamis.
-- **Auto-Deduction & New Product Auto-Detect** — Transaksi checkout otomatis memicu pengurangan stok inventaris (clamped >= 0). Input nama barang baru saat penjualan otomatis mendaftarkan item ke database Master Barang dengan default Stok = 0 dan Modal = 0.
-- **Cetak Struk Bluetooth POS** — Mencetak struk langsung dari browser ke printer termal 58mm menggunakan Web Bluetooth GATT API dengan buffer transmission chunked (20-byte write) dan fallback window.print() standar.
-- **Manajemen Sesi/Shift** — Buka/tutup sesi kasir, closing report otomatis per shift lengkap dengan **rincian barang terjual terlaris**.
-- **Kelola Pengeluaran (Expenses)** — Tab khusus pencatatan pengeluaran operasional toko dengan log history dan visualisasi mobile cards.
-- **Rapor Laba & SVG Area Chart** — Pelacakan keuntungan bersih real-time (harian, bulanan, tahunan) didukung dengan **Grafik SVG Murni** dan tabel per faktur yang menampilkan Harga Modal & Keuntungan.
-- **Master Barang (Inventaris)** — CRUD lengkap Master Barang terintegrasi dengan setelan **Harga Modal** dan peringatan stok rendah.
-- **Laporan & Export** — Export ke Excel (.xlsx) dan CSV, filter rentang tanggal (Hari Ini, Mingguan, Bulanan, Tahunan), pencarian barang, dan pengaturan kustomisasi profil usaha.
-- **Database Manager** — Backup/restore via JSON, Smart Merge (tolak duplikasi otomatis) untuk sinkronisasi lokal aman.
-- **PWA Installable** — Bisa diinstall di Android/iOS/Desktop, 100% offline.
+- 🛍️ **Sektor Retail & Minimarket**:
+  - **Harga Grosir (Tiered Pricing Engine)**: Skema diskon kuantitas bertingkat (_beli banyak lebih murah_) yang otomatis mendeteksi dan menerapkan harga grosir di keranjang POS.
+  - **Multi-UOM Konversi Stok (Dus → Pcs Auto Unpack)**: Manajemen stok kemasan grosir (`packStock`, `packRatio`) dengan aksi 1-klik _⚡ Unpack Dus_ dan prompt cepat di POS saat stok eceran Pcs habis.
+  - **Daftar Belanja Restock Supplier (Purchase Requisition)**: Filter otomatis barang menipis (`stok <= minStock`) dan ekspor daftar belanja 1-tap langsung ke WhatsApp Supplier atau file CSV.
+- ⚡ **Quality of Life (QOL) & Input Kasir**:
+  - **Quick Cash & Cash Breakdown**: Tombol pecahan nominal tunai (`10k`, `20k`, `50k`, `100k`) & widget rincian pecahan lembaran uang kertas (20rb, 10rb, 5rb, 2rb, 1rb).
+  - **Hero Change Display (40px)**: Tampilan nominal kembalian berukuran `40px` bold berwarna hijau murni/merah tegas pada layar pembayaran.
+  - **Pending Order**: Simpan keranjang belanja sementara ke slot tertunda dan pulihkan dengan 1 klik.
+  - **Inline Syntax Command Parser**: Pengetikan cepat di POS (contoh: `Susu 2x @15000 !diskon10%`) yang otomatis terurai menjadi item keranjang.
+  - **Audio & Haptic Feedback**: Efek suara _beep_ kasir (suara beda jika item tak terdaftar) & getaran mikro (`navigator.vibrate`) saat scan/penambahan item.
+  - **Soft Delete & Trash Manager**: Penghapusan data berfitur pemulihan (_Restore_) dari tab Tong Sampah dan pembersihan otomatis > 30 hari.
+- 🎨 **Visual Adaptability & Ergonomi Layout**:
+  - **Dual-Pane 65:35 & Mobile Bottom Sheet**: Tata letak teroptimasi untuk jempol pada mode seluler & mata kasir pada layar tablet/desktop.
+  - **Outdoor High-Contrast & OLED Dark Mode**: Mode visual luar ruangan (rasio kontras WCAG AAA > 7:1) & mode gelap murni `#09090B`.
+  - **Hotkey Sheet Overlay (`?` / `Shift+/`)**: Modal panduan visual shortcut keyboard fisik (`<kbd>F1</kbd>` - `<kbd>F4</kbd>`, `<kbd>F8</kbd>`, `<kbd>Alt+O</kbd>`, `<kbd>Ctrl+Enter</kbd>`).
+  - **First-Time Kiosk Setup Wizard**: Modal onboarding 3 langkah (Profil Toko -> QRIS & Nota -> Tes Cetak).
+- 🛡️ **Live Resiliency & Offline Resilience**:
+  - **Auto-Draft Cart Persistence**: Keranjang kasir tersimpan otomatis di `localStorage` (`cleartask_draft_cart`) & terpulihkan jika tab tertutup.
+  - **Lazy Chunk Retry (`lazyWithRetry`)**: Penanganan otomatis kegagalan pemuatan JS chunk saat pembaruan Service Worker.
+  - **Multi-Tab Sync (`BroadcastChannel`)**: Penyelarasan keranjang & state aplikasi antar tab browser secara real-time.
+  - **Storage Quota & Incognito Warning**: Peringatan otomatis jika sisa memori < 50MB atau aplikasi dibuka di mode Incognito browser.
+  - **Clock Tampering & Monotonic Sequence**: Monotonic sequence guard untuk mencegah kekacauan urutan transaksi jika jam HP dimundurkan.
+  - **Offline Collision-Free Device Prefix**: ID transaksi ber-prefix kasir (`TRX-${kasirSlug}-${seq}`) untuk mencegah tumbukan ID antar perangkat offline.
 
 ---
 
 ## Tech Stack
 
-| Layer     | Teknologi                                          |
-| --------- | -------------------------------------------------- |
-| Framework | React 19 + Vite 8                                  |
-| Styling   | Tailwind CSS v4                                    |
-| Database  | IndexedDB via Dexie.js v4                          |
-| Enkripsi  | Web Crypto API (AES-GCM 256 + PBKDF2)              |
-| Export    | ExcelJS (lazy-loaded)                              |
-| Testing   | Vitest + @testing-library/react + fast-check (PBT) |
-| E2E       | Playwright                                         |
-| DX        | Husky + Commitlint + lint-staged + Prettier        |
+| Layer      | Teknologi                                           |
+| ---------- | --------------------------------------------------- |
+| Framework  | React 19 + Vite 8                                   |
+| Styling    | Vanilla CSS + CSS Variables + Tailwind CSS v4       |
+| Database   | IndexedDB via Dexie.js v4 (Schema v11)              |
+| Resiliency | BroadcastChannel API + Storage Estimate + Web Audio |
+| Enkripsi   | Web Crypto API (AES-GCM 256 + PBKDF2)               |
+| Export     | ExcelJS (lazy-loaded) + CSV RFC 4180                |
+| Testing    | Vitest + @testing-library/react + fast-check (PBT)  |
+| E2E        | Playwright                                          |
+| DX         | Husky + Commitlint + lint-staged + Prettier         |
 
 ---
 
@@ -43,37 +57,29 @@ ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk 
 
 ```
 src/
-├── components/         # UI components (Atomic Design)
-│   └── ui/             # Base atoms: Button, Input, Card, Modal, Badge, Typography
-├── contexts/           # React contexts
-│   └── SettingsContext.jsx   # Theme, kasir name, preferences
+├── components/         # UI components (Atomic & Feature Driven)
+│   ├── ui/             # Base atoms: Button, Input, Card, Modal, Badge
+│   ├── InputPenjualan.tsx   # POS Kasir, Quick Cash, Wholesale, Hero Change
+│   ├── InventoryManager.tsx # Master Barang, Quick Adjust, Multi-UOM, Supplier Restock
+│   ├── InventoryModal.tsx   # Form Barang, Wholesale & Pack Stock settings
+│   ├── HotkeyModal.tsx      # Contextual Hotkey Sheet Overlay (?)
+│   ├── SetupWizardModal.tsx # 3-Step First-Time Onboarding Wizard
+│   ├── TrashManager.tsx     # Soft Delete & Data Restoration
+│   └── StrukModal.tsx       # Receipt printing, Thermal 58mm & WA Share
+├── contexts/           # React contexts (Settings, Theme)
 ├── hooks/              # Custom hooks
-│   ├── useTransactions.js      # Wrapper — composes 3 sub-hooks
-│   ├── useTransactionData.js   # CRUD + Dexie transactions
-│   ├── useTransactionFilter.js # Search, sort, date filter
-│   ├── useTransactionMetrics.js# Daily analytics (todayTotal, trend)
-│   ├── useCategories.js        # Dynamic categories & sub-categories
-│   ├── useInventory.js         # Master barang CRUD
-│   └── useSession.js           # Sesi kasir (buka/tutup)
-├── services/           # External integrations
-│   ├── db.js                   # Dexie schema (v1 → v2 migration)
-│   └── databaseManager.js      # Export/import/merge database
-├── utils/              # Pure utility functions
-│   ├── formatters.js           # formatRupiah, formatDate, toLocalDateString
-│   ├── exportExcel.js          # ExcelJS export
-│   ├── exportCSV.js            # CSV export (RFC 4180)
-│   ├── downloadHelper.js       # Native browser File API download
-│   └── migration.js            # localStorage → IndexedDB migration
-└── __tests__/          # Unit + PBT test suite
-```
-
-**Provider nesting:**
-
-```
-ErrorBoundary
-└── AppBootstrap (migration)
-    └── SettingsProvider
-        └── App
+│   ├── useTransactions.ts     # Wrapper — composes sub-hooks
+│   ├── useTransactionData.ts  # Atomic Dexie transactions & Device Prefix IDs
+│   ├── useInventory.ts        # Master barang CRUD
+│   └── useSession.ts          # Sesi/shift kasir
+├── services/           # External & Database services
+│   ├── db.ts                  # Dexie schema v11 & blocked handlers
+│   └── databaseManager.ts     # Export/import/merge database
+├── utils/              # Resiliency & pure utilities
+│   ├── audioFeedback.ts       # Web Audio API & Haptic vibration
+│   ├── inlineSyntaxParser.ts  # Inline POS command parser & Cash breakdown
+│   └── resiliencyGuards.ts    # lazyWithRetry, Storage estimate, Multi-tab sync
+└── __tests__/          # Vitest unit & integration test suite
 ```
 
 ---
@@ -82,14 +88,10 @@ ErrorBoundary
 
 ### 📋 Prasyarat
 
-Sebelum memulai, pastikan perangkat Anda memiliki:
-
 - **Node.js** versi `≥ 20.0.0`
 - **npm** versi `≥ 10.0.0`
 
 ### 💻 Instalasi Lokal & Development
-
-Ikuti langkah-langkah di bawah ini untuk mengkloning dan menjalankan server development:
 
 ```bash
 # 1. Kloning Repositori
@@ -99,91 +101,44 @@ cd ClearTask
 # 2. Instalasi Dependensi
 npm install
 
-# 3. Salin Environment Variables
-cp .env.example .env
-
-# 4. Jalankan Dev Server
+# 3. Jalankan Dev Server
 npm run dev
 ```
 
-Setelah dev server aktif, buka **[http://localhost:5173](http://localhost:5173)** di browser Anda.
+Buka **[http://localhost:5173](http://localhost:5173)** di browser Anda.
 
 ---
 
 ## 🧪 Panduan Pengujian (Testing Guide)
 
-ClearTask memiliki pertahanan testing berlapis untuk menjamin integritas data offline:
-
 ```bash
-# 1. Jalankan Semua Unit & Component Tests (Single Run)
+# 1. Check TypeScript Compilation (Strict Zero Error)
+npx tsc --noEmit
+
+# 2. Jalankan Semua Unit & Component Tests
 npm run test:run
 
-# 2. Jalankan Tests dalam Mode Interaktif (Watch Mode)
-npm run test
-
-# 3. Jalankan Pengujian dengan Laporan Cakupan (Coverage Report)
+# 3. Jalankan Tests dengan Coverage Report
 npm run test:coverage
-# Hasil laporan cakupan dapat dibuka di browser melalui berkas: `coverage/index.html`
-
-# 4. Jalankan Pengujian Browser End-to-End (E2E)
-# Pastikan server dev aktif (npm run dev) sebelum menjalankan perintah ini:
-npm run test:e2e
 ```
-
-### 🎯 Batas Minimal Cakupan Kode (Coverage Targets)
-
-Setiap kontribusi kode baru wajib memenuhi kriteria cakupan minimal berikut:
-
-- **Statements:** `≥ 80%`
-- **Branches:** `≥ 75%`
-- **Functions:** `≥ 80%`
-- **Lines:** `≥ 80%`
 
 ---
 
 ## 📦 Bundling & Deployment
 
-### 1. Build untuk Production
-
-Untuk membuat bundle optimal siap rilis ke web server production:
-
 ```bash
+# Build Production Bundle (sw v3.5.0)
 npm run build
-```
 
-Bundle hasil kompilasi akan tersimpan di dalam direktori `dist/`.
-
-### 2. Preview Hasil Build
-
-Untuk meninjau bundle production secara lokal sebelum deploy:
-
-```bash
+# Preview Production Build
 npm run preview
 ```
 
-### 3. Analisis Ukuran Bundle
-
-Untuk menganalisis ukuran file JS dan mendeteksi dependensi yang terlalu berat:
+Deploy ke Vercel:
 
 ```bash
-ANALYZE=true npm run build
-# Hasil visualisasi interaktif akan ter-generate di: `dist/stats.html`
-```
-
-### 🚀 Deploy ke Vercel (Rekomendasi)
-
-ClearTask siap di-deploy secara instan ke platform serverless Vercel:
-
-```bash
-# Instal Vercel CLI global
-npm i -g vercel
-
-# Login & Deploy
-vercel login
 vercel --prod
 ```
-
-> ⚠️ **PENTING:** Progressive Web App (PWA), Service Worker, dan Web Manifest mewajibkan koneksi **HTTPS** yang aman agar dapat berfungsi dan di-install di perangkat pengguna (Android, iOS, macOS, Windows). Vercel menyediakan SSL HTTPS secara otomatis secara gratis.
 
 ---
 

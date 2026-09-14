@@ -41,6 +41,68 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
     setIsBtPrinting(false);
   };
 
+  const handleWhatsAppShare = () => {
+    const toko = settings.tokoName || 'ClearTask POS';
+    const timeStr = (order.createdAt ? new Date(order.createdAt) : new Date()).toLocaleString('id-ID', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+    let text = `*STRUK PEMBAYARAN ${toko.toUpperCase()}*\n`;
+    text += `No. TRX: ${order.transactionId}\n`;
+    text += `Waktu: ${timeStr}\n`;
+    text += `Kasir: ${order.kasir}\n`;
+    text += `--------------------------------\n`;
+    order.items?.forEach((i: any) => {
+      text += `• ${i.namaBarang} x${i.qty} = Rp ${i.total.toLocaleString('id-ID')}\n`;
+    });
+    text += `--------------------------------\n`;
+    text += `*TOTAL: Rp ${order.total.toLocaleString('id-ID')}*\n`;
+    text += `Metode: ${order.metode}\n`;
+    if (order.metode === 'Tunai') {
+      text += `Bayar: Rp ${order.uangDiterima.toLocaleString('id-ID')}\n`;
+      text += `Kembali: Rp ${order.kembalian.toLocaleString('id-ID')}\n`;
+    }
+    text += `\nTerima kasih telah berbelanja!`;
+
+    const encoded = encodeURIComponent(text);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+  };
+
+  const handleDownloadReceiptText = () => {
+    const toko = settings.tokoName || 'ClearTask POS';
+    const timeStr = (order.createdAt ? new Date(order.createdAt) : new Date()).toLocaleString('id-ID', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+    let text = `${toko.toUpperCase()}\n`;
+    text += `${settings.tokoAlamat || ''}\nTelp: ${settings.tokoTelepon || ''}\n`;
+    text += `================================\n`;
+    text += `No TRX : ${order.transactionId}\n`;
+    text += `Waktu  : ${timeStr}\n`;
+    text += `Kasir  : ${order.kasir}\n`;
+    text += `--------------------------------\n`;
+    order.items?.forEach((i: any) => {
+      text += `${i.namaBarang}\n  ${i.qty} x ${i.hargaSatuan.toLocaleString('id-ID')} = ${i.total.toLocaleString('id-ID')}\n`;
+    });
+    text += `--------------------------------\n`;
+    text += `TOTAL   : Rp ${order.total.toLocaleString('id-ID')}\n`;
+    text += `METODE  : ${order.metode}\n`;
+    if (order.metode === 'Tunai') {
+      text += `BAYAR   : Rp ${order.uangDiterima.toLocaleString('id-ID')}\n`;
+      text += `KEMBALI : Rp ${order.kembalian.toLocaleString('id-ID')}\n`;
+    }
+    text += `================================\n`;
+    text += `Terima Kasih Atas Kunjungan Anda\n`;
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Struk_${order.transactionId}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in print:bg-white print:p-0 print:block">
       {/* Kontainer Modal (Hidden saat print) */}
@@ -140,7 +202,9 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
 
           <div className="text-center mt-4 pt-2">
             <p className="text-[10px]">Terima Kasih Atas Kunjungan Anda</p>
-            <p className="text-[10px]">{settings.strukFooter || 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan'}</p>
+            <p className="text-[10px]">
+              {settings.strukFooter || 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan'}
+            </p>
           </div>
         </div>
 
@@ -151,14 +215,32 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
               className={`text-[11px] font-semibold text-center py-2 px-3 rounded-lg border ${
                 btStatus.includes('sukses')
                   ? 'bg-green-500/10 border-green-500/20 text-green-400'
-                  : btStatus.includes('Gagal') || btStatus.includes('tidak didukung') || btStatus.includes('dibatalkan')
-                  ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                  : 'bg-primary/10 border-primary/20 text-primary animate-pulse'
+                  : btStatus.includes('Gagal') ||
+                      btStatus.includes('tidak didukung') ||
+                      btStatus.includes('dibatalkan')
+                    ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                    : 'bg-primary/10 border-primary/20 text-primary animate-pulse'
               }`}
             >
               {btStatus}
             </div>
           )}
+          {/* Action Row 1: WA & Download */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={handleWhatsAppShare}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 transition-colors"
+            >
+              💬 Kirim WA
+            </button>
+            <button
+              onClick={handleDownloadReceiptText}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 transition-colors"
+            >
+              📄 Simpan Struk
+            </button>
+          </div>
+          {/* Action Row 2: Standard & BT */}
           <div className="flex gap-2">
             <Button onClick={onClose} variant="outline" className="flex-1 text-xs py-2.5 px-2">
               Tutup

@@ -50,6 +50,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [localTokoAlamat, setLocalTokoAlamat] = useState('');
   const [localTokoTelepon, setLocalTokoTelepon] = useState('');
   const [localStrukFooter, setLocalStrukFooter] = useState('');
+  const [localQrisImageUrl, setLocalQrisImageUrl] = useState('');
+  const [localQrisNsm, setLocalQrisNsm] = useState('');
   const [newCatInput, setNewCatInput] = useState('');
 
   async function handleAddCategory() {
@@ -99,6 +101,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setLocalTokoAlamat(settings.tokoAlamat || '');
       setLocalTokoTelepon(settings.tokoTelepon || '');
       setLocalStrukFooter(settings.strukFooter || '');
+      setLocalQrisImageUrl(settings.qrisImageUrl || '');
+      setLocalQrisNsm(settings.qrisNsm || '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -118,6 +122,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         tokoAlamat: localTokoAlamat,
         tokoTelepon: localTokoTelepon,
         strukFooter: localStrukFooter,
+        qrisImageUrl: localQrisImageUrl,
+        qrisNsm: localQrisNsm,
       });
       onClose();
     } catch (err: any) {
@@ -308,6 +314,63 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 placeholder="Masukkan footer struk (cth: Terima Kasih)"
                 maxLength={150}
               />
+            </div>
+
+            {/* Pengaturan QRIS Toko */}
+            <div className="pt-2 border-t border-border-subtle">
+              <label className="block text-sm font-semibold text-text-primary mb-2">
+                📱 Pengaturan QRIS Toko
+              </label>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">
+                    Upload Gambar / QRIS Statis Toko
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                          setLocalQrisImageUrl(evt.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="block w-full text-xs text-text-muted file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
+                  />
+                  {localQrisImageUrl && (
+                    <div className="mt-2 flex items-center gap-3">
+                      <img
+                        src={localQrisImageUrl}
+                        alt="Preview QRIS"
+                        className="w-20 h-20 object-contain rounded-lg border border-border-default bg-white p-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setLocalQrisImageUrl('')}
+                        className="text-xs text-accent-red hover:underline"
+                      >
+                        Hapus Gambar QRIS
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">
+                    NMID / Teks QRIS (Opsional)
+                  </label>
+                  <Input
+                    type="text"
+                    value={localQrisNsm}
+                    onChange={(e) => setLocalQrisNsm(e.target.value)}
+                    placeholder="Contoh: ID1029384756"
+                    className="py-2 text-xs font-mono"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

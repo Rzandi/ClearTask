@@ -8,6 +8,8 @@ export interface AppSettings {
   tokoAlamat: string;
   tokoTelepon: string;
   strukFooter: string;
+  soundEnabled: boolean;
+  hapticEnabled: boolean;
   [key: string]: any;
 }
 
@@ -21,6 +23,8 @@ export const defaultSettings: AppSettings = {
   tokoAlamat: 'Jl. Contoh Alamat No. 123',
   tokoTelepon: '0812-3456-7890',
   strukFooter: 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan',
+  soundEnabled: true,
+  hapticEnabled: true,
 };
 
 export const VALID_ACCENT_COLORS = ['#00f0ff', '#00ff88', '#ff3366', '#bc8cff', '#f0b429'];

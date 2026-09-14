@@ -17,16 +17,12 @@ export interface DatabaseExport {
   inventory: any[];
   expenses?: any[];
   archive_transactions?: any[];
-  saw_criterias?: any[];
-  saw_history?: any[];
   metadata: {
     totalTransactions: number;
     totalSessions: number;
     totalInventory: number;
     totalExpenses?: number;
     totalArchiveTransactions?: number;
-    totalSawCriterias?: number;
-    totalSawHistory?: number;
     deviceInfo: string;
   };
 }
@@ -39,8 +35,6 @@ export interface MergeResult {
   newInventory: number;
   newExpenses: number;
   newArchiveTransactions: number;
-  newSawHistory: number;
-  sawCriteriaUpdated: boolean;
   skipped: number;
   orphanTransactions: number;
   transactionsToAdd: any[];
@@ -49,8 +43,6 @@ export interface MergeResult {
   inventoryToAdd: any[];
   expensesToAdd: any[];
   archiveTransactionsToAdd: any[];
-  sawHistoryToAdd: any[];
-  sawCriteriasToPut: any | null;
   categoriesRecordToPut?: any;
 }
 
@@ -69,8 +61,6 @@ export async function exportDatabase(): Promise<void> {
   const inventory = await db.inventory.toArray();
   const expenses = await db.expenses.toArray();
   const archiveTransactions = await db.archive_transactions.toArray();
-  const sawCriterias = await db.saw_criterias.toArray();
-  const sawHistory = await db.saw_history.toArray();
 
   const exportData: DatabaseExport = {
     version: '2.0',
@@ -81,16 +71,12 @@ export async function exportDatabase(): Promise<void> {
     inventory: Array.isArray(inventory) ? inventory : [],
     expenses: Array.isArray(expenses) ? expenses : [],
     archive_transactions: Array.isArray(archiveTransactions) ? archiveTransactions : [],
-    saw_criterias: Array.isArray(sawCriterias) ? sawCriterias : [],
-    saw_history: Array.isArray(sawHistory) ? sawHistory : [],
     metadata: {
       totalTransactions: Array.isArray(transactions) ? transactions.length : 0,
       totalSessions: Array.isArray(sessions) ? sessions.length : 0,
       totalInventory: Array.isArray(inventory) ? inventory.length : 0,
       totalExpenses: Array.isArray(expenses) ? expenses.length : 0,
       totalArchiveTransactions: Array.isArray(archiveTransactions) ? archiveTransactions.length : 0,
-      totalSawCriterias: Array.isArray(sawCriterias) ? sawCriterias.length : 0,
-      totalSawHistory: Array.isArray(sawHistory) ? sawHistory.length : 0,
       deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     },
   };
@@ -171,11 +157,7 @@ export function validateImport(jsonString: string): {
 }
 
 function isSameTransaction(tx1: any, tx2: any): boolean {
-  return (
-    tx1.tanggal === tx2.tanggal &&
-    tx1.total === tx2.total &&
-    tx1.createdAt === tx2.createdAt
-  );
+  return tx1.tanggal === tx2.tanggal && tx1.total === tx2.total && tx1.createdAt === tx2.createdAt;
 }
 
 /**
@@ -195,8 +177,6 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   const existingInventory = await db.inventory.toArray();
   const existingExpenses = await db.expenses.toArray();
   const existingArchiveTransactions = await db.archive_transactions.toArray();
-  const existingSawCriterias = await db.saw_criterias.toArray();
-  const existingSawHistory = await db.saw_history.toArray();
 
   const existingTxIds = new Set(existingTransactions.map((tx: any) => tx.transactionId));
   const existingSessionIds = new Set(existingSessions.map((s: any) => s.id));
@@ -208,7 +188,6 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   const existingArchiveTxIds = new Set(
     existingArchiveTransactions.map((tx: any) => tx.transactionId)
   );
-  const existingSawHistoryCreatedAts = new Set(existingSawHistory.map((h: any) => h.createdAt));
 
   // Identify new items
   const importTransactions = Array.isArray(importData.transactions) ? importData.transactions : [];
@@ -219,10 +198,6 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   const importArchiveTransactions = Array.isArray(importData.archive_transactions)
     ? importData.archive_transactions
     : [];
-  const importSawCriterias = Array.isArray(importData.saw_criterias)
-    ? importData.saw_criterias
-    : [];
-  const importSawHistory = Array.isArray(importData.saw_history) ? importData.saw_history : [];
 
   // Maps for fast conflict lookup
   const existingTxMap = new Map<string, any>();
@@ -265,51 +240,53 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   let currentNewSeq = nextSeq + 1;
 
   const seenTxMap = new Map<string, any>();
-  const transactionsToAdd = importTransactions.filter((tx: any) => {
-    if (!tx.transactionId) return false;
+  const transactionsToAdd = importTransactions
+    .filter((tx: any) => {
+      if (!tx.transactionId) return false;
 
-    // Check conflict with database
-    const existing = existingTxMap.get(tx.transactionId);
-    if (existing) {
-      if (isSameTransaction(existing, tx)) {
-        return false;
+      // Check conflict with database
+      const existing = existingTxMap.get(tx.transactionId);
+      if (existing) {
+        if (isSameTransaction(existing, tx)) {
+          return false;
+        }
+        tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
       }
-      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
-    }
 
-    // Check conflict with archive table
-    const existingArchive = existingArchiveTxMap.get(tx.transactionId);
-    if (existingArchive) {
-      if (isSameTransaction(existingArchive, tx)) {
-        return false;
+      // Check conflict with archive table
+      const existingArchive = existingArchiveTxMap.get(tx.transactionId);
+      if (existingArchive) {
+        if (isSameTransaction(existingArchive, tx)) {
+          return false;
+        }
+        tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
       }
-      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
-    }
 
-    // Check conflict with already seen transactions in this import
-    const seen = seenTxMap.get(tx.transactionId);
-    if (seen) {
-      if (isSameTransaction(seen, tx)) {
-        return false;
+      // Check conflict with already seen transactions in this import
+      const seen = seenTxMap.get(tx.transactionId);
+      if (seen) {
+        if (isSameTransaction(seen, tx)) {
+          return false;
+        }
+        tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
       }
-      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
-    }
 
-    // Double check that the new re-numbered ID does not conflict with any seen or existing ones
-    while (
-      seenTxMap.has(tx.transactionId) ||
-      existingTxMap.has(tx.transactionId) ||
-      existingArchiveTxMap.has(tx.transactionId)
-    ) {
-      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
-    }
+      // Double check that the new re-numbered ID does not conflict with any seen or existing ones
+      while (
+        seenTxMap.has(tx.transactionId) ||
+        existingTxMap.has(tx.transactionId) ||
+        existingArchiveTxMap.has(tx.transactionId)
+      ) {
+        tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
+      }
 
-    seenTxMap.set(tx.transactionId, tx);
-    return true;
-  }).map((tx: any) => {
-    const { id, ...rest } = tx;
-    return rest;
-  });
+      seenTxMap.set(tx.transactionId, tx);
+      return true;
+    })
+    .map((tx: any) => {
+      const { id, ...rest } = tx;
+      return rest;
+    });
 
   const seenSessionIds = new Set(existingSessionIds);
   const sessionsToAdd = importSessions.filter((s: any) => {
@@ -328,79 +305,50 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   });
 
   const seenArchiveTxMap = new Map<string, any>();
-  const archiveTransactionsToAdd = importArchiveTransactions.filter((tx: any) => {
-    if (!tx.transactionId) return false;
+  const archiveTransactionsToAdd = importArchiveTransactions
+    .filter((tx: any) => {
+      if (!tx.transactionId) return false;
 
-    const existing = existingTxMap.get(tx.transactionId);
-    if (existing) {
-      if (isSameTransaction(existing, tx)) {
-        return false;
+      const existing = existingTxMap.get(tx.transactionId);
+      if (existing) {
+        if (isSameTransaction(existing, tx)) {
+          return false;
+        }
+        tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
       }
-      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
-    }
 
-    const existingArchive = existingArchiveTxMap.get(tx.transactionId);
-    if (existingArchive) {
-      if (isSameTransaction(existingArchive, tx)) {
-        return false;
+      const existingArchive = existingArchiveTxMap.get(tx.transactionId);
+      if (existingArchive) {
+        if (isSameTransaction(existingArchive, tx)) {
+          return false;
+        }
+        tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
       }
-      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
-    }
 
-    const seen = seenArchiveTxMap.get(tx.transactionId);
-    if (seen) {
-      if (isSameTransaction(seen, tx)) {
-        return false;
+      const seen = seenArchiveTxMap.get(tx.transactionId);
+      if (seen) {
+        if (isSameTransaction(seen, tx)) {
+          return false;
+        }
+        tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
       }
-      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
-    }
 
-    while (
-      seenTxMap.has(tx.transactionId) ||
-      seenArchiveTxMap.has(tx.transactionId) ||
-      existingTxMap.has(tx.transactionId) ||
-      existingArchiveTxMap.has(tx.transactionId)
-    ) {
-      tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
-    }
-
-    seenArchiveTxMap.set(tx.transactionId, tx);
-    return true;
-  }).map((tx: any) => {
-    const { id, ...rest } = tx;
-    return rest;
-  });
-
-  const seenSawHistoryCreatedAts = new Set(existingSawHistoryCreatedAts);
-  const sawHistoryToAdd = importSawHistory.filter((h: any) => {
-    if (!h.createdAt) return false;
-    if (seenSawHistoryCreatedAts.has(h.createdAt)) return false;
-    seenSawHistoryCreatedAts.add(h.createdAt);
-    return true;
-  }).map((h: any) => {
-    const { id, ...rest } = h;
-    return rest;
-  });
-
-  // SAW criteria logic: latest one wins based on updatedAt timestamp
-  let sawCriteriasToPut: any | null = null;
-  let sawCriteriaUpdated = false;
-  if (importSawCriterias.length > 0) {
-    const importCrit = importSawCriterias[importSawCriterias.length - 1];
-    if (existingSawCriterias.length > 0) {
-      const existingCrit = existingSawCriterias[0];
-      const existingTime = new Date(existingCrit.updatedAt || 0).getTime();
-      const importTime = new Date(importCrit.updatedAt || 0).getTime();
-      if (importTime > existingTime) {
-        sawCriteriasToPut = { ...importCrit, id: existingCrit.id };
-        sawCriteriaUpdated = true;
+      while (
+        seenTxMap.has(tx.transactionId) ||
+        seenArchiveTxMap.has(tx.transactionId) ||
+        existingTxMap.has(tx.transactionId) ||
+        existingArchiveTxMap.has(tx.transactionId)
+      ) {
+        tx.transactionId = 'TRX-' + String(currentNewSeq++).padStart(5, '0');
       }
-    } else {
-      sawCriteriasToPut = { ...importCrit };
-      delete sawCriteriasToPut.id;
-      sawCriteriaUpdated = true;
-    }
-  }
+
+      seenArchiveTxMap.set(tx.transactionId, tx);
+      return true;
+    })
+    .map((tx: any) => {
+      const { id, ...rest } = tx;
+      return rest;
+    });
 
   // Merge categories & subCategories
   const seenCategoryNames = new Set(existingCategoryNames);
@@ -684,7 +632,6 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   const skippedExpenses = importExpenses.length - expensesToAdd.length;
   const skippedArchiveTransactions =
     importArchiveTransactions.length - archiveTransactionsToAdd.length;
-  const skippedSawHistory = importSawHistory.length - sawHistoryToAdd.length;
 
   const skipped =
     skippedTransactions +
@@ -692,8 +639,7 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     skippedCategories +
     skippedInventory +
     skippedExpenses +
-    skippedArchiveTransactions +
-    skippedSawHistory;
+    skippedArchiveTransactions;
 
   return {
     __isMergeResult: true,
@@ -703,8 +649,6 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     newInventory: inventoryToAdd.length,
     newExpenses: expensesToAdd.length,
     newArchiveTransactions: archiveTransactionsToAdd.length,
-    newSawHistory: sawHistoryToAdd.length,
-    sawCriteriaUpdated,
     skipped,
     orphanTransactions,
     transactionsToAdd,
@@ -713,8 +657,6 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     inventoryToAdd,
     expensesToAdd,
     archiveTransactionsToAdd,
-    sawHistoryToAdd,
-    sawCriteriasToPut,
     categoriesRecordToPut,
   };
 }
@@ -735,8 +677,6 @@ export async function applyMerge(data: any): Promise<{ success: boolean; error: 
     inventoryToAdd,
     expensesToAdd,
     archiveTransactionsToAdd,
-    sawHistoryToAdd,
-    sawCriteriasToPut,
   } = mergeResult;
 
   try {
@@ -749,8 +689,6 @@ export async function applyMerge(data: any): Promise<{ success: boolean; error: 
         db.inventory,
         db.expenses,
         db.archive_transactions,
-        db.saw_criterias,
-        db.saw_history,
         db.meta,
       ],
       async () => {
@@ -765,16 +703,6 @@ export async function applyMerge(data: any): Promise<{ success: boolean; error: 
         }
         if (archiveTransactionsToAdd.length > 0) {
           await db.archive_transactions.bulkAdd(archiveTransactionsToAdd);
-        }
-        if (sawHistoryToAdd.length > 0) {
-          await db.saw_history.bulkAdd(sawHistoryToAdd);
-        }
-        if (sawCriteriasToPut) {
-          if (sawCriteriasToPut.id) {
-            await db.saw_criterias.put(sawCriteriasToPut);
-          } else {
-            await db.saw_criterias.add(sawCriteriasToPut);
-          }
         }
         if (mergeResult.categoriesRecordToPut) {
           await db.categories.put(mergeResult.categoriesRecordToPut);
