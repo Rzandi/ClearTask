@@ -848,7 +848,16 @@ export default memo(function InputPenjualan({
 
                     <div className="flex justify-between items-center text-xs text-text-muted border-t border-border-subtle pt-2">
                       <span>Jual: Rp {item.harga?.toLocaleString('id-ID')}</span>
-                      <span>Modal: Rp {(item.hargaModal || 0).toLocaleString('id-ID')}</span>
+                      <span>
+                        Modal:{' '}
+                        {(item.hargaModal || 0) > 0 ? (
+                          `Rp ${(item.hargaModal || 0).toLocaleString('id-ID')}`
+                        ) : (
+                          <span className="text-warning font-semibold" title="Harga modal belum diisi">
+                            - ⚠️
+                          </span>
+                        )}
+                      </span>
                     </div>
 
                     <div className="flex gap-2 mt-1">

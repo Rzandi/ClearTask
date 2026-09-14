@@ -48,12 +48,12 @@ export default function ClosingReportModal({
       if (tx.items && Array.isArray(tx.items)) {
         tx.items.forEach((item: any) => {
           if (!item.namaBarang) return;
-          const key = item.namaBarang.trim();
+          const key = item.namaBarang.toLowerCase().trim();
           if (!itemsMap[key]) {
-            itemsMap[key] = { namaBarang: key, qty: 0, total: 0 };
+            itemsMap[key] = { namaBarang: item.namaBarang.trim(), qty: 0, total: 0 };
           }
           itemsMap[key].qty += item.qty || 1;
-          itemsMap[key].total += item.total || item.hargaSatuan * item.qty || 0;
+          itemsMap[key].total += item.total || (item.hargaSatuan || 0) * (item.qty || 1);
         });
       }
     });

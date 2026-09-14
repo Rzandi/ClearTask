@@ -209,7 +209,13 @@ export default function ReportingChart({
     return `${parts[1]}/${parts[2]}`; // MM/DD
   };
 
-  const yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal];
+  const yTicks = [
+    0,
+    Math.round((maxVal * 0.25) / 1000) * 1000,
+    Math.round((maxVal * 0.5) / 1000) * 1000,
+    Math.round((maxVal * 0.75) / 1000) * 1000,
+    Math.round(maxVal / 1000) * 1000,
+  ];
 
   return (
     <Card className="p-5 flex flex-col gap-4">
@@ -218,7 +224,7 @@ export default function ReportingChart({
           <h3 className="text-sm font-semibold text-text-primary">
             Grafik Ikhtisar Performa Bisnis
           </h3>
-          <p className="text-xs text-text-muted">Tren performa harian hingga 10 hari terakhir.</p>
+          <p className="text-xs text-text-muted">Tren performa bisnis (Pemasukan, Pengeluaran & Laba Bersih).</p>
         </div>
         {/* Legends */}
         <div className="flex items-center gap-4 text-xs font-medium">
@@ -228,11 +234,11 @@ export default function ReportingChart({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-accent-red inline-block" />
-            <span className="text-text-secondary">Keluaran</span>
+            <span className="text-text-secondary">Pengeluaran</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" />
-            <span className="text-text-secondary">Net Profit</span>
+            <span className="text-text-secondary">Laba Bersih</span>
           </div>
         </div>
       </div>

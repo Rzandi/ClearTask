@@ -111,8 +111,17 @@ export default function TopBar({
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-48 lg:w-64 pl-10 pr-4 py-2.5 text-sm neo-pressed border border-transparent rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary transition-all outline-none"
+            className="w-48 lg:w-64 pl-10 pr-8 py-2.5 text-sm neo-pressed border border-transparent rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary transition-all outline-none"
           />
+          {searchQuery.length > 0 && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-0.5 rounded-full hover:bg-white/10 transition-colors"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         {/* PWA Install Button */}

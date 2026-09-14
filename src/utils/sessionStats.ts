@@ -68,30 +68,35 @@ export function calculateSessionStats(
   const totalPemasukan = transactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
 
   // Calculate breakdown by kategori
-  const kategoriMap = new Map();
+  const kategoriMap = new Map<string, Breakdown>();
   transactions.forEach((tx) => {
     if (tx.items && Array.isArray(tx.items) && tx.items.length > 0) {
       tx.items.forEach((item: any) => {
-        const cat = item.kategori || 'Lainnya';
-        const existing = kategoriMap.get(cat) || {
-          kategori: cat,
+        const rawCat = (item.kategori || 'Lainnya').trim();
+        const key = rawCat.toLowerCase();
+        // Capitalize first letter of category or keep original
+        const displayCat = rawCat ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1) : 'Lainnya';
+        const existing = kategoriMap.get(key) || {
+          kategori: displayCat,
           jumlahTransaksi: 0,
           totalPemasukan: 0,
         };
         existing.jumlahTransaksi += Number(item.qty) || 1;
-        existing.totalPemasukan += Number(item.total) || 0;
-        kategoriMap.set(cat, existing);
+        existing.totalPemasukan += Number(item.total) || (Number(item.hargaSatuan || 0) * (Number(item.qty) || 1));
+        kategoriMap.set(key, existing);
       });
     } else {
-      const cat = tx.kategori || 'Lainnya';
-      const existing = kategoriMap.get(cat) || {
-        kategori: cat,
+      const rawCat = (tx.kategori || 'Lainnya').trim();
+      const key = rawCat.toLowerCase();
+      const displayCat = rawCat ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1) : 'Lainnya';
+      const existing = kategoriMap.get(key) || {
+        kategori: displayCat,
         jumlahTransaksi: 0,
         totalPemasukan: 0,
       };
       existing.jumlahTransaksi += 1;
       existing.totalPemasukan += Number(tx.total) || 0;
-      kategoriMap.set(cat, existing);
+      kategoriMap.set(key, existing);
     }
   });
   const breakdownKategori = Array.from(kategoriMap.values());

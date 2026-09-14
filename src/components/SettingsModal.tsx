@@ -306,13 +306,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               >
                 Pesan Kaki Struk (Footer)
               </label>
-              <Input
+              <textarea
                 id="struk-footer-input"
-                type="text"
+                rows={3}
                 value={localStrukFooter}
                 onChange={(e) => setLocalStrukFooter(e.target.value)}
                 placeholder="Masukkan footer struk (cth: Terima Kasih)"
-                maxLength={150}
+                maxLength={200}
+                className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none resize-none"
               />
             </div>
 
