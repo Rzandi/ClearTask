@@ -88,32 +88,31 @@ export default function LaporanExport({
 
   const handleQuickFilter = (type: any) => {
     const today = new Date();
+    // Selalu buat Date object baru untuk menghindari mutation bug
     if (type === 'today') {
       const d = getTodayISO();
       setFilterDate({ start: d, end: d, label: 'Hari Ini' });
     } else if (type === 'yesterday') {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
       const d = toLocalDateString(yesterday);
       setFilterDate({ start: d, end: d, label: 'Kemarin' });
     } else if (type === 'last7') {
+      const start7 = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
       const end = getTodayISO();
-      const start7 = new Date(today);
-      start7.setDate(start7.getDate() - 6);
       setFilterDate({
         start: toLocalDateString(start7),
         end,
         label: '7 Hari Terakhir',
       });
     } else if (type === 'week') {
-      const day = today.getDay();
-      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-      const start = new Date(today.setDate(diff));
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
+      // Senin s/d Minggu minggu berjalan
+      const day = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const startOfWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + diffToMonday);
+      const endOfWeek = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + 6);
       setFilterDate({
-        start: toLocalDateString(start),
-        end: toLocalDateString(end),
+        start: toLocalDateString(startOfWeek),
+        end: toLocalDateString(endOfWeek),
         label: 'Mingguan',
       });
     } else if (type === 'month') {

@@ -7,18 +7,9 @@ import { useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSettings } from '../contexts/SettingsContext';
 import db from '../services/db';
+import type { InventoryItem } from '../types/index';
 
-export interface InventoryItem {
-  id?: string;
-  namaBarang: string;
-  kategori: string;
-  subKategori?: string;
-  harga: number;
-  hargaModal?: number;
-  satuan?: string;
-  quantity: number;
-  [key: string]: any;
-}
+export type { InventoryItem }; // re-export so existing imports from this file keep working
 
 export function useInventory(): {
   inventory: InventoryItem[];
@@ -29,8 +20,12 @@ export function useInventory(): {
   const { settings } = useSettings();
   const currentUser = settings?.kasirName || 'Admin';
 
-  const rawInventory = useLiveQuery(() => db.inventory.toArray());
-  const inventory = rawInventory || []; // default ke array kosong saat loading
+  // Filter soft-deleted items — hanya tampilkan yang deletedAt == null/undefined
+  const rawInventory = useLiveQuery(async () => {
+    const items = await db.inventory.filter((item) => !item.deletedAt).toArray();
+    return items as InventoryItem[];
+  });
+  const inventory: InventoryItem[] = (rawInventory || []) as InventoryItem[];
 
   const addInventoryItem = useCallback(
     async (itemData: any) => {
@@ -71,8 +66,14 @@ export function useInventory(): {
   );
 
   const deleteInventoryItem = useCallback(async (id: string) => {
-    await db.inventory.delete(id as any);
-  }, []);
+    // Soft delete — set deletedAt timestamp instead of hard delete
+    // This allows TrashManager to restore the item later
+    await db.inventory.update(id as any, {
+      deletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser,
+    });
+  }, [currentUser]);
 
   return {
     inventory,

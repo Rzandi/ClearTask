@@ -8,7 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useSettings } from '../contexts/SettingsContext';
 import db from '../services/db';
 
-import { type Transaction } from '../utils/sessionStats';
+import { type Transaction } from '../types/index';
 
 export function useTransactionData(
   filterDate: any,
@@ -114,7 +114,7 @@ export function useTransactionData(
                     return v.toString(16);
                   }),
             namaBarang: item.namaBarang.trim(),
-            kategori: item.kategori || 'Elektronik',
+            kategori: item.kategori || 'Lainnya',
             subKategori: item.subKategori || '',
             harga: item.hargaSatuan || 0,
             hargaModal: 0,

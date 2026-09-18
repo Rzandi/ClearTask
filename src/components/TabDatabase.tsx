@@ -96,7 +96,7 @@ export default function TabDatabase() {
       : {};
   }, [sessions]);
 
-  function getSessionName(sessionId: string) {
+  function getSessionName(sessionId: string | null | undefined) {
     if (!sessionId) return 'Tanpa Sesi';
     return sessionMap[sessionId] || 'Tanpa Sesi';
   }
@@ -163,7 +163,7 @@ export default function TabDatabase() {
       const jsonString = event.target.result as string;
       const result = validateImport(jsonString);
 
-      if (!result.valid) {
+      if (!result.valid || !result.data) {
         showToast(result.error || 'Import gagal', 'error');
         return;
       }
@@ -495,14 +495,14 @@ export default function TabDatabase() {
                       <td className="px-4 py-3.5 text-text-primary font-medium">
                         {tx.items && tx.items.length > 0
                           ? tx.items.map((i: any) => `${i.namaBarang} (x${i.qty})`).join(', ')
-                          : tx.namaBarang || '—'}
+                          : String(tx.namaBarang || '—')}
                       </td>
                       <td className="px-4 py-3.5 text-text-secondary">
                         {tx.items && tx.items.length > 0
                           ? Array.from(
                               new Set(tx.items.map((i: any) => i.kategori).filter(Boolean))
                             ).join(', ')
-                          : tx.kategori || '—'}
+                          : String(tx.kategori || '—')}
                       </td>
                       <td className="px-4 py-3.5 text-right font-semibold text-text-primary tabular-nums">
                         {formatRupiah(tx.total)}

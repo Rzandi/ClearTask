@@ -369,24 +369,22 @@ export default function ClosingReportModal({
                         <p className="text-sm font-semibold text-text-primary">
                           {formatRupiah(stats.transaksiTertinggi.total)}
                         </p>
-                        <p
-                          className="text-xs text-text-muted mt-1 truncate"
-                          title={
-                            stats.transaksiTertinggi.items &&
-                            stats.transaksiTertinggi.items.length > 0
-                              ? stats.transaksiTertinggi.items
-                                  .map((i: any) => i.namaBarang)
-                                  .join(', ')
-                              : stats.transaksiTertinggi.namaBarang || '-'
-                          }
-                        >
-                          {stats.transaksiTertinggi.items &&
-                          stats.transaksiTertinggi.items.length > 0
-                            ? stats.transaksiTertinggi.items.length === 1
-                              ? stats.transaksiTertinggi.items[0].namaBarang
-                              : `${stats.transaksiTertinggi.items[0].namaBarang} (+${stats.transaksiTertinggi.items.length - 1} item)`
-                            : stats.transaksiTertinggi.namaBarang || '-'}
-                        </p>
+                        {(() => {
+                          const items = Array.isArray(stats.transaksiTertinggi?.items) ? stats.transaksiTertinggi.items : [];
+                          const firstItemName = items[0]?.namaBarang || '';
+                          const legacyName = String(stats.transaksiTertinggi?.namaBarang || '-');
+                          const titleText = items.length > 0 ? items.map((i: any) => i.namaBarang).join(', ') : legacyName;
+                          const displayText = items.length > 0
+                            ? items.length === 1
+                              ? firstItemName
+                              : `${firstItemName} (+${items.length - 1} item)`
+                            : legacyName;
+                          return (
+                            <p className="text-xs text-text-muted mt-1 truncate" title={titleText}>
+                              {displayText}
+                            </p>
+                          );
+                        })()}
                         <p className="text-xs text-text-muted">
                           {stats.transaksiTertinggi.transactionId}
                         </p>
@@ -405,23 +403,22 @@ export default function ClosingReportModal({
                         <p className="text-sm font-semibold text-text-primary">
                           {formatRupiah(stats.transaksiTerendah.total)}
                         </p>
-                        <p
-                          className="text-xs text-text-muted mt-1 truncate"
-                          title={
-                            stats.transaksiTerendah.items &&
-                            stats.transaksiTerendah.items.length > 0
-                              ? stats.transaksiTerendah.items
-                                  .map((i: any) => i.namaBarang)
-                                  .join(', ')
-                              : stats.transaksiTerendah.namaBarang || '-'
-                          }
-                        >
-                          {stats.transaksiTerendah.items && stats.transaksiTerendah.items.length > 0
-                            ? stats.transaksiTerendah.items.length === 1
-                              ? stats.transaksiTerendah.items[0].namaBarang
-                              : `${stats.transaksiTerendah.items[0].namaBarang} (+${stats.transaksiTerendah.items.length - 1} item)`
-                            : stats.transaksiTerendah.namaBarang || '-'}
-                        </p>
+                        {(() => {
+                          const items = Array.isArray(stats.transaksiTerendah?.items) ? stats.transaksiTerendah.items : [];
+                          const firstItemName = items[0]?.namaBarang || '';
+                          const legacyName = String(stats.transaksiTerendah?.namaBarang || '-');
+                          const titleText = items.length > 0 ? items.map((i: any) => i.namaBarang).join(', ') : legacyName;
+                          const displayText = items.length > 0
+                            ? items.length === 1
+                              ? firstItemName
+                              : `${firstItemName} (+${items.length - 1} item)`
+                            : legacyName;
+                          return (
+                            <p className="text-xs text-text-muted mt-1 truncate" title={titleText}>
+                              {displayText}
+                            </p>
+                          );
+                        })()}
                         <p className="text-xs text-text-muted">
                           {stats.transaksiTerendah.transactionId}
                         </p>

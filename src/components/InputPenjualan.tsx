@@ -22,7 +22,6 @@ import type { CashDenomination } from '../utils/inlineSyntaxParser';
 import { initMultiTabSync, broadcastTabMessage } from '../utils/resiliencyGuards';
 
 const METODE_OPTIONS = ['Tunai', 'QRIS', 'Kartu Debit', 'Transfer'];
-const DEFAULT_KATEGORI = 'Elektronik';
 
 const parseNumeric = (val: any) => {
   if (!val) return 0;
@@ -97,9 +96,10 @@ export default memo(function InputPenjualan({
   const [activeTab, setActiveTab] = useState('katalog'); // 'katalog' | 'manual'
   const [formError, setFormError] = useState('');
   const [showMobileCart, setShowMobileCart] = useState(false);
-  // Manual Form State
+  // Manual Form State — kategori diinisialisasi dari allCategories[0] via useEffect
+  // untuk memastikan nilai default selalu sinkron dengan daftar kategori yang sebenarnya
   const [form, setForm] = useState({
-    kategori: DEFAULT_KATEGORI,
+    kategori: '',
     subKategori: '',
     namaBarang: '',
     qty: '1',
@@ -113,6 +113,15 @@ export default memo(function InputPenjualan({
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [localFeedback, setLocalFeedback] = useState('');
 
+  // Sync form.kategori ke allCategories[0] saat daftar kategori pertama kali tersedia.
+  // Ini fix bug: form state awal '' tidak sinkron dengan option pertama di <select>,
+  // yang menyebabkan sub-kategori tidak muncul sampai user manually ganti kategori.
+  useEffect(() => {
+    if (allCategories.length > 0 && form.kategori === '') {
+      setForm((prev) => ({ ...prev, kategori: allCategories[0] || 'Makanan' }));
+    }
+  }, [allCategories]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const suggestions = useMemo(() => {
     const q = form.namaBarang.trim().toLowerCase();
     if (!q) return [];
@@ -121,7 +130,7 @@ export default memo(function InputPenjualan({
 
   const handleSelectSuggestion = useCallback((item: any) => {
     setForm({
-      kategori: item.kategori || DEFAULT_KATEGORI,
+      kategori: item.kategori || allCategories[0] || 'Makanan',
       subKategori: item.subKategori || '',
       namaBarang: item.namaBarang || '',
       qty: '1',
@@ -146,9 +155,16 @@ export default memo(function InputPenjualan({
   const [showStruk, setShowStruk] = useState(false);
   const [lastOrder, setLastOrder] = useState<any>(null);
 
+  // ── Plastik bag state (QOL: optional plastic bag charge) ──
+  const [plasticBagEnabled, setPlasticBagEnabled] = useState(false);
+  const plasticBagPrice = Math.round(Number(settings?.plasticBagPrice) || 500);
+  const plasticBagCharge = (settings?.plasticBagEnabled !== false) && plasticBagEnabled
+    ? plasticBagPrice : 0;
+
   const subTotal = cart.reduce((sum, item) => sum + item.total, 0);
+  const grandTotal = subTotal + plasticBagCharge;
   const received = parseNumeric(uangDiterima);
-  const kembalian = received > subTotal ? received - subTotal : 0;
+  const kembalian = received > grandTotal ? received - grandTotal : 0;
 
   // Filter & Sort Catalog
   const filteredCatalog = useMemo(() => {
@@ -216,10 +232,10 @@ export default memo(function InputPenjualan({
           `Tersedia ${invItem.packStock} ${invItem.packUnit || 'Dus'} di gudang.\n\n` +
           `Unpack 1 ${invItem.packUnit || 'Dus'} (+${invItem.packRatio || 24} Pcs) sekarang?`
       );
-      if (confirmUnpack && invItem.id !== undefined) {
+      if (confirmUnpack && invItem.id !== undefined && (invItem.packStock || 0) > 0) {
         updateInventoryItem(String(invItem.id), {
           quantity: (invItem.quantity || 0) + (invItem.packRatio || 24),
-          packStock: invItem.packStock - 1,
+          packStock: (invItem.packStock || 1) - 1,
         });
       }
     }
@@ -385,12 +401,27 @@ export default memo(function InputPenjualan({
   };
 
   const executeCheckout = async () => {
+    // Inject plastik bag as a cart item if enabled
+    const finalItems = plasticBagCharge > 0
+      ? [...cart, {
+          id: 'plastic-bag',
+          namaBarang: 'Kantong Plastik',
+          kategori: 'Lainnya',
+          subKategori: '',
+          hargaSatuan: plasticBagPrice,
+          hargaModal: 0,
+          qty: 1,
+          total: plasticBagPrice,
+          isWholesale: false,
+        }]
+      : cart;
+
     const orderData = {
       tanggal,
-      items: cart,
-      total: subTotal,
+      items: finalItems,
+      total: grandTotal,
       metode,
-      uangDiterima: metode === 'Tunai' ? received : subTotal,
+      uangDiterima: metode === 'Tunai' ? received : grandTotal,
       kembalian: metode === 'Tunai' ? kembalian : 0,
       catatan,
       kasir: kasirName,
@@ -419,6 +450,7 @@ export default memo(function InputPenjualan({
 
     // Reset cart & clear draft
     setCart([]);
+    setPlasticBagEnabled(false);
     try {
       localStorage.removeItem('cleartask_draft_cart');
     } catch {}
@@ -432,7 +464,7 @@ export default memo(function InputPenjualan({
       if (settings?.soundEnabled !== false) playErrorSound();
       return setFormError('Keranjang kosong');
     }
-    if (metode === 'Tunai' && received < subTotal) {
+    if (metode === 'Tunai' && received < grandTotal) {
       if (settings?.soundEnabled !== false) playErrorSound();
       return setFormError('Uang diterima kurang dari total');
     }
@@ -749,7 +781,7 @@ export default memo(function InputPenjualan({
               </svg>
               {cart.length} Item
             </span>
-            <span className="font-bold">Rp {subTotal.toLocaleString('id-ID')}</span>
+            <span className="font-bold">Rp {grandTotal.toLocaleString('id-ID')}</span>
           </Button>
         </div>
       )}
@@ -865,7 +897,7 @@ export default memo(function InputPenjualan({
                         type="button"
                         onClick={() => {
                           setForm({
-                            kategori: item.kategori || DEFAULT_KATEGORI,
+                            kategori: item.kategori || allCategories[0] || 'Makanan',
                             subKategori: item.subKategori || '',
                             namaBarang: item.namaBarang || '',
                             qty: '1',
@@ -1050,10 +1082,47 @@ export default memo(function InputPenjualan({
             </div>
 
             <div className="p-5 border-t border-border-default bg-bg-surface/50 space-y-4 rounded-b-2xl">
-              <div className="flex justify-between items-end mb-2 pb-3 border-b border-border-subtle">
+              {/* Sub Total row */}
+              <div className="flex justify-between items-end pb-2 border-b border-border-subtle">
                 <span className="text-sm font-semibold text-text-muted">Sub Total</span>
-                <span className="text-xl font-black text-primary">
+                <span className="text-base font-bold text-text-primary">
                   Rp {subTotal.toLocaleString('id-ID')}
+                </span>
+              </div>
+
+              {/* Plastik bag toggle — hanya tampil kalau fitur diaktifkan di Settings */}
+              {settings?.plasticBagEnabled !== false && (
+                <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-bg-elevated/60 border border-border-subtle">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🛍️</span>
+                    <span className="text-xs font-medium text-text-secondary">
+                      Kantong Plastik
+                    </span>
+                    <span className="text-[10px] text-text-muted">
+                      +Rp {plasticBagPrice.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={plasticBagEnabled}
+                    onClick={() => setPlasticBagEnabled((v) => !v)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${plasticBagEnabled ? 'bg-primary' : 'bg-white/10'}`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform ${plasticBagEnabled ? 'translate-x-4' : 'translate-x-0'}`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {/* Grand Total */}
+              <div className="flex justify-between items-end mb-2 pb-3 border-b border-border-subtle">
+                <span className="text-sm font-semibold text-text-muted">
+                  {plasticBagCharge > 0 ? 'Total (+ Plastik)' : 'Total'}
+                </span>
+                <span className="text-xl font-black text-primary">
+                  Rp {grandTotal.toLocaleString('id-ID')}
                 </span>
               </div>
 
@@ -1103,13 +1172,13 @@ export default memo(function InputPenjualan({
                     {received > 0 && (
                       <div
                         className={`p-4 rounded-2xl border text-center transition-all ${
-                          received >= subTotal
+                          received >= grandTotal
                             ? 'bg-primary/10 border-primary/40 text-primary'
                             : 'bg-red-500/10 border-red-500/30 text-red-400'
                         }`}
                       >
                         <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
-                          {received >= subTotal ? 'Uang Kembalian' : 'Uang Kurang'}
+                          {received >= grandTotal ? 'Uang Kembalian' : 'Uang Kurang'}
                         </p>
                         <p className="text-3xl sm:text-[40px] font-black leading-tight mt-1">
                           Rp {Math.abs(kembalian).toLocaleString('id-ID')}
@@ -1121,7 +1190,7 @@ export default memo(function InputPenjualan({
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setUangDiterima(subTotal.toString())}
+                        onClick={() => setUangDiterima(grandTotal.toString())}
                         className="flex-1 min-w-[60px] py-2 text-[11px] font-bold rounded-lg border border-green-500/30 text-green-400 bg-green-500/10 hover:bg-green-500/20 transition-all cursor-pointer"
                       >
                         Uang Pas
@@ -1203,7 +1272,7 @@ export default memo(function InputPenjualan({
             <div>
               <p className="text-xs text-text-muted mb-1">{settings?.tokoName || 'ClearTask Store'}</p>
               <p className="text-2xl font-extrabold text-primary">
-                Rp {subTotal.toLocaleString('id-ID')}
+                Rp {grandTotal.toLocaleString('id-ID')}
               </p>
             </div>
 

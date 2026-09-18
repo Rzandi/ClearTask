@@ -5,24 +5,10 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { toTitleCase } from './formatters';
+import type { Session, Transaction } from '../types/index';
 
-export interface Session {
-  id?: string;
-  kasirName?: string;
-  startTime?: string;
-  endTime?: string;
-  status?: string;
-  uangModal?: number;
-  [key: string]: any;
-}
-
-export interface Transaction {
-  id?: string | number;
-  total?: number;
-  kategori?: string;
-  metode?: string;
-  [key: string]: any;
-}
+// Re-export so existing imports from sessionStats.ts keep working
+export type { Session, Transaction } from '../types/index';
 
 export interface Breakdown {
   kategori?: string;
@@ -88,7 +74,7 @@ export function calculateSessionStats(
         kategoriMap.set(key, existing);
       });
     } else {
-      const rawCat = (tx.kategori || 'Lainnya').trim();
+      const rawCat = String(tx.kategori || 'Lainnya').trim();
       const key = rawCat.toLowerCase();
       const displayCat = toTitleCase(rawCat);
       const existing = kategoriMap.get(key) || {

@@ -40,7 +40,11 @@ export default function AppShell({
 
       {/* Main Content Area */}
       <main className="lg:ml-[260px] min-h-screen">
-        <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-24 lg:pb-8 max-w-[1400px]">
+        {/* pb-24 = clearance for BottomNav (64px) + safe-area for gesture bar */}
+        <div
+          className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 lg:pb-8 max-w-[1400px]"
+          style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           {/* Session Banner — shown above content when a session is active */}
           <SessionBanner session={activeSession} onClose={onCloseSession} onOpen={onOpenSession} />
           {children}

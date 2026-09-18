@@ -26,6 +26,8 @@ const defaultMockSettings = {
   strukFooter: '',
   qrisImageUrl: '',
   qrisNsm: '',
+  plasticBagEnabled: false,
+  plasticBagPrice: 500,
 };
 
 vi.mock('../contexts/SettingsContext', () => ({

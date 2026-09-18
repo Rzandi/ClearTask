@@ -10,7 +10,13 @@ export interface AppSettings {
   strukFooter: string;
   soundEnabled: boolean;
   hapticEnabled: boolean;
-  [key: string]: any;
+  qrisImageUrl?: string;
+  qrisNsm?: string;
+  /** Biaya kantong plastik: aktif/nonaktif */
+  plasticBagEnabled?: boolean;
+  /** Harga kantong plastik dalam Rupiah (default 500) */
+  plasticBagPrice?: number;
+  [key: string]: unknown;
 }
 
 export const defaultSettings: AppSettings = {
@@ -25,6 +31,8 @@ export const defaultSettings: AppSettings = {
   strukFooter: 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan',
   soundEnabled: true,
   hapticEnabled: true,
+  plasticBagEnabled: false,
+  plasticBagPrice: 500,
 };
 
 export const VALID_ACCENT_COLORS = ['#00f0ff', '#00ff88', '#ff3366', '#bc8cff', '#f0b429'];

@@ -53,8 +53,49 @@ if ('serviceWorker' in navigator) {
     try {
       const reg = await navigator.serviceWorker.register('/sw.js');
       console.log('[ClearTask] SW registered, scope:', reg.scope);
-    } catch (err: any) {
-      console.warn('[ClearTask] SW registration skipped:', err.message);
+
+      // ─── S3.5: Non-Intrusive SW Update Toast ────────────────
+      // Deteksi SW baru yang waiting — jangan auto-reload, beri pilihan ke user
+      const notifyUpdate = (worker: ServiceWorker) => {
+        // Dispatch custom event — React component (TopBar/AppBootstrap) bisa listen
+        window.dispatchEvent(
+          new CustomEvent('swUpdateAvailable', {
+            detail: {
+              apply: () => {
+                worker.postMessage({ type: 'SKIP_WAITING' });
+              },
+            },
+          })
+        );
+      };
+
+      // Kalau sudah ada SW waiting saat registrasi (e.g. tab dibuka ulang)
+      if (reg.waiting) {
+        notifyUpdate(reg.waiting);
+      }
+
+      // Kalau SW baru di-install setelah halaman sudah dibuka
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            notifyUpdate(newWorker);
+          }
+        });
+      });
+
+      // Reload halaman setelah SW baru take control (user sudah approve)
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[ClearTask] SW registration skipped:', msg);
     }
   });
 }

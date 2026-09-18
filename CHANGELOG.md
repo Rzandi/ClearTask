@@ -3,6 +3,42 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.5.1] - 2026-09-18
+
+Versi 3.5.1 menghadirkan pembaruan stabilitas dan audit komprehensif, mencakup **Pusat Bantuan & FAQ Interaktif Terpadu (Help & Shortcuts Hub)** dengan 7 bidang operasional, perbaikan konsistensi **Soft Delete Inventaris** (`deletedAt`), navigasi pintasan keyboard fisik (`F3` Database navigation), penertiban **Strict TypeScript Typings** (0 error di seluruh proyek), pembersihan artefak usang, serta peningkatan cakupan pengujian unit test dan validasi Service Worker.
+
+### 🎉 Added & Enhanced (Documentation, FAQ & Testing)
+
+- **Interactive FAQ & Shortcut Keys Knowledge Hub (`HelpModal.tsx`)**:
+  - Memperkaya modal bantuan dengan panduan komprehensif terbagi ke dalam 7 kategori operasional: _Dasar & Transaksi_, _Inventaris & Grosir_, _Laporan & Keuangan_, _Printer & Struk_, _Database & Backup_, _Shift & Kasir_, dan _Keamanan & Mode Offline_.
+  - Menambahkan tab khusus **Pintasan Keyboard (Shortcut Keys)** yang menampilkan seluruh pintasan tombol fisik secara visual dan terstruktur (Navigasi Halaman `F1`–`F5`, Operasional Transaksi `F8`, `Ctrl+Enter`, `Alt+O`, serta Modal Bantuan `?` dan `Esc`).
+  - Sentralisasi definisi pintasan keyboard di `src/constants/shortcuts.ts` untuk menjaga konsistensi antara modal petunjuk dan listener keyboard event.
+- **Suite Pengujian Komprehensif (Unit & Integration Tests)**:
+  - Menambahkan pengujian unit interaktif `src/__tests__/HelpModal.test.jsx` untuk memverifikasi navigasi tab bantuan, pencarian FAQ, dan visualisasi shortcut.
+  - Menambahkan pengujian cetak struk thermal `src/__tests__/TransactionTable-struk.test.jsx`.
+  - Menambahkan pengujian kalkulasi kantong plastik / biaya tambahan `src/__tests__/plasticBag.test.js`.
+  - Menambahkan pengujian soft delete inventaris `src/__tests__/useInventory.softdelete.test.js`.
+  - Total pengujian melewati **42 test files** (376 passing tests, 0 failures).
+
+### 🛠️ Fixed & Hardened (Integrity & Type Safety)
+
+- **Inventory Soft Delete Inconsistency (`useInventory.ts`)**:
+  - Memperbaiki fungsi `deleteInventoryItem` agar menerapkan **Soft Delete** (`deletedAt = Date.now()`) alih-alih hard delete, sehingga barang yang dihapus dapat dipulihkan melalui Trash Manager.
+  - Menambahkan filter `!item.deletedAt` pada seluruh query pemuatan inventaris (`getInventoryItems`, live query), mencegah produk terhapus muncul di tabel stok maupun dropdown kasir.
+- **F3 Shortcut Navigation Mismatch**:
+  - Memperbaiki handler navigasi tombol pintas `F3` pada `AppShell.tsx` dari rute usang `'inventaris'` ke rute `'database'` yang valid.
+- **Strict TypeScript Compliance (Zero Errors)**:
+  - Memperbaiki seluruh anomali tipe data di `ClosingReportModal.tsx`, `InputPenjualan.tsx`, `InventoryManager.tsx`, `TabDatabase.tsx`, `databaseManager.ts`, `sessionStats.ts`, dan `SettingsModal.tsx`.
+  - Penambahan tipe terpusat di `src/types/index.ts` dan utilitas pesan kesalahan di `src/utils/errorMessages.ts`.
+  - Memastikan `npx tsc --noEmit` berjalan **100% bersih tanpa error (0 errors)**.
+- **Dead Code Cleanup**:
+  - Mengarsipkan modul penyimpanan lokal lama `storageKeys.js` ke `src/archive/storageKeys.js`.
+- **Service Worker & Cache Buster Synchronization**:
+  - Memperbarui `CACHE_VERSION` di `public/sw.js` ke `v3.5.1`.
+  - Memperbarui versi cache-buster di `index.html` ke `v3.5.1` untuk memastikan browser client memuat aset terbaru secara mulus.
+
+---
+
 ## [3.5.0] - 2026-09-14
 
 Versi 3.5.0 menghadirkan perombakan spesifikasi & fitur khusus **Sektor Retail, Minimarket & Toko Kelontong** (Wholesale Tiered Pricing, Multi-UOM Auto Unpack Dus → Pcs, Purchase Requisition Restock Supplier), peningkatan **Quality of Life (QOL) & Mikro-Interaksi POS** (Quick Cash, Cash Change Breakdown, Pending Orders, Audio & Haptic Feedback, Inline Syntax Command Parser, Soft Delete & Trash Manager), serta ketahanan sistem tingkat tinggi (**Live Resiliency & Offline Edge Cases**).

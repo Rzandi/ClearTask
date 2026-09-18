@@ -15,6 +15,9 @@ import { useTransactions } from './hooks/useTransactions';
 import { useSession } from './hooks/useSession';
 import { useSettings } from './contexts/SettingsContext';
 import { syncMissingCategories, exportDatabase } from './services/databaseManager';
+import { getDexieErrorMessage } from './utils/errorMessages';
+import type { ToastItem, ClosingReportData } from './types/index';
+import { SHORTCUTS } from './constants/shortcuts';
 
 import { lazyWithRetry } from './utils/resiliencyGuards';
 
@@ -42,25 +45,33 @@ export default function App() {
     });
   }, []);
 
+  const VALID_TABS = ['input', 'keluaran', 'database', 'riwayat-sesi', 'trash', 'laporan'];
+
   const [activeTab, setActiveTab] = useState(() => {
-    return window.location.hash.replace('#', '') || 'input';
+    const hash = window.location.hash.replace('#', '');
+    // S5.4: Normalize invalid hash — kalau tidak valid, fallback ke 'input'
+    return VALID_TABS.includes(hash) ? hash : 'input';
   });
 
   // Handle browser back/forward buttons (PopState)
   useEffect(() => {
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '') || 'input';
-      setActiveTab(hash);
+      setActiveTab(VALID_TABS.includes(hash) ? hash : 'input');
     };
 
     window.addEventListener('popstate', handlePopState);
 
-    // Set initial state without adding to history stack if no hash exists
-    if (!window.location.hash) {
+    // S5.4: Always ensure URL hash is valid on mount
+    const currentHash = window.location.hash.replace('#', '');
+    if (!VALID_TABS.includes(currentHash)) {
+      window.history.replaceState(null, '', '#input');
+    } else if (!window.location.hash) {
       window.history.replaceState(null, '', '#input');
     }
 
     return () => window.removeEventListener('popstate', handlePopState);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleTabChange = useCallback((newTab: string) => {
@@ -80,40 +91,42 @@ export default function App() {
   // Subkategori F17 & F18: Global Keyboard Shortcuts & Kiosk/Outdoor mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)) {
-        if (
-          !['F1', 'F2', 'F3', 'F4', 'F8', 'Escape'].includes(e.key) &&
-          !(e.altKey && e.key.toLowerCase() === 'h') &&
-          !(e.key === '?' || (e.shiftKey && e.key === '/'))
-        ) {
-          return;
-        }
-      }
+      // Guard: e.key bisa undefined pada IME input atau beberapa synthetic events
+      if (!e.key) return;
 
-      if (e.key === 'F1' || (e.altKey && e.key.toLowerCase() === 'h')) {
+      const target = e.target as HTMLElement;
+      const inInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName);
+      // Allow F-keys and special combos even inside inputs
+      const isAllowed =
+        e.key.startsWith('F') ||
+        (e.altKey && e.key.toLowerCase() === SHORTCUTS.HELP_ALT.key) ||
+        e.key === SHORTCUTS.HELP_QUESTION.key ||
+        (e.shiftKey && e.key === '/');
+      if (inInput && !isAllowed) return;
+
+      if (e.key === SHORTCUTS.HELP.key || (e.altKey && e.key.toLowerCase() === SHORTCUTS.HELP_ALT.key)) {
         e.preventDefault();
         setShowHotkeyModal((prev) => !prev);
-      } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      } else if (e.key === SHORTCUTS.HELP_QUESTION.key || (e.shiftKey && e.key === '/')) {
         e.preventDefault();
         setShowHotkeyModal((prev) => !prev);
-      } else if (e.key === 'F2') {
+      } else if (e.key === SHORTCUTS.INPUT_TAB.key) {
         e.preventDefault();
         handleTabChange('input');
-      } else if (e.key === 'F3') {
+      } else if (e.key === SHORTCUTS.DATABASE_TAB.key) {
         e.preventDefault();
-        handleTabChange('inventaris');
-      } else if (e.key === 'F4') {
+        handleTabChange('database');
+      } else if (e.key === SHORTCUTS.REPORT_TAB.key) {
         e.preventDefault();
         handleTabChange('laporan');
-      } else if (e.key === 'F8') {
+      } else if (e.key === SHORTCUTS.FULLSCREEN.key) {
         e.preventDefault();
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => {});
         } else {
           document.exitFullscreen().catch(() => {});
         }
-      } else if (e.altKey && e.key.toLowerCase() === 'o') {
+      } else if (e.altKey && e.key.toLowerCase() === SHORTCUTS.OUTDOOR_MODE.key) {
         e.preventDefault();
         document.documentElement.classList.toggle('outdoor-high-contrast');
       }
@@ -122,14 +135,24 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleTabChange]);
-  const [toast, setToast] = useState<any>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const addToast = useCallback((message: string, type: ToastItem['type'] = 'success') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev.slice(-2), { id, message, type }]); // max 3 toasts
+  }, []);
+
+  const removeToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   // ── 18.2 Session state ──
   const [showClosingReport, setShowClosingReport] = useState(false);
-  const [closingReportData, setClosingReportData] = useState<any>(null);
+  const [closingReportData, setClosingReportData] = useState<ClosingReportData | null>(null);
 
   // ── Dialog state ──
   const [showPromptSession, setShowPromptSession] = useState(false);
@@ -159,20 +182,13 @@ export default function App() {
     async (data: any) => {
       try {
         const result = await addTransaction(data);
-        setToast({ message: 'Transaksi berhasil disimpan!', type: 'success' });
+        addToast('Transaksi berhasil disimpan!', 'success');
         return result;
-      } catch (err: any) {
-        const isQuota =
-          err.name === 'QuotaExceededError' ||
-          (err.message && err.message.includes('QuotaExceededError')) ||
-          (err.inner && err.inner.name === 'QuotaExceededError');
-        const errMsg = isQuota
-          ? 'Penyimpanan Penuh! Transaksi gagal disimpan ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
-          : err.message || 'Gagal menyimpan transaksi';
-        setToast({ message: errMsg, type: 'error' });
+      } catch (err: unknown) {
+        addToast(getDexieErrorMessage(err), 'error');
       }
     },
-    [addTransaction]
+    [addTransaction, addToast]
   );
 
   // ── 18.3 handleOpenSession ──
@@ -189,19 +205,12 @@ export default function App() {
 
       try {
         await openSession(sanitizedNama);
-        setToast({ message: 'Sesi berhasil dibuka!', type: 'success' });
-      } catch (err: any) {
-        const isQuota =
-          err.name === 'QuotaExceededError' ||
-          (err.message && err.message.includes('QuotaExceededError')) ||
-          (err.inner && err.inner.name === 'QuotaExceededError');
-        const errMsg = isQuota
-          ? 'Penyimpanan Penuh! Gagal membuka sesi ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
-          : err.message || 'Gagal membuka sesi';
-        setToast({ message: errMsg, type: 'error' });
+        addToast('Sesi berhasil dibuka!', 'success');
+      } catch (err: unknown) {
+        addToast(getDexieErrorMessage(err), 'error');
       }
     },
-    [openSession]
+    [openSession, addToast]
   );
 
   // ── 18.5 handleConfirmCloseSession ──
@@ -212,17 +221,10 @@ export default function App() {
       const sessionTxs = await getSessionTransactionsAsync(closedSession.id);
       setClosingReportData({ session: closedSession, transactions: sessionTxs });
       setShowClosingReport(true);
-    } catch (err: any) {
-      const isQuota =
-        err.name === 'QuotaExceededError' ||
-        (err.message && err.message.includes('QuotaExceededError')) ||
-        (err.inner && err.inner.name === 'QuotaExceededError');
-      const errMsg = isQuota
-        ? 'Penyimpanan Penuh! Gagal menutup sesi ke IndexedDB. Silakan hapus data lama atau lakukan ekspor backup.'
-        : err.message || 'Gagal menutup sesi';
-      setToast({ message: errMsg, type: 'error' });
+    } catch (err: unknown) {
+      addToast(getDexieErrorMessage(err), 'error');
     }
-  }, [closeSession, getSessionTransactionsAsync]);
+  }, [closeSession, getSessionTransactionsAsync, addToast]);
 
   // ── 18.4 handleCloseSessionRequest ──
   const handleCloseSessionRequest = useCallback(() => {
@@ -235,14 +237,14 @@ export default function App() {
     if (autoBackupOnClose) {
       try {
         await exportDatabase();
-        setToast({ message: 'Backup database otomatis berhasil!', type: 'success' });
-      } catch (err) {
-        setToast({ message: 'Gagal melakukan backup otomatis.', type: 'error' });
+        addToast('Backup database otomatis berhasil!', 'success');
+      } catch (err: unknown) {
+        addToast(getDexieErrorMessage(err), 'error');
       }
     }
 
     handleConfirmCloseSession();
-  }, [handleConfirmCloseSession, autoBackupOnClose]);
+  }, [handleConfirmCloseSession, autoBackupOnClose, addToast]);
 
   // ── 18.6 handleClosingReportClose ──
   const handleClosingReportClose = useCallback(() => {
@@ -316,10 +318,10 @@ export default function App() {
           )}
         </Suspense>
 
-        {/* Toast Notification */}
-        {toast && (
-          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-        )}
+        {/* Toast Notifications — queue, max 3 */}
+        {toasts.map((t) => (
+          <Toast key={t.id} message={t.message} type={t.type} onClose={() => removeToast(t.id)} />
+        ))}
       </AppShell>
 
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />

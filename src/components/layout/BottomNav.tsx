@@ -18,7 +18,12 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border-default">
-      <div className="flex items-center justify-around h-16 px-4 max-w-md mx-auto" role="tablist">
+      {/* Safe area padding for notch/home indicator devices */}
+      <div
+        className="flex items-center h-16 overflow-x-auto scrollbar-none"
+        role="tablist"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -28,15 +33,16 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               role="tab"
               aria-selected={isActive}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-6 rounded-2xl transition-all duration-200 cursor-pointer min-w-[80px] ${
+              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-2xl transition-all duration-200 cursor-pointer flex-shrink-0 ${
                 isActive
                   ? 'bg-primary/12 text-primary shadow-[inset_0_-3px_0_0_#00ffa3]'
                   : 'text-text-muted hover:text-text-secondary'
               }`}
+              style={{ minWidth: '20%', padding: '8px 0' }}
             >
               <tab.icon active={isActive} />
               <span
-                className={`text-[11px] ${isActive ? 'text-primary font-bold' : 'text-text-secondary font-medium'}`}
+                className={`text-[10px] leading-tight mt-0.5 ${isActive ? 'text-primary font-bold' : 'text-text-secondary font-medium'}`}
               >
                 {tab.label}
               </span>

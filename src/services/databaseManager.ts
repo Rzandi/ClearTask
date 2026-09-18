@@ -7,44 +7,18 @@ import db from './db';
 import { toLocalDateString } from '../utils/formatters';
 import { triggerDownload } from '../utils/downloadHelper';
 import { KATEGORI_DEFAULT, SUBKATEGORI_PRESET } from '../hooks/useCategories';
+import type {
+  Transaction,
+  Session,
+  InventoryItem,
+  Expense,
+  CategoriesRecord,
+  DatabaseExport,
+  MergeResult,
+} from '../types/index';
 
-export interface DatabaseExport {
-  version: string;
-  exportedAt: string;
-  transactions: any[];
-  sessions: any[];
-  categories: any;
-  inventory: any[];
-  expenses?: any[];
-  archive_transactions?: any[];
-  metadata: {
-    totalTransactions: number;
-    totalSessions: number;
-    totalInventory: number;
-    totalExpenses?: number;
-    totalArchiveTransactions?: number;
-    deviceInfo: string;
-  };
-}
-
-export interface MergeResult {
-  __isMergeResult: boolean;
-  newTransactions: number;
-  newSessions: number;
-  newCategories: number;
-  newInventory: number;
-  newExpenses: number;
-  newArchiveTransactions: number;
-  skipped: number;
-  orphanTransactions: number;
-  transactionsToAdd: any[];
-  sessionsToAdd: any[];
-  categoriesToAdd: string[];
-  inventoryToAdd: any[];
-  expensesToAdd: any[];
-  archiveTransactionsToAdd: any[];
-  categoriesRecordToPut?: any;
-}
+// Re-export so existing imports of DatabaseExport/MergeResult from this file keep working
+export type { DatabaseExport, MergeResult } from '../types/index';
 
 // ── Exported functions ────────────────────────────────────
 
@@ -108,7 +82,7 @@ export async function exportDatabase(): Promise<void> {
  */
 export function validateImport(jsonString: string): {
   valid: boolean;
-  data: any;
+  data: DatabaseExport | null;
   error: string | null;
 } {
   // 1. Parse JSON
@@ -667,9 +641,12 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
  * @param {object} data - Either a raw DatabaseExport OR a pre-calculated MergeResult
  *   (from calculateMerge). Pass the MergeResult directly to avoid re-reading the DB.
  */
-export async function applyMerge(data: any): Promise<{ success: boolean; error: string | null }> {
+export async function applyMerge(data: MergeResult | DatabaseExport): Promise<{ success: boolean; error: string | null }> {
   // Explicit flag is more reliable than duck-typing on transactionsToAdd
-  const mergeResult = data.__isMergeResult === true ? data : await calculateMerge(data);
+  const mergeResult: MergeResult =
+    '__isMergeResult' in data && data.__isMergeResult === true
+      ? data
+      : await calculateMerge(data as DatabaseExport);
   const {
     transactionsToAdd,
     sessionsToAdd,

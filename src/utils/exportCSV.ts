@@ -55,7 +55,7 @@ export async function exportSessionCSV(
     'Status',
   ];
 
-  const rows: string[][] = [];
+  const rows: (string | number)[][] = [];
   transactions.forEach((tx) => {
     if (tx.items && Array.isArray(tx.items)) {
       tx.items.forEach((item: any) => {
@@ -81,15 +81,15 @@ export async function exportSessionCSV(
         tx.tanggal ?? '',
         tx.createdAt ? formatTime(tx.createdAt) : '',
         tx.kasir ?? '',
-        tx.kategori ?? '',
-        tx.subKategori ?? '',
-        tx.namaBarang ?? '',
-        tx.qty ?? '',
-        tx.hargaSatuan ?? '',
-        tx.total ?? '',
-        tx.metode ?? '',
-        tx.catatan ?? '',
-        tx.status ?? '',
+        String(tx.kategori ?? ''),
+        String(tx.subKategori ?? ''),
+        String(tx.namaBarang ?? ''),
+        String(tx.qty ?? ''),
+        String(tx.hargaSatuan ?? ''),
+        String(tx.total ?? ''),
+        String(tx.metode ?? ''),
+        String(tx.catatan ?? ''),
+        String(tx.status ?? ''),
       ]);
     }
   });

@@ -367,3 +367,13 @@ input[type='number'] {
   font-size: 0.875rem;
   max-width: 360px;
 }
+
+/* ─── Scrollbar Hide Utility ──────────────────────────────── */
+/* Used by BottomNav to hide horizontal scrollbar on mobile */
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Samsung Browser */
+}

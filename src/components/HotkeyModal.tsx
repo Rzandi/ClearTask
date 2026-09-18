@@ -3,23 +3,12 @@
    Contextual Hotkey Sheet Overlay for power users (Trigger: ? or F1)
    ═══════════════════════════════════════════════════════════ */
 
+import { SHORTCUT_LIST_FOR_UI } from '../constants/shortcuts';
+
 export interface HotkeyModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-const SHORTCUT_LIST = [
-  { key: 'F1 / Alt+H', label: 'Buka Panduan & Shortcut Cheat-Sheet' },
-  { key: 'F2', label: 'Navigasi Langsung ke POS Kasir' },
-  { key: 'F3', label: 'Navigasi Langsung ke Master Barang (Inventaris)' },
-  { key: 'F4', label: 'Navigasi Langsung ke Riwayat Laporan' },
-  { key: 'F8', label: 'Toggle Fullscreen Kiosk Mode' },
-  { key: 'Alt+O', label: 'Toggle Outdoor High-Contrast Mode' },
-  { key: 'Ctrl + Enter', label: 'Selesaikan Transaksi & Checkout POS' },
-  { key: 'Ctrl + K / Cmd + K', label: 'Command Palette Universal' },
-  { key: '? / Shift + /', label: 'Tampilkan Overlay Hotkey Ini' },
-  { key: 'Esc', label: 'Tutup Modal / Batal Operasi' },
-];
 
 export default function HotkeyModal({ isOpen, onClose }: HotkeyModalProps) {
   if (!isOpen) return null;
@@ -52,14 +41,14 @@ export default function HotkeyModal({ isOpen, onClose }: HotkeyModalProps) {
         </div>
 
         <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
-          {SHORTCUT_LIST.map((sc) => (
+          {SHORTCUT_LIST_FOR_UI.map((sc) => (
             <div
-              key={sc.key}
+              key={sc.display}
               className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-border-subtle hover:border-border-default transition-all"
             >
               <span className="text-xs text-text-secondary font-medium">{sc.label}</span>
               <kbd className="px-2.5 py-1 text-[11px] font-mono font-bold text-primary bg-bg-elevated border border-border-default rounded-lg shadow-inner shrink-0">
-                {sc.key}
+                {sc.display}
               </kbd>
             </div>
           ))}

@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">ClearTask v3.5.0</h1>
+  <h1 align="center">ClearTask v3.5.1</h1>
   <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Sektor Retail, Minimarket & High-Resiliency POS.</strong></p>
 </p>
 
@@ -9,8 +9,11 @@
 
 ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk kasir, toko kelontong, minimarket, dan UMKM. Semua data tersimpan **100% lokal** di perangkat pengguna menggunakan IndexedDB — tidak ada server, tidak ada akun wajib, tidak ada biaya langganan, dan dapat bekerja secara penuh tanpa jaringan internet.
 
-### Fitur Utama ClearTask v3.5.0
+### Fitur Utama ClearTask v3.5.1
 
+- 📚 **Pusat Bantuan & FAQ Interaktif Terpadu (Help & Shortcuts Hub)**:
+  - **7 Kategori FAQ Operasional**: Panduan lengkap troubleshooting, alur kerja kasir, inventaris, laporan keuangan, printer thermal Bluetooth, database, hingga keamanan & offline mode.
+  - **Tab Pintasan Keyboard (Shortcut Keys)**: Tampilan visual interaktif daftar shortcut fisik (`F1` - `F5`, `F8`, `Ctrl+Enter`, `Alt+O`, `?`, `Esc`) untuk operasional kasir ultra-cepat tanpa mouse.
 - 🛍️ **Sektor Retail & Minimarket**:
   - **Harga Grosir (Tiered Pricing Engine)**: Skema diskon kuantitas bertingkat (_beli banyak lebih murah_) yang otomatis mendeteksi dan menerapkan harga grosir di keranjang POS.
   - **Multi-UOM Konversi Stok (Dus → Pcs Auto Unpack)**: Manajemen stok kemasan grosir (`packStock`, `packRatio`) dengan aksi 1-klik _⚡ Unpack Dus_ dan prompt cepat di POS saat stok eceran Pcs habis.
@@ -21,11 +24,11 @@ ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk 
   - **Pending Order**: Simpan keranjang belanja sementara ke slot tertunda dan pulihkan dengan 1 klik.
   - **Inline Syntax Command Parser**: Pengetikan cepat di POS (contoh: `Susu 2x @15000 !diskon10%`) yang otomatis terurai menjadi item keranjang.
   - **Audio & Haptic Feedback**: Efek suara _beep_ kasir (suara beda jika item tak terdaftar) & getaran mikro (`navigator.vibrate`) saat scan/penambahan item.
-  - **Soft Delete & Trash Manager**: Penghapusan data berfitur pemulihan (_Restore_) dari tab Tong Sampah dan pembersihan otomatis > 30 hari.
+  - **Soft Delete & Trash Manager**: Penghapusan transaksi dan master barang berbasis Soft Delete (`deletedAt`) terintegrasi penuh ke Tong Sampah dan pembersihan otomatis > 30 hari.
 - 🎨 **Visual Adaptability & Ergonomi Layout**:
   - **Dual-Pane 65:35 & Mobile Bottom Sheet**: Tata letak teroptimasi untuk jempol pada mode seluler & mata kasir pada layar tablet/desktop.
   - **Outdoor High-Contrast & OLED Dark Mode**: Mode visual luar ruangan (rasio kontras WCAG AAA > 7:1) & mode gelap murni `#09090B`.
-  - **Hotkey Sheet Overlay (`?` / `Shift+/`)**: Modal panduan visual shortcut keyboard fisik (`<kbd>F1</kbd>` - `<kbd>F4</kbd>`, `<kbd>F8</kbd>`, `<kbd>Alt+O</kbd>`, `<kbd>Ctrl+Enter</kbd>`).
+  - **Hotkey Sheet Overlay (`?` / `Shift+/`)**: Modal panduan visual shortcut keyboard fisik (`<kbd>F1</kbd>` - `<kbd>F5</kbd>`, `<kbd>F8</kbd>`, `<kbd>Alt+O</kbd>`, `<kbd>Ctrl+Enter</kbd>`).
   - **First-Time Kiosk Setup Wizard**: Modal onboarding 3 langkah (Profil Toko -> QRIS & Nota -> Tes Cetak).
 - 🛡️ **Live Resiliency & Offline Resilience**:
   - **Auto-Draft Cart Persistence**: Keranjang kasir tersimpan otomatis di `localStorage` (`cleartask_draft_cart`) & terpulihkan jika tab tertutup.
@@ -34,6 +37,9 @@ ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk 
   - **Storage Quota & Incognito Warning**: Peringatan otomatis jika sisa memori < 50MB atau aplikasi dibuka di mode Incognito browser.
   - **Clock Tampering & Monotonic Sequence**: Monotonic sequence guard untuk mencegah kekacauan urutan transaksi jika jam HP dimundurkan.
   - **Offline Collision-Free Device Prefix**: ID transaksi ber-prefix kasir (`TRX-${kasirSlug}-${seq}`) untuk mencegah tumbukan ID antar perangkat offline.
+- 🛠️ **Strict Typing & Robust Codebase**:
+  - 100% Type-Safe (`tsc --noEmit` 0 error) di seluruh komponen, hooks, utilities, dan modal.
+  - 42 test suites (376 unit & property tests) lulus 100%.
 
 ---
 
@@ -127,7 +133,7 @@ npm run test:coverage
 ## 📦 Bundling & Deployment
 
 ```bash
-# Build Production Bundle (sw v3.5.0)
+# Build Production Bundle (sw v3.5.1)
 npm run build
 
 # Preview Production Build

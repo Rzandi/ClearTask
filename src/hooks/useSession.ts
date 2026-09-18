@@ -7,19 +7,10 @@ import { useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { toLocalDateString } from '../utils/formatters';
 import db from '../services/db';
+import type { Session, Transaction } from '../types/index';
 
-import { type Transaction } from '../utils/sessionStats';
-
-export interface Session {
-  id: string;
-  nama: string;
-  tanggalMulai: string;
-  waktuMulai: string;
-  tanggalTutup: string | null;
-  waktuTutup: string | null;
-  status: 'aktif' | 'ditutup';
-  [key: string]: any;
-}
+// Re-export so existing imports from useSession.ts keep working
+export type { Session } from '../types/index';
 
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

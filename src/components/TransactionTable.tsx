@@ -8,6 +8,7 @@ import { formatRupiah, formatTime, formatQuantity } from '../utils/formatters';
 import EditTransactionModal from './EditTransactionModal';
 import ConfirmDialog from './ConfirmDialog';
 import EmptyState from './ui/EmptyState';
+import StrukModal from './StrukModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -32,6 +33,7 @@ const TransactionTable = memo(function TransactionTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
+  const [viewingStruk, setViewingStruk] = useState<any | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(transactions.length / ITEMS_PER_PAGE));
   const safeCurrentPage = totalPages > 0 && currentPage > totalPages ? totalPages : currentPage;
@@ -195,6 +197,31 @@ const TransactionTable = memo(function TransactionTable({
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <div className="flex items-center justify-center gap-2">
+                        {/* Tombol Lihat Struk */}
+                        <button
+                          type="button"
+                          aria-label={`Lihat struk transaksi ${tx.transactionId}`}
+                          onClick={() => setViewingStruk(tx)}
+                          className="w-11 h-11 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                          title="Lihat Struk"
+                        >
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <polyline points="10 9 9 9 8 9" />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           aria-label={`Edit transaksi ${tx.transactionId}`}
@@ -322,6 +349,14 @@ const TransactionTable = memo(function TransactionTable({
         }}
         onCancel={() => setDeletingTransactionId(null)}
       />
+
+      {/* Struk Preview Modal */}
+      {viewingStruk && (
+        <StrukModal
+          order={viewingStruk}
+          onClose={() => setViewingStruk(null)}
+        />
+      )}
     </div>
   );
 });

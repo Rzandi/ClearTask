@@ -52,6 +52,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [localStrukFooter, setLocalStrukFooter] = useState('');
   const [localQrisImageUrl, setLocalQrisImageUrl] = useState('');
   const [localQrisNsm, setLocalQrisNsm] = useState('');
+  const [localPlasticBagEnabled, setLocalPlasticBagEnabled] = useState(false);
+  const [localPlasticBagPrice, setLocalPlasticBagPrice] = useState('500');
   const [newCatInput, setNewCatInput] = useState('');
 
   async function handleAddCategory() {
@@ -103,6 +105,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setLocalStrukFooter(settings.strukFooter || '');
       setLocalQrisImageUrl(settings.qrisImageUrl || '');
       setLocalQrisNsm(settings.qrisNsm || '');
+      setLocalPlasticBagEnabled(settings.plasticBagEnabled ?? false);
+      setLocalPlasticBagPrice(String(settings.plasticBagPrice ?? 500));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -124,6 +128,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         strukFooter: localStrukFooter,
         qrisImageUrl: localQrisImageUrl,
         qrisNsm: localQrisNsm,
+        plasticBagEnabled: localPlasticBagEnabled,
+        plasticBagPrice: Math.max(0, parseInt(localPlasticBagPrice, 10) || 0),
       });
       onClose();
     } catch (err: any) {
@@ -373,6 +379,49 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Seksi Biaya Tambahan */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-text-primary border-b border-border-subtle pb-2">
+              🛍️ Biaya Tambahan
+            </h3>
+            <div className="flex items-center justify-between py-1 px-3 rounded-xl bg-bg-elevated/60 border border-border-subtle">
+              <div>
+                <p className="text-xs font-semibold text-text-primary">Kantong Plastik</p>
+                <p className="text-[11px] text-text-muted">
+                  Tampilkan opsi kantong plastik di keranjang kasir
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={localPlasticBagEnabled}
+                onClick={() => setLocalPlasticBagEnabled((v) => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${localPlasticBagEnabled ? 'bg-primary' : 'bg-white/10'}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform ${localPlasticBagEnabled ? 'translate-x-4' : 'translate-x-0'}`}
+                />
+              </button>
+            </div>
+            {localPlasticBagEnabled && (
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Harga Kantong Plastik (Rp)
+                </label>
+                <Input
+                  type="number"
+                  value={localPlasticBagPrice}
+                  onChange={(e) => setLocalPlasticBagPrice(e.target.value)}
+                  placeholder="500"
+                  className="py-2 text-sm"
+                />
+                <p className="mt-1 text-[10px] text-text-muted">
+                  Akan ditampilkan sebagai toggle opsional di checkout kasir.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Seksi Personalisasi Aplikasi */}

@@ -588,9 +588,9 @@ export default function InventoryManager() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="font-semibold text-primary">{formatRupiah(item.harga)}</div>
-                        {item.wholesaleMinQty > 0 && item.wholesalePrice > 0 && (
+                        {(item.wholesaleMinQty ?? 0) > 0 && (item.wholesalePrice ?? 0) > 0 && (
                           <div className="text-[10px] text-text-muted">
-                            <span className="text-warning font-semibold">Grosir:</span> ≥{item.wholesaleMinQty} {item.satuan} ({formatRupiah(item.wholesalePrice)})
+                            <span className="text-warning font-semibold">Grosir:</span> ≥{item.wholesaleMinQty} {item.satuan} ({formatRupiah(item.wholesalePrice ?? 0)})
                           </div>
                         )}
                       </td>
@@ -609,12 +609,12 @@ export default function InventoryManager() {
                             )}
                           </div>
                           {/* Multi-UOM Dus Stock & Unpack Action */}
-                          {(item.packStock > 0 || item.packUnit) && (
+                          {((item.packStock ?? 0) > 0 || item.packUnit) && (
                             <div className="flex items-center gap-1 text-[10px]">
                               <span className="text-text-muted font-medium">
                                 Stok {item.packUnit || 'Dus'}: <strong className="text-text-primary">{item.packStock || 0}</strong>
                               </span>
-                              {item.packStock > 0 && (
+                              {(item.packStock ?? 0) > 0 && (
                                 <button
                                   onClick={() => handleUnpackDus(item)}
                                   title={`Unpack 1 ${item.packUnit || 'Dus'} (+${item.packRatio || 24} ${item.satuan || 'Pcs'})`}

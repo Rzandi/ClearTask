@@ -20,6 +20,35 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
   const [qrisNsm, setQrisNsm] = useState(settings?.qrisNsm || '');
   const [qrisImageUrl, setQrisImageUrl] = useState(settings?.qrisImageUrl || '');
 
+  // S5.3 — Validasi input
+  const [tokoNameError, setTokoNameError] = useState('');
+  const [kasirNameError, setKasirNameError] = useState('');
+
+  const TOKO_MAX = 60;
+  const KASIR_MAX = 40;
+
+  function validateStep1(): boolean {
+    let valid = true;
+    const trimmed = tokoName.trim();
+    if (!trimmed) {
+      setTokoNameError('Nama toko wajib diisi.');
+      valid = false;
+    } else if (trimmed.length < 2) {
+      setTokoNameError('Nama toko minimal 2 karakter.');
+      valid = false;
+    } else {
+      setTokoNameError('');
+    }
+    const trimmedKasir = kasirName.trim();
+    if (!trimmedKasir) {
+      setKasirNameError('Nama kasir wajib diisi.');
+      valid = false;
+    } else {
+      setKasirNameError('');
+    }
+    return valid;
+  }
+
   if (!isOpen) return null;
 
   function handleComplete() {
@@ -76,24 +105,44 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
         {step === 1 && (
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1">Nama Toko / Usaha *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-text-secondary">Nama Toko / Usaha *</label>
+                <span className={`text-[10px] ${tokoName.length > TOKO_MAX - 10 ? 'text-warning' : 'text-text-muted'}`}>
+                  {tokoName.length}/{TOKO_MAX}
+                </span>
+              </div>
               <input
                 type="text"
                 value={tokoName}
-                onChange={(e) => setTokoName(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value.length <= TOKO_MAX) setTokoName(e.target.value);
+                  if (tokoNameError) setTokoNameError('');
+                }}
                 placeholder="Contoh: Toko Kelontong Berkah"
-                className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary outline-none"
+                maxLength={TOKO_MAX}
+                className={`w-full px-4 py-2.5 text-sm bg-bg-input border rounded-xl text-text-primary focus:border-primary outline-none ${tokoNameError ? 'border-error' : 'border-border-default'}`}
               />
+              {tokoNameError && <p className="mt-1 text-[11px] text-error">{tokoNameError}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1">Nama Kasir Utama</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-text-secondary">Nama Kasir Utama *</label>
+                <span className={`text-[10px] ${kasirName.length > KASIR_MAX - 10 ? 'text-warning' : 'text-text-muted'}`}>
+                  {kasirName.length}/{KASIR_MAX}
+                </span>
+              </div>
               <input
                 type="text"
                 value={kasirName}
-                onChange={(e) => setKasirName(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value.length <= KASIR_MAX) setKasirName(e.target.value);
+                  if (kasirNameError) setKasirNameError('');
+                }}
                 placeholder="Contoh: Budi"
-                className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary outline-none"
+                maxLength={KASIR_MAX}
+                className={`w-full px-4 py-2.5 text-sm bg-bg-input border rounded-xl text-text-primary focus:border-primary outline-none ${kasirNameError ? 'border-error' : 'border-border-default'}`}
               />
+              {kasirNameError && <p className="mt-1 text-[11px] text-error">{kasirNameError}</p>}
             </div>
             <div className="p-3 bg-white/[0.02] border border-border-subtle rounded-xl text-xs text-text-muted">
               💡 Mata uang aplikasi otomatis diset ke <strong className="text-text-primary">Rupiah (Rp)</strong> dalam mode Offline-First.
@@ -157,7 +206,10 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
           )}
           {step < 3 ? (
             <button
-              onClick={() => setStep((s) => s + 1)}
+              onClick={() => {
+                if (step === 1 && !validateStep1()) return;
+                setStep((s) => s + 1);
+              }}
               className="flex-1 py-2.5 px-4 text-xs font-semibold rounded-xl bg-primary text-text-inverse hover:bg-primary-hover transition-colors"
             >
               Lanjut Ke Langkah {step + 1} →
