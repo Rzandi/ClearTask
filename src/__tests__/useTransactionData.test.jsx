@@ -74,7 +74,7 @@ describe('useTransactionData Hook & Database Triggers', () => {
     expect(invItem.quantity).toBe(7); // 10 - 3 = 7
   });
 
-  it('4. Clamps stock reduction to 0 (no negative stock)', async () => {
+  it('4. Allows negative stock for accurate tracking (no silent clamp)', async () => {
     await db.inventory.add({
       id: 'item-2',
       namaBarang: 'Roti Bakar',
@@ -86,8 +86,9 @@ describe('useTransactionData Hook & Database Triggers', () => {
 
     const { result } = renderHookHelper();
 
+    let tx;
     await act(async () => {
-      await result.current.addTransaction({
+      tx = await result.current.addTransaction({
         items: [{ namaBarang: 'Roti Bakar', qty: 5, hargaSatuan: 20000, total: 100000 }],
         total: 100000,
         metode: 'Tunai',
@@ -96,9 +97,16 @@ describe('useTransactionData Hook & Database Triggers', () => {
       });
     });
 
+    // P0-FIX: Stock should be -3 (2 - 5), not clamped to 0
     const invItems = await db.inventory.toArray();
     const invItem = invItems.find((i) => i.namaBarang === 'Roti Bakar');
-    expect(invItem.quantity).toBe(0); // Clamped to 0
+    expect(invItem.quantity).toBe(-3);
+
+    // Should have stock warning attached
+    expect(tx.stockWarnings).toBeDefined();
+    expect(tx.stockWarnings.length).toBe(1);
+    expect(tx.stockWarnings[0]).toContain('Roti Bakar');
+    expect(tx.stockWarnings[0]).toContain('tidak cukup');
   });
 
   it('5. Auto-detects and registers a new product with stock = 0, modal = 0, and selling price from POS', async () => {
@@ -132,5 +140,67 @@ describe('useTransactionData Hook & Database Triggers', () => {
     expect(newProduct.harga).toBe(5000); // Selling price from POS
     expect(newProduct.kategori).toBe('Minuman');
     expect(newProduct.subKategori).toBe('Teh');
+  });
+
+  it('6. No stockWarnings when stock is sufficient', async () => {
+    await db.inventory.add({
+      id: 'item-3',
+      namaBarang: 'Air Mineral',
+      kategori: 'Minuman',
+      harga: 5000,
+      hargaModal: 2000,
+      quantity: 100,
+    });
+
+    const { result } = renderHookHelper();
+
+    let tx;
+    await act(async () => {
+      tx = await result.current.addTransaction({
+        items: [{ namaBarang: 'Air Mineral', qty: 5, hargaSatuan: 5000, total: 25000 }],
+        total: 25000,
+        metode: 'Tunai',
+        uangDiterima: 50000,
+        kembalian: 25000,
+      });
+    });
+
+    // Stock sufficient — no warnings
+    expect(tx.stockWarnings).toBeUndefined();
+
+    const invItems = await db.inventory.toArray();
+    const invItem = invItems.find((i) => i.namaBarang === 'Air Mineral');
+    expect(invItem.quantity).toBe(95); // 100 - 5 = 95
+  });
+
+  it('7. Multiple items of same product deduct correctly (Map accumulates)', async () => {
+    await db.inventory.add({
+      id: 'item-4',
+      namaBarang: 'Nasi Goreng',
+      kategori: 'Makanan',
+      harga: 15000,
+      hargaModal: 8000,
+      quantity: 10,
+    });
+
+    const { result } = renderHookHelper();
+
+    await act(async () => {
+      await result.current.addTransaction({
+        items: [
+          { namaBarang: 'Nasi Goreng', qty: 3, hargaSatuan: 15000, total: 45000 },
+          { namaBarang: 'Nasi Goreng', qty: 4, hargaSatuan: 15000, total: 60000 },
+        ],
+        total: 105000,
+        metode: 'Tunai',
+        uangDiterima: 110000,
+        kembalian: 5000,
+      });
+    });
+
+    // Should deduct both: 10 - 3 - 4 = 3
+    const invItems = await db.inventory.toArray();
+    const invItem = invItems.find((i) => i.namaBarang === 'Nasi Goreng');
+    expect(invItem.quantity).toBe(3);
   });
 });

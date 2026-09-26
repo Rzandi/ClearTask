@@ -20,6 +20,18 @@ export function lazyWithRetry<T extends ComponentType<any>>(
     try {
       return await componentImport();
     } catch (error: any) {
+      // P0-FIX: Only retry and reload on ChunkLoadError — prevents infinite reload on
+      // syntax errors, broken deployments, or other non-chunk failures
+      const isChunkError =
+        error?.name === 'ChunkLoadError' ||
+        error?.message?.includes('Loading chunk') ||
+        error?.message?.includes('Failed to fetch dynamically imported module') ||
+        error?.message?.includes('Importing a module script failed');
+
+      if (!isChunkError) {
+        throw error;
+      }
+
       if (retries > 0) {
         await new Promise((resolve) => setTimeout(resolve, interval));
         return lazyWithRetry(componentImport, retries - 1, interval * 1.5) as any;

@@ -4,7 +4,8 @@
    sebelum pengguna menyetujui penerapan merge.
    ═══════════════════════════════════════════════════════════ */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export interface MergePreviewModalProps {
   isOpen: boolean;
@@ -20,6 +21,12 @@ export default function MergePreviewModal({
   onCancel,
 }: MergePreviewModalProps) {
   const [merged, setMerged] = useState(false);
+
+  const handleBack = useCallback(() => {
+    onCancel();
+  }, [onCancel]);
+
+  useBackHandler(isOpen, handleBack);
 
   // Return null when modal is closed
   if (!isOpen) return null;

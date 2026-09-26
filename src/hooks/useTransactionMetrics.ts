@@ -27,16 +27,20 @@ export function useTransactionMetrics(): TransactionMetrics {
       .anyOf(todayStr, yesterdayStr)
       .toArray();
 
-    const todayTotal = relevantTxs
+    // P0-FIX: Exclude soft-deleted transactions from daily metrics
+    const activeTxs = relevantTxs.filter((tx: any) => !tx.deletedAt);
+
+    const todayTotal = activeTxs
       .filter((tx: any) => tx.tanggal === todayStr)
       .reduce((sum: number, tx: any) => sum + (tx.total || 0), 0);
 
-    const yesterdayTotal = relevantTxs
+    const yesterdayTotal = activeTxs
       .filter((tx: any) => tx.tanggal === yesterdayStr)
       .reduce((sum: number, tx: any) => sum + (tx.total || 0), 0);
 
-    // Check if there's any data before today
-    const historicalCount = await db.transactions.where('tanggal').below(todayStr).count();
+    // P0-FIX: Exclude soft-deleted transactions from historical count
+    const historicalTxs = await db.transactions.where('tanggal').below(todayStr).toArray();
+    const historicalCount = historicalTxs.filter((tx: any) => !tx.deletedAt).length;
 
     const hasHistoricalData = historicalCount > 0;
     const isFirstDay = !hasHistoricalData || todayTotal === 0;

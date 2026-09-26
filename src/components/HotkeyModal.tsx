@@ -3,7 +3,9 @@
    Contextual Hotkey Sheet Overlay for power users (Trigger: ? or F1)
    ═══════════════════════════════════════════════════════════ */
 
+import { useCallback } from 'react';
 import { SHORTCUT_LIST_FOR_UI } from '../constants/shortcuts';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export interface HotkeyModalProps {
   isOpen: boolean;
@@ -11,6 +13,12 @@ export interface HotkeyModalProps {
 }
 
 export default function HotkeyModal({ isOpen, onClose }: HotkeyModalProps) {
+  const handleBack = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  useBackHandler(isOpen, handleBack);
+
   if (!isOpen) return null;
 
   return (

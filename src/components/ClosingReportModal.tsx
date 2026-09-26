@@ -4,12 +4,13 @@
    Feature: session-management
    ═══════════════════════════════════════════════════════════ */
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { calculateSessionStats } from '../utils/sessionStats';
 import { exportSessionExcel } from '../utils/exportExcel';
 import { exportSessionCSV } from '../utils/exportCSV';
 import { formatRupiah, formatDate, formatTime, toTitleCase } from '../utils/formatters';
 import { useSettings } from '../contexts/SettingsContext';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 /**
  * ClosingReportModal displays session closing statistics and export options
@@ -33,6 +34,12 @@ export default function ClosingReportModal({
   onClose,
 }: ClosingReportModalProps) {
   const { settings } = useSettings();
+
+  const handleBack = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  useBackHandler(isOpen, handleBack);
 
   // 11.1 Render null jika isOpen adalah false
   if (!isOpen) return null;

@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">ClearTask v3.5.1</h1>
+  <h1 align="center">ClearTask v3.6.0</h1>
   <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Sektor Retail, Minimarket & High-Resiliency POS.</strong></p>
 </p>
 
@@ -9,7 +9,16 @@
 
 ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk kasir, toko kelontong, minimarket, dan UMKM. Semua data tersimpan **100% lokal** di perangkat pengguna menggunakan IndexedDB — tidak ada server, tidak ada akun wajib, tidak ada biaya langganan, dan dapat bekerja secara penuh tanpa jaringan internet.
 
-### Fitur Utama ClearTask v3.5.1
+### Fitur Utama ClearTask v3.6.0
+
+- 🛡️ **Data Integrity & Mobile Resilience Engine (v3.6.0)**:
+  - **Negative Stock & Warning Attachment**: Pelacakan stok akurat tanpa silent-clamping nol. Notifikasi `stockWarnings` disimpan di record transaksi saat terjadi oversell.
+  - **O(1) Inventory Lookup Optimization**: Optimasi checkout berkecepatan tinggi menggunakan map lookup, mengeliminasi full table array scanning.
+  - **Soft-Delete Metrics & Count Isolation**: Isolasi konsisten data terhapus (`deletedAt`) dari omset harian, tren penjualan, total count, dan transaksi terbaru.
+  - **Hardware Back Button Handler (Android PWA / TWA)**: Integrasi riwayat navigasi tombol Back fisik Android untuk menutup modal bertingkat tanpa keluar dari aplikasi.
+  - **Thermal Printer ESC/POS Character Sanitizer**: Sanitasi otomatis karakter unicode/smart-quotes WhatsApp ke code page single-byte (CP437/ASCII) mencegah karakter kotak pada kertas nota.
+  - **Multi-Device Canonical Merge Dedup**: Pencegahan duplikasi produk auto-detect saat menggabungkan database dari multi-perangkat offline.
+  - **Resiliency Guards Hardening**: Isolasi penanganan error dynamic chunk import (`lazyWithRetry`) guna mencegah loop reload tak terbatas.
 
 - 📚 **Pusat Bantuan & FAQ Interaktif Terpadu (Help & Shortcuts Hub)**:
   - **7 Kategori FAQ Operasional**: Panduan lengkap troubleshooting, alur kerja kasir, inventaris, laporan keuangan, printer thermal Bluetooth, database, hingga keamanan & offline mode.
@@ -133,7 +142,7 @@ npm run test:coverage
 ## 📦 Bundling & Deployment
 
 ```bash
-# Build Production Bundle (sw v3.5.1)
+# Build Production Bundle (sw v3.6.0)
 npm run build
 
 # Preview Production Build

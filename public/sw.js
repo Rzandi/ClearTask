@@ -3,7 +3,7 @@
    Cache-first for assets, Network-first for navigation
    ═══════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = 'v3.5.1';
+const CACHE_VERSION = 'v3.6.0';
 const STATIC_CACHE = `cleartask-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `cleartask-dynamic-${CACHE_VERSION}`;
 

@@ -34,10 +34,15 @@ export function useTransactions(): UseTransactionsResult {
   // Daily metrics derived independently
   const todayMetrics = useTransactionMetrics();
 
-  // Global counts and recents (always updated, lightweight)
-  const totalCount = useLiveQuery(() => db.transactions.count()) || 0;
+  // P0-FIX: Exclude soft-deleted transactions from global counts and recents
+  const totalCount = useLiveQuery(async () => {
+    return await db.transactions.filter((tx: any) => !tx.deletedAt).count();
+  }) || 0;
   const recentTransactions =
-    useLiveQuery(() => db.transactions.orderBy('createdAt').reverse().limit(5).toArray()) || [];
+    useLiveQuery(async () => {
+      const txs = await db.transactions.orderBy('createdAt').reverse().limit(20).toArray();
+      return txs.filter((tx: any) => !tx.deletedAt).slice(0, 5);
+    }) || [];
 
   return {
     isLoading,

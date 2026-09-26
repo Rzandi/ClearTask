@@ -543,6 +543,47 @@ describe('v2.0 additional tables merging & sync', () => {
     expect(storedCats[0].categories).toContain('Bumbu dapur');
     expect(storedCats[0].subCategories['Bumbu dapur']).toContain('Kecap');
   });
+
+  it('Edge Case #4: deduplikasi inventory berdasarkan nama produk kanonikal mencegah produk ganda', async () => {
+    // Existing item created by device A (UUID-A)
+    const existingProduct = {
+      id: 'uuid-device-a-123',
+      namaBarang: 'Indomie Goreng',
+      harga: 3500,
+      kategori: 'Makanan',
+      quantity: 10,
+    };
+    await setupDexie({
+      cleartask_inventory: [existingProduct],
+    });
+
+    // Incoming item auto-detected on device B with different UUID but same product name
+    const incomingProduct = {
+      id: 'uuid-device-b-999',
+      namaBarang: 'indomie goreng ', // different case + trailing space
+      harga: 3500,
+      kategori: 'Makanan',
+      quantity: 5,
+    };
+    const incomingDistinctProduct = {
+      id: 'uuid-device-b-888',
+      namaBarang: 'Teh Botol Sosro',
+      harga: 5000,
+      kategori: 'Minuman',
+      quantity: 12,
+    };
+
+    const importData = {
+      ...validExportData,
+      version: '2.0',
+      inventory: [incomingProduct, incomingDistinctProduct],
+    };
+
+    const merge = await calculateMerge(importData);
+    // Indomie Goreng should be deduplicated (skipped), only Teh Botol should be added
+    expect(merge.newInventory).toBe(1);
+    expect(merge.inventoryToAdd[0].namaBarang).toBe('Teh Botol Sosro');
+  });
 });
 
 // ═══════════════════════════════════════════════════════════

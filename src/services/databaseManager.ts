@@ -523,10 +523,21 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
 
   // Scan inventory
   const seenInventoryIds = new Set(existingInventoryIds);
+  const seenInventoryNames = new Set(
+    existingInventory
+      .filter((item: any) => item.namaBarang)
+      .map((item: any) => item.namaBarang.trim().toLowerCase())
+  );
   const inventoryToAdd = importInventory.filter((item: any) => {
     if (!item.id) return false;
     if (seenInventoryIds.has(item.id)) return false;
+
+    // Deduplicate by canonical product name (prevents duplicate entries when auto-detected across multiple offline devices)
+    const nameKey = (item.namaBarang || '').trim().toLowerCase();
+    if (nameKey && seenInventoryNames.has(nameKey)) return false;
+
     seenInventoryIds.add(item.id);
+    if (nameKey) seenInventoryNames.add(nameKey);
 
     if (item.kategori) {
       const cat = item.kategori.trim();

@@ -3,9 +3,10 @@
    Modal form untuk menambah & mengedit barang inventaris
    ═══════════════════════════════════════════════════════════ */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useCategories } from '../hooks/useCategories';
 import { formatRupiah } from '../utils/formatters';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 const SATUAN_OPTIONS = [
   'Pcs',
@@ -31,8 +32,13 @@ export default function InventoryModal({
   isOpen,
   onClose,
   onSave,
-  editItem = null,
+  editItem,
 }: InventoryModalProps) {
+  const handleBack = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  useBackHandler(isOpen, handleBack);
   const { allCategories, subCategoriesFor } = useCategories();
 
   const [form, setForm] = useState({

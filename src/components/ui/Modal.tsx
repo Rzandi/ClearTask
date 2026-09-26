@@ -3,9 +3,10 @@
    Reusable modal base with backdrop, animation, portal, and focus trap.
    ═══════════════════════════════════════════════════════════ */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../../utils/cn';
+import { useBackHandler } from '../../hooks/useBackHandler';
 
 // Selectors for all focusable elements inside a container
 const FOCUSABLE = [
@@ -48,6 +49,12 @@ export default function Modal({
   className,
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+
+  const handleBack = useCallback(() => {
+    onClose?.();
+  }, [onClose]);
+
+  useBackHandler(isOpen, handleBack);
 
   // Close on Escape key + Focus Trap
   useEffect(() => {

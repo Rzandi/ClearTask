@@ -3,7 +3,8 @@
    Modal prompt untuk memasukkan teks (pengganti window.prompt)
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export interface PromptDialogProps {
   isOpen: boolean;
@@ -30,6 +31,12 @@ const PromptDialog = memo(function PromptDialog({
 }: PromptDialogProps) {
   const [value, setValue] = useState(defaultValue);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleBack = useCallback(() => {
+    onCancel();
+  }, [onCancel]);
+
+  useBackHandler(isOpen, handleBack);
 
   // Focus input on open and reset value
   useEffect(() => {

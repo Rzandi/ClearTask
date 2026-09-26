@@ -3,8 +3,9 @@
    3-Step Onboarding Stepper Wizard for First-Time Store Setup
    ═══════════════════════════════════════════════════════════ */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export interface SetupWizardModalProps {
   isOpen: boolean;
@@ -14,6 +15,16 @@ export interface SetupWizardModalProps {
 export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalProps) {
   const { settings, saveSettings } = useSettings();
   const [step, setStep] = useState(1);
+
+  const handleBack = useCallback(() => {
+    if (step > 1) {
+      setStep((prev) => prev - 1);
+    } else {
+      onClose();
+    }
+  }, [step, onClose]);
+
+  useBackHandler(isOpen, handleBack);
 
   const [tokoName, setTokoName] = useState(settings?.tokoName || 'Toko Saya');
   const [kasirName, setKasirName] = useState(settings?.kasirName || 'Kasir 1');

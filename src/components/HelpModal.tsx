@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { SHORTCUT_LIST_FOR_UI } from '../constants/shortcuts';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export interface HelpModalProps {
   isOpen: boolean;
@@ -8,6 +9,12 @@ export interface HelpModalProps {
 
 export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
   const [activeTab, setActiveTab] = useState<'panduan' | 'shortcuts'>('panduan');
+
+  const handleBack = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  useBackHandler(isOpen, handleBack);
 
   if (!isOpen) return null;
 

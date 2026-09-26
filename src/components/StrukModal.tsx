@@ -3,11 +3,12 @@
    Thermal printer style receipt modal for checkout.
    ═══════════════════════════════════════════════════════════ */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Button from './ui/Button';
 import { printBluetoothReceipt } from '../utils/bluetoothPrinterHelper';
 import { useSettings } from '../contexts/SettingsContext';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export interface StrukModalProps {
   order: any;
@@ -18,6 +19,12 @@ export default function StrukModal({ order, onClose }: StrukModalProps) {
   const { settings } = useSettings();
   const [btStatus, setBtStatus] = useState<string>('');
   const [isBtPrinting, setIsBtPrinting] = useState<boolean>(false);
+
+  const handleBack = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  useBackHandler(Boolean(order), handleBack);
 
   // Prevent background scroll
   useEffect(() => {

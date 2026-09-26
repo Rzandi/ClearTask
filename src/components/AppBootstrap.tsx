@@ -190,7 +190,7 @@ export default function AppBootstrap({ children }: { children: React.ReactNode }
       )}
       {incognitoWarning && (
         <div className="bg-amber-500/20 border-b border-amber-500/40 text-amber-300 px-4 py-2 text-xs font-semibold text-center flex items-center justify-center gap-2 relative z-[1000]">
-          <span>🕵️ Mode Penyamaran (Incognito) Terdeteksi: Data transaksi IndexedDB dapat terhapus otomatis saat browser ditutup.</span>
+          <span>🕵️ Kuota Storage Terbatas / Mode Privat Aktif: Browser mungkin menghapus data IndexedDB otomatis saat browser ditutup. Disarankan export backup berkala.</span>
           <button
             onClick={() => setIncognitoWarning(false)}
             className="px-2 py-0.5 bg-amber-500/30 hover:bg-amber-500/40 text-amber-200 rounded text-[11px]"

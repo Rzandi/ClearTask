@@ -27,18 +27,28 @@ export function useTransactionData(
 
   // DB-level filtering to prevent Full Table Scan
   const rawTransactions = useLiveQuery(async () => {
-    let collection: any = db.transactions.orderBy('createdAt').reverse().limit(1000);
+    let txs: Transaction[];
+
     if (filterDate) {
+      let collection: any;
       if (typeof filterDate === 'object' && filterDate.start && filterDate.end) {
         collection = db.transactions
           .where('tanggal')
           .between(filterDate.start, filterDate.end, true, true);
       } else if (typeof filterDate === 'string') {
         collection = db.transactions.where('tanggal').equals(filterDate);
+      } else {
+        collection = db.transactions.orderBy('createdAt').reverse();
       }
+      txs = await collection.toArray();
+    } else if (searchQuery && searchQuery.trim()) {
+      // P0-FIX (bug_brutal #6): When searching globally without date filter,
+      // query all transactions so older records (>1000) can still be found
+      txs = await db.transactions.orderBy('createdAt').reverse().toArray();
+    } else {
+      // Default view without date or search: limit to 1000 most recent for performance
+      txs = await db.transactions.orderBy('createdAt').reverse().limit(1000).toArray();
     }
-
-    let txs: Transaction[] = await collection.toArray();
 
     // QOL C: Filter out soft-deleted items
     txs = txs.filter((tx) => !tx.deletedAt);
@@ -84,24 +94,43 @@ export function useTransactionData(
       const seq = metaSeq ? metaSeq.value + 1 : 1;
       await db.meta.put({ ...(metaSeq || {}), key: 'seq', value: seq });
 
-      // Deduct stock and auto-detect new products
+      // P0-FIX: Build inventory lookup Map for O(1) access (was O(items × inventory))
       const invItems = await db.inventory.toArray();
+      const invMap = new Map<string, (typeof invItems)[0]>();
+      for (const inv of invItems) {
+        const key = (inv.namaBarang || '').trim().toLowerCase();
+        if (key) invMap.set(key, inv);
+      }
+
+      // Deduct stock and auto-detect new products
+      const stockWarnings: string[] = [];
 
       for (const item of orderData.items) {
         if (!item.namaBarang || !item.namaBarang.trim()) continue;
 
         const itemName = item.namaBarang.trim().toLowerCase();
-        const match = invItems.find(
-          (inv) => (inv.namaBarang || '').trim().toLowerCase() === itemName
-        );
+        const match = invMap.get(itemName);
 
         if (match) {
-          const newQty = Math.max(0, (match.quantity || 0) - (item.qty || 1));
+          // P0-FIX: Allow negative stock for accurate data tracking
+          // Previously Math.max(0, ...) silently clamped — hiding oversell
+          const currentStock = match.quantity || 0;
+          const deductQty = item.qty || 1;
+          const newQty = currentStock - deductQty;
+
+          if (newQty < 0) {
+            stockWarnings.push(
+              `Stok "${match.namaBarang}" tidak cukup (sisa: ${currentStock}, dibutuhkan: ${deductQty}). Stok menjadi ${newQty}.`
+            );
+          }
+
           await db.inventory.update(match.id, {
             quantity: newQty,
             updatedAt: new Date().toISOString(),
             updatedBy: currentUser,
           });
+          // Update map reference for subsequent items of same product in cart
+          match.quantity = newQty;
         } else {
           // Auto-detect new product: register with default Stock = 0, Modal = 0
           const newProduct = {
@@ -168,6 +197,8 @@ export function useTransactionData(
         updatedAt: safeIsoTime,
         syncStatus: 'local',
         status: 'Selesai',
+        // P0-FIX: Attach stock warnings so UI can display insufficient stock info
+        ...(stockWarnings.length > 0 ? { stockWarnings } : {}),
       };
 
       await db.transactions.add(newTx);
@@ -179,13 +210,15 @@ export function useTransactionData(
   // ── Update Transaction ──
   const updateTransaction = useCallback(
     async (id: string | number, data: any) => {
+      const numId = Number(id);
+      if (isNaN(numId)) return null;
+
       const changes = {
         ...data,
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser,
       };
 
-      const numId = Number(id);
       const updatedRows = await db.transactions.update(numId, changes);
       if (updatedRows === 0) return null;
 
@@ -196,7 +229,10 @@ export function useTransactionData(
 
   // ── Delete Transaction (Soft Delete — QOL C) ──
   const deleteTransaction = useCallback(async (id: string | number) => {
-    await db.transactions.update(Number(id), {
+    const numId = Number(id);
+    if (isNaN(numId)) return;
+
+    await db.transactions.update(numId, {
       deletedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -205,6 +241,8 @@ export function useTransactionData(
   // ── Restore Soft-Deleted Transaction ──
   const restoreTransaction = useCallback(async (id: string | number) => {
     const numId = Number(id);
+    if (isNaN(numId)) return;
+
     const record = await db.transactions.get(numId);
     if (!record) return;
     // Remove deletedAt field entirely

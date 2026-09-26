@@ -3,6 +3,43 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.6.0] - 2026-09-26
+
+Versi 3.6.0 berfokus pada **Data Integrity Hardening, Mobile Ergonomics & Offline Edge Cases Resiliency** berdasarkan audit mendalam terhadap sistem transaksi dan persistensi lokal. Pembaruan ini mencakup pelacakan stok minus tanpa silent-clamp, O(1) inventory lookup map saat checkout, isolasi penuh data soft-delete dari metrik keuangan, penanganan hardware back button di Android PWA, sanitasi karakter printer thermal ESC/POS, deduplikasi kanonikal saat merge database offline, serta perlindungan chunk reload.
+
+### 🛡️ Fixed & Hardened (Data Integrity & Edge Cases)
+
+- **Negative Stock & Stock Warnings (`useTransactionData.ts`)**:
+  - Menghapus silent-clamping `Math.max(0, ...)` yang sebelumnya menyamarkan oversell menjadi stok 0.
+  - Stok kini tercatat akurat (bisa negatif) dan sistem menyematkan array peringatan `stockWarnings` ke dalam record transaksi untuk transparansi riwayat kasir.
+- **O(1) Inventory Lookup Map Optimization (`useTransactionData.ts`)**:
+  - Mengganti pencarian linier `invItems.find()` yang berulang-ulang O(items × inventory) menjadi struktur data `Map` berbasis nama produk terkanonisasi, mempercepat eksekusi checkout POS secara signifikan.
+- **Soft-Delete Data Isolation (`useTransactions.ts` & `useTransactionMetrics.ts`)**:
+  - Menambahkan filter `!tx.deletedAt` pada `totalCount`, `recentTransactions`, dan kalkulasi omset harian/tren penjualan `todayMetrics`, memastikan transaksi di tong sampah tidak mengotori laporan operasional aktif.
+- **Global Search (>1000 Transaksi) Fix (`useTransactionData.ts`)**:
+  - Memperbaiki batasan query pencarian yang sebelumnya memotong 1000 record teratas sebelum memfilter teks. Pencarian global tanpa filter tanggal kini memindai seluruh transaksi aktif sehingga transaksi lama (>1000) tetap dapat ditemukan.
+- **Numeric ID & NaN Guard (`useTransactionData.ts`)**:
+  - Menambahkan validasi `if (isNaN(numId))` pada `updateTransaction`, `deleteTransaction`, dan `restoreTransaction` untuk mencegah error fatal `DataError` di Dexie/IndexedDB saat menerima input ID tidak valid.
+- **Lazy Chunk Retry Protection (`resiliencyGuards.ts`)**:
+  - Memperketat penanganan error pada `lazyWithRetry()` agar hanya melakukan retry dan reload otomatis untuk kegagalan spesifik `ChunkLoadError`. Error runtime atau syntax kini langsung di-throw tanpa memicu reload loop halaman tanpa henti.
+- **Thermal Printer ESC/POS Character Sanitizer (`bluetoothPrinterHelper.ts`)**:
+  - Mengonversi karakter unicode dan tanda petik miring (smart-quotes) menjadi karakter ASCII/CP437 aman sebelum dikirim ke printer thermal 58mm, mencegah cetakan karakter kotak atau tanda tanya acak.
+- **Multi-Device Canonical Inventory Merge (`databaseManager.ts`)**:
+  - Menambahkan set `seenInventoryNames` pada fungsi `calculateMerge()` untuk mencegah duplikasi produk berulang saat menggabungkan database dari multi-perangkat kasir yang sama-sama menjalankan auto-detect produk baru secara offline.
+- **Storage Warning Copy Refinement (`AppBootstrap.tsx`)**:
+  - Menyesuaikan banner peringatan mode privat/kuota penyimpanan agar tidak mengklaim false-positive deteksi incognito, melainkan mengedukasi keterbatasan kuota browser dan anjuran backup berkala.
+
+### 📱 Added (Mobile Experience & Testing)
+
+- **Hardware Back Button Navigation (`useBackHandler.ts` & `backNavigation.ts`)**:
+  - Manajemen tumpukan (stack) navigasi tombol Back fisik/gesture Android (PWA / TWA). Menutup modal teratas (Closing Report, Struk, Edit, Bantuan, dll.) secara berurutan alih-alih langsung menutup aplikasi kasir.
+- **Mobile Cart & Pending Orders Persistence**:
+  - Menambahkan pengujian integrasi `InputPenjualan.mobileCart.test.jsx` untuk memastikan pesanan tertunda (`cleartask_pending_orders`) dan keranjang aktif selalu bertahan saat browser reload atau restart perangkat.
+- **Comprehensive Regression Tests**:
+  - Menambahkan suite pengujian unit dan properti baru: `useTransactions.softdelete.test.jsx`, `resiliencyGuards.test.js`, dan memperbarui `useTransactionData.test.jsx`. Total 48 test suites lolos hijau dengan 0 kegagalan.
+
+---
+
 ## [3.5.1] - 2026-09-18
 
 Versi 3.5.1 menghadirkan pembaruan stabilitas dan audit komprehensif, mencakup **Pusat Bantuan & FAQ Interaktif Terpadu (Help & Shortcuts Hub)** dengan 7 bidang operasional, perbaikan konsistensi **Soft Delete Inventaris** (`deletedAt`), navigasi pintasan keyboard fisik (`F3` Database navigation), penertiban **Strict TypeScript Typings** (0 error di seluruh proyek), pembersihan artefak usang, serta peningkatan cakupan pengujian unit test dan validasi Service Worker.

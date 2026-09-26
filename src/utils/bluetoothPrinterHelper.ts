@@ -56,10 +56,51 @@ function formatNumber(num: number): string {
 }
 
 /**
+ * Map unicode/smart punctuation into safe ASCII/CP437 characters
+ * to avoid garbled/box symbols on 58mm thermal printers.
+ */
+export function sanitizeThermalText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[•·]/g, '*')
+    .replace(/[«»]/g, '"')
+    .replace(/[×✕]/g, 'x')
+    .replace(/[™®©]/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+}
+
+/**
+ * Encode string into single-byte CP437/ASCII byte array.
+ * Characters outside standard ASCII/CP437 are safely encoded without multi-byte UTF-8 corruption.
+ */
+export function encodeCp437(text: string): number[] {
+  const sanitized = sanitizeThermalText(text);
+  const bytes: number[] = [];
+  for (let i = 0; i < sanitized.length; i++) {
+    const code = sanitized.charCodeAt(i);
+    if (code === 0x0a) {
+      bytes.push(0x0a); // LF
+    } else if (code >= 0x20 && code <= 0x7e) {
+      bytes.push(code); // Standard printable ASCII
+    } else if (code === 0x09) {
+      bytes.push(0x20, 0x20); // Tab to spaces
+    } else {
+      // Fallback for unprintable or extended characters
+      bytes.push(0x3f); // '?'
+    }
+  }
+  return bytes;
+}
+
+/**
  * Generate ESC/POS commands for the transaction
  */
 export function generateEscPosBytes(order: ReceiptOrder, settings?: AppSettings): Uint8Array {
-  const encoder = new TextEncoder();
   const bytesList: number[] = [];
 
   // ESC/POS Command Constants
@@ -69,10 +110,13 @@ export function generateEscPosBytes(order: ReceiptOrder, settings?: AppSettings)
   // 1. Initialize printer: ESC @
   bytesList.push(ESC, 0x40);
 
+  // 2. Select Character Code Table: ESC t 0 (CP437 / PC437 USA)
+  bytesList.push(ESC, 0x74, 0x00);
+
   // Helper to add text + new line
   const addLine = (text: string) => {
-    const encoded = encoder.encode(text + '\n');
-    bytesList.push(...Array.from(encoded));
+    const encoded = encodeCp437(text + '\n');
+    bytesList.push(...encoded);
   };
 
   // Helper to add raw command bytes
@@ -181,17 +225,39 @@ export async function printBluetoothReceipt(
   try {
     onStatusChange('Mencari printer bluetooth...');
 
-    // Request any bluetooth device.
-    // Standard custom printer service UUIDs are included.
-    const device = await nav.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: [
-        '000018f0-0000-1000-8000-00805f9b34fb', // standard printer service
-        '0000e7e1-0000-1000-8000-00805f9b34fb', // alternative raw bluetooth print
-        '49535343-fe7d-4158-b696-be7fae940248', // microchip ISSC SPP
-        '00001101-0000-1000-8000-00805f9b34fb', // Serial Port Profile (SPP)
-      ],
-    });
+    const optionalServices = [
+      '000018f0-0000-1000-8000-00805f9b34fb', // standard printer service
+      '0000e7e1-0000-1000-8000-00805f9b34fb', // alternative raw bluetooth print
+      '49535343-fe7d-4158-b696-be7fae940248', // microchip ISSC SPP
+      '00001101-0000-1000-8000-00805f9b34fb', // Serial Port Profile (SPP)
+    ];
+
+    // Request targeted printer device with fallback to acceptAllDevices
+    let device: any = null;
+    try {
+      device = await nav.bluetooth.requestDevice({
+        filters: [
+          { namePrefix: 'MPT' },
+          { namePrefix: 'RP' },
+          { namePrefix: 'POS' },
+          { namePrefix: 'Printer' },
+          { namePrefix: 'Thermal' },
+          { namePrefix: 'BT' },
+          { namePrefix: 'MTP' },
+          { namePrefix: 'XP-' },
+          { namePrefix: 'HOIN' },
+        ],
+        optionalServices,
+      });
+    } catch (filterError: any) {
+      if (filterError.name === 'NotFoundError' || filterError.message?.includes('cancelled')) {
+        throw filterError;
+      }
+      device = await nav.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices,
+      });
+    }
 
     onStatusChange(`Menghubungkan ke ${device.name || 'Printer'}...`);
 
