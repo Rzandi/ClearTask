@@ -1,14 +1,17 @@
 /* ═══════════════════════════════════════════════════════════
    TrashManager.tsx — ClearTask Soft Delete Trash Manager
-   QOL C: View soft-deleted items, restore, or permanently
-   purge. Auto-purges items older than 30 days on mount.
+   W0-04: View soft-deleted items, restore, or permanently
+   purge with confirmation. Never auto-purges without user confirmation.
+   Protects inventory items referenced in transactions from permanent purge.
+   W0-14: Uses deletedAt index instead of full table scan.
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useCallback, useMemo, memo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../services/db';
 import Button from './ui/Button';
 import EmptyState from './ui/EmptyState';
+import ConfirmDialog from './ConfirmDialog';
 
 const PURGE_DAYS = 30;
 
@@ -18,63 +21,93 @@ interface TrashManagerProps {
 
 export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   const [feedback, setFeedback] = useState('');
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
-  // Live query: all soft-deleted transactions
+  // W0-14: Query using deletedAt index to avoid full table scan
   const deletedTransactions =
     useLiveQuery(async () => {
-      const all = await db.transactions.toArray();
-      return all
-        .filter((tx: any) => !!tx.deletedAt)
-        .sort(
-          (a: any, b: any) =>
-            new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime()
-        );
+      const records = await db.transactions.where('deletedAt').above('').toArray();
+      return records.sort(
+        (a: any, b: any) =>
+          new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime()
+      );
     }) || [];
 
-  // Live query: all soft-deleted inventory items
   const deletedInventory =
     useLiveQuery(async () => {
-      const all = await db.inventory.toArray();
-      return all
-        .filter((item: any) => !!item.deletedAt)
-        .sort(
-          (a: any, b: any) =>
-            new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime()
-        );
+      const records = await db.inventory.where('deletedAt').above('').toArray();
+      return records.sort(
+        (a: any, b: any) =>
+          new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime()
+      );
     }) || [];
 
-  // Auto-purge items older than 30 days on mount
-  useEffect(() => {
-    const purge = async () => {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - PURGE_DAYS);
-      const cutoffISO = cutoff.toISOString();
+  // Cutoff timestamp for > 30 days
+  const cutoffISO = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - PURGE_DAYS);
+    return cutoff.toISOString();
+  }, []);
 
-      // Purge old transactions
-      const allTx = await db.transactions.toArray();
-      const oldTxIds = allTx
-        .filter((tx: any) => tx.deletedAt && tx.deletedAt < cutoffISO)
-        .map((tx: any) => tx.id);
-      if (oldTxIds.length > 0) {
-        await db.transactions.bulkDelete(oldTxIds);
-      }
+  const expiredTransactions = useMemo(
+    () => deletedTransactions.filter((tx: any) => tx.deletedAt && tx.deletedAt < cutoffISO),
+    [deletedTransactions, cutoffISO]
+  );
 
-      // Purge old inventory
-      const allInv = await db.inventory.toArray();
-      const oldInvIds = allInv
-        .filter((item: any) => item.deletedAt && item.deletedAt < cutoffISO)
-        .map((item: any) => item.id);
-      if (oldInvIds.length > 0) {
-        await db.inventory.bulkDelete(oldInvIds);
-      }
+  const expiredInventory = useMemo(
+    () => deletedInventory.filter((item: any) => item.deletedAt && item.deletedAt < cutoffISO),
+    [deletedInventory, cutoffISO]
+  );
 
-      const purgedCount = oldTxIds.length + oldInvIds.length;
-      if (purgedCount > 0) {
-        setFeedback(`🗑️ ${purgedCount} item lama (>30 hari) telah dihapus permanen.`);
-        setTimeout(() => setFeedback(''), 5000);
-      }
-    };
-    purge().catch(console.error);
+  const expiredCount = expiredTransactions.length + expiredInventory.length;
+  const totalDeleted = deletedTransactions.length + deletedInventory.length;
+
+  /**
+   * Helper: check if an inventory item is referenced by any transaction (active or archived)
+   */
+  const isItemReferencedInTransactions = useCallback(async (invItem: any): Promise<boolean> => {
+    const itemName = (invItem.namaBarang || '').trim().toLowerCase();
+    const itemId = String(invItem.id);
+
+    const foundInActive = await db.transactions
+      .filter((tx: any) => {
+        if (!tx.items || !Array.isArray(tx.items)) return false;
+        return tx.items.some(
+          (it: any) =>
+            (it.inventoryId && String(it.inventoryId) === itemId) ||
+            (it.namaBarang && it.namaBarang.trim().toLowerCase() === itemName)
+        );
+      })
+      .first();
+
+    if (foundInActive) return true;
+
+    if (db.archive_transactions) {
+      const foundInArchive = await db.archive_transactions
+        .filter((tx: any) => {
+          if (!tx.items || !Array.isArray(tx.items)) return false;
+          return tx.items.some(
+            (it: any) =>
+              (it.inventoryId && String(it.inventoryId) === itemId) ||
+              (it.namaBarang && it.namaBarang.trim().toLowerCase() === itemName)
+          );
+        })
+        .first();
+      if (foundInArchive) return true;
+    }
+
+    return false;
   }, []);
 
   // Restore transaction
@@ -103,30 +136,140 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
     setTimeout(() => setFeedback(''), 3000);
   }, []);
 
-  // Permanent delete
-  const handlePermanentDeleteTx = useCallback(async (id: number) => {
-    await db.transactions.delete(id);
-    setFeedback('🗑️ Transaksi dihapus permanen.');
-    setTimeout(() => setFeedback(''), 3000);
+  // Close confirm dialog
+  const closeConfirm = useCallback(() => {
+    setConfirmState((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
-  const handlePermanentDeleteInv = useCallback(async (id: string) => {
-    await db.inventory.delete(id as any);
-    setFeedback('🗑️ Barang dihapus permanen.');
-    setTimeout(() => setFeedback(''), 3000);
+  // Permanent delete single transaction with confirmation
+  const promptPermanentDeleteTx = useCallback((id: number, txId: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Hapus Transaksi Permanen',
+      message: `Hapus permanen transaksi "${txId || id}"? Tindakan ini tidak dapat dibatalkan.`,
+      confirmLabel: 'Hapus Permanen',
+      onConfirm: async () => {
+        setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        await db.transactions.delete(id);
+        setFeedback('🗑️ Transaksi dihapus permanen.');
+        setTimeout(() => setFeedback(''), 3000);
+      },
+    });
   }, []);
 
-  // Empty all trash
-  const handleEmptyTrash = useCallback(async () => {
+  // Permanent delete single inventory item with reference check
+  const promptPermanentDeleteInv = useCallback(
+    async (item: any) => {
+      const isReferenced = await isItemReferencedInTransactions(item);
+      if (isReferenced) {
+        setFeedback(`⚠️ Barang "${item.namaBarang}" tidak dapat dihapus permanen karena masih dirujuk oleh riwayat transaksi.`);
+        setTimeout(() => setFeedback(''), 5000);
+        return;
+      }
+
+      setConfirmState({
+        isOpen: true,
+        title: 'Hapus Barang Permanen',
+        message: `Hapus permanen barang "${item.namaBarang}"? Tindakan ini tidak dapat dibatalkan.`,
+        confirmLabel: 'Hapus Permanen',
+        onConfirm: async () => {
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+          await db.inventory.delete(item.id as any);
+          setFeedback('🗑️ Barang dihapus permanen.');
+          setTimeout(() => setFeedback(''), 3000);
+        },
+      });
+    },
+    [isItemReferencedInTransactions]
+  );
+
+  // Purge expired items (> 30 days) with reference guard
+  const handlePurgeExpiredConfirmed = useCallback(async () => {
+    setConfirmState((prev) => ({ ...prev, isOpen: false }));
+
+    const txIds = expiredTransactions.map((tx: any) => tx.id);
+    if (txIds.length > 0) {
+      await db.transactions.bulkDelete(txIds);
+    }
+
+    const deletableInvIds: string[] = [];
+    let skippedCount = 0;
+
+    for (const item of expiredInventory) {
+      const isRef = await isItemReferencedInTransactions(item);
+      if (isRef) {
+        skippedCount++;
+      } else {
+        deletableInvIds.push(item.id);
+      }
+    }
+
+    if (deletableInvIds.length > 0) {
+      await db.inventory.bulkDelete(deletableInvIds as any);
+    }
+
+    const purgedTotal = txIds.length + deletableInvIds.length;
+    let msg = `🗑️ ${purgedTotal} item lama (>30 hari) telah dihapus permanen.`;
+    if (skippedCount > 0) {
+      msg += ` (${skippedCount} barang dipertahankan karena masih dirujuk transaksi)`;
+    }
+    setFeedback(msg);
+    setTimeout(() => setFeedback(''), 5000);
+  }, [expiredTransactions, expiredInventory, isItemReferencedInTransactions]);
+
+  const promptPurgeExpired = useCallback(() => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Bersihkan Item Lama (> 30 Hari)',
+      message: `Hapus permanen ${expiredCount} item yang telah berada di tong sampah lebih dari 30 hari? Barang yang masih memiliki riwayat transaksi akan otomatis dipertahankan.`,
+      confirmLabel: 'Bersihkan Sekarang',
+      onConfirm: handlePurgeExpiredConfirmed,
+    });
+  }, [expiredCount, handlePurgeExpiredConfirmed]);
+
+  // Empty all trash with confirmation and reference guard
+  const handleEmptyTrashConfirmed = useCallback(async () => {
+    setConfirmState((prev) => ({ ...prev, isOpen: false }));
+
     const txIds = deletedTransactions.map((tx: any) => tx.id);
-    const invIds = deletedInventory.map((item: any) => item.id);
-    if (txIds.length > 0) await db.transactions.bulkDelete(txIds);
-    if (invIds.length > 0) await db.inventory.bulkDelete(invIds);
-    setFeedback(`🗑️ ${txIds.length + invIds.length} item dihapus permanen.`);
-    setTimeout(() => setFeedback(''), 3000);
-  }, [deletedTransactions, deletedInventory]);
+    if (txIds.length > 0) {
+      await db.transactions.bulkDelete(txIds);
+    }
 
-  const totalDeleted = deletedTransactions.length + deletedInventory.length;
+    const deletableInvIds: string[] = [];
+    let skippedCount = 0;
+
+    for (const item of deletedInventory) {
+      const isRef = await isItemReferencedInTransactions(item);
+      if (isRef) {
+        skippedCount++;
+      } else {
+        deletableInvIds.push(item.id);
+      }
+    }
+
+    if (deletableInvIds.length > 0) {
+      await db.inventory.bulkDelete(deletableInvIds as any);
+    }
+
+    const purgedTotal = txIds.length + deletableInvIds.length;
+    let msg = `🗑️ ${purgedTotal} item dihapus permanen.`;
+    if (skippedCount > 0) {
+      msg += ` (${skippedCount} barang dipertahankan karena masih dirujuk riwayat transaksi)`;
+    }
+    setFeedback(msg);
+    setTimeout(() => setFeedback(''), 5000);
+  }, [deletedTransactions, deletedInventory, isItemReferencedInTransactions]);
+
+  const promptEmptyTrash = useCallback(() => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Kosongkan Semua Tong Sampah',
+      message: `Hapus permanen semua ${totalDeleted} item di tong sampah? Barang yang masih memiliki riwayat transaksi akan otomatis dipertahankan.`,
+      confirmLabel: 'Kosongkan Semua',
+      onConfirm: handleEmptyTrashConfirmed,
+    });
+  }, [totalDeleted, handleEmptyTrashConfirmed]);
 
   const formatDate = (iso: string) => {
     try {
@@ -152,6 +295,7 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
 
   return (
     <div className="animate-slide-up space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
           🗑️ Tong Sampah
@@ -165,7 +309,7 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
           <Button
             variant="outline"
             className="text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
-            onClick={handleEmptyTrash}
+            onClick={promptEmptyTrash}
           >
             Kosongkan Semua
           </Button>
@@ -173,8 +317,30 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
       </div>
 
       <p className="text-xs text-text-muted">
-        Item yang dihapus akan tersimpan selama 30 hari sebelum dihapus permanen secara otomatis.
+        Item yang dihapus akan tersimpan di sini. Item lama tidak dihapus otomatis demi keamanan data Anda.
       </p>
+
+      {/* W0-04: Banner for items older than 30 days */}
+      {expiredCount > 0 && (
+        <div
+          data-testid="trash-expired-banner"
+          className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">⚠️</span>
+            <p className="text-xs text-amber-200">
+              Terdapat <span className="font-bold text-amber-400">{expiredCount} item</span> yang telah berada di tong sampah lebih dari 30 hari.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            className="text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/20 whitespace-nowrap self-end sm:self-auto"
+            onClick={promptPurgeExpired}
+          >
+            Bersihkan Sekarang
+          </Button>
+        </div>
+      )}
 
       {feedback && (
         <div className="text-xs text-center py-2 px-3 rounded-lg font-medium bg-primary/10 text-primary animate-fade-in">
@@ -229,7 +395,7 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handlePermanentDeleteTx(tx.id)}
+                      onClick={() => promptPermanentDeleteTx(tx.id, tx.transactionId)}
                       className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:text-white hover:bg-red-500/80 transition-colors cursor-pointer"
                       title="Hapus Permanen"
                     >
@@ -273,7 +439,7 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handlePermanentDeleteInv(item.id)}
+                      onClick={() => promptPermanentDeleteInv(item)}
                       className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:text-white hover:bg-red-500/80 transition-colors cursor-pointer"
                       title="Hapus Permanen"
                     >
@@ -286,6 +452,16 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
           )}
         </div>
       )}
+
+      {/* ConfirmDialog for all permanent deletions */}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmLabel={confirmState.confirmLabel || 'Hapus'}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 });
