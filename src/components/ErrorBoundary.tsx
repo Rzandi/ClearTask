@@ -15,12 +15,25 @@ interface ErrorBoundaryState {
   hasError: boolean;
   error: any;
   errorInfo: any;
+  copied?: boolean;
+}
+
+function getErrorCode(error: any): string {
+  if (!error) return 'E000';
+  const str = String(error?.name || '') + ':' + String(error?.message || '');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const code = Math.abs(hash % 900) + 100;
+  return `E${code}`;
 }
 
 export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = { hasError: false, error: null, errorInfo: null, copied: false };
   }
 
   static getDerivedStateFromError(error: any) {
@@ -35,8 +48,39 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
     this.setState({ errorInfo });
   }
 
+  handleCopyError = async () => {
+    const { error, errorInfo } = this.state;
+    const errorCode = getErrorCode(error);
+    const text = [
+      `Kode Error: ${errorCode}`,
+      `Waktu: ${new Date().toISOString()}`,
+      `Pesan: ${error?.message || String(error)}`,
+      error?.stack ? `Stack Trace:\n${error.stack}` : '',
+      errorInfo?.componentStack ? `Component Stack:\n${errorInfo.componentStack}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      this.setState({ copied: true });
+      setTimeout(() => this.setState({ copied: false }), 2500);
+    } catch (err) {
+      console.error('Failed to copy error:', err);
+    }
+  };
+
   handleReset = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null });
+    this.setState({ hasError: false, error: null, errorInfo: null, copied: false });
   };
 
   handleReload = () => {
@@ -101,6 +145,28 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           Aplikasi mengalami error yang tidak terduga. Data Anda aman di IndexedDB.
         </p>
 
+        {/* Short Error Code Badge (W0-12) */}
+        {error && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.25rem 0.75rem',
+              borderRadius: '9999px',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              fontSize: '0.8rem',
+              color: '#8b949e',
+              fontFamily: 'monospace',
+            }}
+          >
+            <span>
+              Kode Error: <strong style={{ color: '#f85149' }}>{getErrorCode(error)}</strong>
+            </span>
+          </div>
+        )}
+
         {/* Error detail — hanya di DEV */}
         {import.meta.env.DEV && error && (
           <details
@@ -125,7 +191,30 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           </details>
         )}
 
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: '0.75rem',
+            marginTop: '0.5rem',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+          }}
+        >
+          <button
+            onClick={this.handleCopyError}
+            style={{
+              padding: '0.75rem 1.25rem',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#e6edf3',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+            }}
+          >
+            {this.state.copied ? '✓ Detail Tersalin' : 'Salin Detail Error'}
+          </button>
           <button
             onClick={this.handleReset}
             style={{

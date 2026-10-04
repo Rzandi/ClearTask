@@ -21,13 +21,17 @@ import { getCashBreakdown } from '../utils/inlineSyntaxParser';
 import type { CashDenomination } from '../utils/inlineSyntaxParser';
 import { initMultiTabSync, broadcastTabMessage } from '../utils/resiliencyGuards';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { parseIDNumber } from '../utils/parseIDNumber';
+import { transactionService } from '../services/transactionService';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
+import HighlightText from './ui/HighlightText';
 
 const METODE_OPTIONS = ['Tunai', 'QRIS', 'Kartu Debit', 'Transfer'];
 
 const parseNumeric = (val: any) => {
-  if (!val) return 0;
-  const num = Number(val);
-  return isNaN(num) || num < 0 ? 0 : Math.floor(num);
+  if (val === undefined || val === null || val === '') return 0;
+  return parseIDNumber(val);
 };
 
 export interface InputPenjualanProps {
@@ -41,6 +45,8 @@ export default memo(function InputPenjualan({
 }: InputPenjualanProps) {
   const { settings } = useSettings();
   const kasirName = settings?.kasirName || 'Admin';
+  const { confirm, ConfirmDialogPortal } = useConfirm();
+  const { showToast } = useToast();
 
   const { inventory, updateInventoryItem } = useInventory();
   const { allCategories, subCategoriesFor } = useCategories();
@@ -49,7 +55,9 @@ export default memo(function InputPenjualan({
   const [cart, setCart] = useState<any[]>([]);
 
   // Pending Orders (QOL 1.2) - Persist to localStorage (Fix edge case reload)
-  const [pendingOrders, setPendingOrders] = useState<{ id: number; label: string; cart: any[]; metode: string; catatan: string }[]>(() => {
+  const [pendingOrders, setPendingOrders] = useState<
+    { id: number; label: string; cart: any[]; metode: string; catatan: string }[]
+  >(() => {
     try {
       const saved = localStorage.getItem('cleartask_pending_orders');
       if (saved) {
@@ -67,6 +75,8 @@ export default memo(function InputPenjualan({
   const [catatan, setCatatan] = useState('');
   const [tanggal, setTanggal] = useState(getTodayISO());
   const [showQrisModal, setShowQrisModal] = useState(false);
+  const [undoDeadline, setUndoDeadline] = useState<number | null>(null);
+  const [undoOrder, setUndoOrder] = useState<any>(null);
 
   // Mobile Back Navigation handlers for internal overlays
   useBackHandler(showPendingModal, () => setShowPendingModal(false));
@@ -189,8 +199,8 @@ export default memo(function InputPenjualan({
   // ── Plastik bag state (QOL: optional plastic bag charge) ──
   const [plasticBagEnabled, setPlasticBagEnabled] = useState(false);
   const plasticBagPrice = Math.round(Number(settings?.plasticBagPrice) || 500);
-  const plasticBagCharge = (settings?.plasticBagEnabled !== false) && plasticBagEnabled
-    ? plasticBagPrice : 0;
+  const plasticBagCharge =
+    settings?.plasticBagEnabled !== false && plasticBagEnabled ? plasticBagPrice : 0;
 
   const subTotal = cart.reduce((sum, item) => sum + item.total, 0);
   const grandTotal = subTotal + plasticBagCharge;
@@ -227,95 +237,128 @@ export default memo(function InputPenjualan({
   }, [inventory, catalogSearch, catalogCategory, catalogSubCategory, catalogSort]);
 
   // Helper for Wholesale Pricing & HPP calculation
-  const resolveItemPricing = useCallback((item: any, qty: number) => {
-    const invItem = inventory.find(
-      (inv) => inv.namaBarang?.toLowerCase().trim() === item.namaBarang?.toLowerCase().trim()
-    ) || item;
+  const resolveItemPricing = useCallback(
+    (item: any, qty: number) => {
+      const invItem =
+        inventory.find(
+          (inv) => inv.namaBarang?.toLowerCase().trim() === item.namaBarang?.toLowerCase().trim()
+        ) || item;
 
-    const basePrice = item.normalHargaSatuan || invItem.harga || item.hargaSatuan || 0;
-    const wholesaleMin = invItem.wholesaleMinQty || 0;
-    const wholesaleP = invItem.wholesalePrice || 0;
+      // W2-08: Prioritize user-specified price over catalog default
+      const userSpecifiedPrice =
+        item.normalHargaSatuan || (item.isCustomPrice ? item.hargaSatuan : undefined);
+      const basePrice = userSpecifiedPrice ?? invItem.harga ?? item.hargaSatuan ?? 0;
+      const wholesaleMin = invItem.wholesaleMinQty || 0;
+      const wholesaleP = invItem.wholesalePrice || 0;
 
-    const isWholesale = wholesaleMin > 0 && wholesaleP > 0 && qty >= wholesaleMin;
-    const effectivePrice = isWholesale ? wholesaleP : basePrice;
-    const hargaModal = invItem.hargaModal ?? item.hargaModal ?? 0;
+      const isWholesale = wholesaleMin > 0 && wholesaleP > 0 && qty >= wholesaleMin;
+      const effectivePrice = isWholesale ? wholesaleP : basePrice;
+      const hargaModal = invItem.hargaModal ?? item.hargaModal ?? 0;
 
-    return {
-      normalHargaSatuan: basePrice,
-      hargaSatuan: effectivePrice,
-      hargaModal,
-      isWholesale,
-      total: qty * effectivePrice,
-      invItem,
-    };
-  }, [inventory]);
+      return {
+        normalHargaSatuan: basePrice,
+        hargaSatuan: effectivePrice,
+        hargaModal,
+        isWholesale,
+        total: qty * effectivePrice,
+        invItem,
+      };
+    },
+    [inventory]
+  );
 
   // Add to cart (with Wholesale Auto-Apply, Dus Unpack Prompt, audio/haptic feedback)
-  const addToCart = useCallback((item: any) => {
-    const invItem = inventory.find(
-      (inv) => inv.namaBarang?.toLowerCase().trim() === item.namaBarang?.toLowerCase().trim()
-    );
-
-    // Check for Dus Unpack Prompt if Pcs stock is empty but Dus stock exists
-    if (invItem && (invItem.quantity || 0) < (item.qty || 1) && (invItem.packStock || 0) > 0) {
-      const confirmUnpack = window.confirm(
-        `⚠️ Stok ${invItem.namaBarang} eceran tinggal ${invItem.quantity || 0} ${invItem.satuan || 'Pcs'}.\n` +
-          `Tersedia ${invItem.packStock} ${invItem.packUnit || 'Dus'} di gudang.\n\n` +
-          `Unpack 1 ${invItem.packUnit || 'Dus'} (+${invItem.packRatio || 24} Pcs) sekarang?`
+  const addToCart = useCallback(
+    async (item: any) => {
+      const invItem = inventory.find(
+        (inv) => inv.namaBarang?.toLowerCase().trim() === item.namaBarang?.toLowerCase().trim()
       );
-      if (confirmUnpack && invItem.id !== undefined && (invItem.packStock || 0) > 0) {
-        updateInventoryItem(String(invItem.id), {
-          quantity: (invItem.quantity || 0) + (invItem.packRatio || 24),
-          packStock: (invItem.packStock || 1) - 1,
-        });
+
+      // W1-09: Check for Dus Unpack Prompt if Pcs stock is empty but Dus stock exists
+      if (invItem && (invItem.quantity || 0) < (item.qty || 1) && (invItem.packStock || 0) > 0) {
+        const ratio = Number(invItem.packRatio) || 0;
+        if (ratio > 0) {
+          const confirmUnpack = await confirm({
+            title: `Unpack ${invItem.packUnit || 'Dus'}`,
+            message:
+              `⚠️ Stok ${invItem.namaBarang} eceran tinggal ${invItem.quantity || 0} ${invItem.satuan || 'Pcs'}.\n` +
+              `Tersedia ${invItem.packStock} ${invItem.packUnit || 'Dus'} di gudang.\n\n` +
+              `Unpack 1 ${invItem.packUnit || 'Dus'} (+${ratio} ${invItem.satuan || 'Pcs'}) sekarang?`,
+            confirmLabel: 'Unpack Sekarang',
+          });
+          if (confirmUnpack && invItem.id !== undefined) {
+            try {
+              await transactionService.unpackInventoryItem(String(invItem.id), kasirName);
+              showToast(
+                `Berhasil membongkar 1 ${invItem.packUnit || 'Dus'} ${invItem.namaBarang}`,
+                'success'
+              );
+            } catch (err) {
+              console.error('Failed to unpack:', err);
+            }
+          }
+        }
       }
-    }
 
-    setCart((prev) => {
-      const existing = prev.find(
-        (i) => i.namaBarang.toLowerCase() === item.namaBarang.toLowerCase()
-      );
-
-      const targetQty = existing ? existing.qty + item.qty : item.qty;
-      const pricing = resolveItemPricing(item, targetQty);
-
-      if (existing) {
-        return prev.map((i) =>
-          i.namaBarang.toLowerCase() === item.namaBarang.toLowerCase()
-            ? {
-                ...i,
-                qty: targetQty,
-                normalHargaSatuan: pricing.normalHargaSatuan,
-                hargaSatuan: pricing.hargaSatuan,
-                hargaModal: pricing.hargaModal,
-                isWholesale: pricing.isWholesale,
-                total: pricing.total,
-              }
-            : i
+      setCart((prev) => {
+        const existing = prev.find(
+          (i) => i.namaBarang.toLowerCase() === item.namaBarang.toLowerCase()
         );
-      }
-      return [
-        ...prev,
-        {
-          ...item,
-          id: Date.now() + Math.random(),
-          normalHargaSatuan: pricing.normalHargaSatuan,
-          hargaSatuan: pricing.hargaSatuan,
-          hargaModal: pricing.hargaModal,
-          isWholesale: pricing.isWholesale,
-          total: pricing.total,
-        },
-      ];
-    });
-    setFormError('');
-    // QOL 1.4: Audio & Haptic feedback
-    if (settings?.soundEnabled !== false) feedbackItemAdded();
-  }, [inventory, resolveItemPricing, updateInventoryItem, settings?.soundEnabled]);
+
+        const targetQty = existing ? existing.qty + item.qty : item.qty;
+        const pricing = resolveItemPricing(item, targetQty);
+
+        if (existing) {
+          return prev.map((i) =>
+            i.namaBarang.toLowerCase() === item.namaBarang.toLowerCase()
+              ? {
+                  ...i,
+                  qty: targetQty,
+                  normalHargaSatuan: pricing.normalHargaSatuan,
+                  hargaSatuan: pricing.hargaSatuan,
+                  hargaModal: pricing.hargaModal,
+                  isWholesale: pricing.isWholesale,
+                  total: pricing.total,
+                }
+              : i
+          );
+        }
+        return [
+          ...prev,
+          {
+            ...item,
+            id: Date.now() + Math.random(),
+            normalHargaSatuan: pricing.normalHargaSatuan,
+            hargaSatuan: pricing.hargaSatuan,
+            hargaModal: pricing.hargaModal,
+            isWholesale: pricing.isWholesale,
+            total: pricing.total,
+          },
+        ];
+      });
+      setFormError('');
+      // QOL 1.4: Audio & Haptic feedback
+      if (settings?.soundEnabled !== false) feedbackItemAdded();
+    },
+    [
+      inventory,
+      resolveItemPricing,
+      updateInventoryItem,
+      settings?.soundEnabled,
+      confirm,
+      showToast,
+      kasirName,
+    ]
+  );
 
   // QOL 1.2: Pending Order — save current cart
   const handleSavePendingOrder = useCallback(() => {
     if (cart.length === 0) return;
-    const label = cart.map((i) => i.namaBarang).slice(0, 3).join(', ') + (cart.length > 3 ? '...' : '');
+    const label =
+      cart
+        .map((i) => i.namaBarang)
+        .slice(0, 3)
+        .join(', ') + (cart.length > 3 ? '...' : '');
     setPendingOrders((prev) => [
       ...prev,
       { id: Date.now(), label, cart: [...cart], metode, catatan },
@@ -397,7 +440,7 @@ export default memo(function InputPenjualan({
     setErrors(err);
   };
 
-  const handleManualSubmit = (e: any) => {
+  const handleManualSubmit = async (e: any) => {
     e.preventDefault();
     const q = parseNumeric(form.qty);
     const h = parseNumeric(form.hargaSatuan);
@@ -417,11 +460,23 @@ export default memo(function InputPenjualan({
     );
     const resolvedHargaModal = matchedItem ? matchedItem.hargaModal || 0 : 0;
 
+    // W2-09: Validasi harga jual < modal -> konfirmasi peringatan
+    if (resolvedHargaModal > 0 && h < resolvedHargaModal) {
+      const proceed = await confirm({
+        title: 'Harga Jual di Bawah Modal',
+        message: `⚠️ Peringatan: Harga jual (Rp ${h.toLocaleString('id-ID')}) lebih rendah dari harga modal (Rp ${resolvedHargaModal.toLocaleString('id-ID')}).\nLanjutkan menambahkan ke keranjang?`,
+        confirmLabel: 'Tetap Tambahkan',
+      });
+      if (!proceed) return;
+    }
+
     addToCart({
       namaBarang: form.namaBarang.trim(),
       kategori: form.kategori,
       subKategori: form.subKategori,
       hargaSatuan: h,
+      normalHargaSatuan: h,
+      isCustomPrice: true,
       hargaModal: resolvedHargaModal,
       qty: q,
     });
@@ -431,24 +486,52 @@ export default memo(function InputPenjualan({
     setFormError('');
   };
 
+  const handleUndoCheckout = useCallback(async () => {
+    if (!undoOrder || (undoDeadline && Date.now() > undoDeadline)) {
+      showToast('Batas waktu untuk membatalkan transaksi telah berakhir.', 'warning');
+      return;
+    }
+
+    try {
+      const txId = undoOrder.id || undoOrder.transactionId;
+      await transactionService.voidTransaction(txId, 'Undo checkout kasir', kasirName);
+      const originalItems = (undoOrder.items || []).filter((i: any) => i.id !== 'plastic-bag');
+      setCart(originalItems);
+      setUndoOrder(null);
+      setUndoDeadline(null);
+      setShowStruk(false);
+      feedbackItemAdded();
+      showToast(
+        `Transaksi ${undoOrder.transactionId || ''} berhasil dibatalkan dan barang dikembalikan ke keranjang.`,
+        'success'
+      );
+    } catch (err: any) {
+      showToast('Gagal membatalkan transaksi: ' + err.message, 'error');
+    }
+  }, [undoOrder, undoDeadline, kasirName, showToast]);
+
   const executeCheckout = async () => {
     // Inject plastik bag as a cart item if enabled
-    const finalItems = plasticBagCharge > 0
-      ? [...cart, {
-          id: 'plastic-bag',
-          namaBarang: 'Kantong Plastik',
-          kategori: 'Lainnya',
-          subKategori: '',
-          hargaSatuan: plasticBagPrice,
-          hargaModal: 0,
-          qty: 1,
-          total: plasticBagPrice,
-          isWholesale: false,
-        }]
-      : cart;
+    const finalItems =
+      plasticBagCharge > 0
+        ? [
+            ...cart,
+            {
+              id: 'plastic-bag',
+              namaBarang: 'Kantong Plastik',
+              kategori: 'Lainnya',
+              subKategori: '',
+              hargaSatuan: plasticBagPrice,
+              hargaModal: 0,
+              qty: 1,
+              total: plasticBagPrice,
+              isWholesale: false,
+            },
+          ]
+        : cart;
 
     const orderData = {
-      tanggal,
+      tanggal: activeSession?.tanggalMulai || tanggal,
       items: finalItems,
       total: grandTotal,
       metode,
@@ -475,6 +558,8 @@ export default memo(function InputPenjualan({
           };
 
     setLastOrder(finalOrder);
+    setUndoOrder(finalOrder);
+    setUndoDeadline(Date.now() + 15000); // 15 seconds deadline for Undo
     setShowStruk(true);
     setShowMobileCart(false);
     setShowQrisModal(false);
@@ -508,6 +593,27 @@ export default memo(function InputPenjualan({
 
     await executeCheckout();
   };
+
+  // W0-06: Keyboard shortcut Ctrl/Cmd + Enter = Checkout
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        const isDialogOpen = Boolean(
+          showPendingModal ||
+          showQrisModal ||
+          showStruk ||
+          document.querySelector('[role="dialog"], [aria-modal="true"]')
+        );
+        if (cart.length > 0 && !isDialogOpen) {
+          e.preventDefault();
+          handleCheckout();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cart, showPendingModal, showQrisModal, showStruk, handleCheckout]);
 
   return (
     <div className="animate-slide-up flex flex-col lg:flex-row gap-6 h-auto">
@@ -622,6 +728,7 @@ export default memo(function InputPenjualan({
                     harga={item.harga}
                     hargaModal={item.hargaModal}
                     quantity={item.quantity}
+                    searchQuery={catalogSearch}
                     onAddToCart={addToCart}
                     onUpdateStock={updateInventoryItem}
                   />
@@ -683,7 +790,7 @@ export default memo(function InputPenjualan({
                           onMouseDown={() => handleSelectSuggestion(item)}
                           className="w-full text-left px-4 py-2.5 text-xs font-semibold text-text-primary hover:bg-white/[0.04] hover:text-primary transition-colors cursor-pointer"
                         >
-                          {item.namaBarang}{' '}
+                          <HighlightText text={item.namaBarang} query={form.namaBarang} />{' '}
                           <span className="text-text-muted text-[10px]">
                             ({item.kategori} - Rp {item.harga?.toLocaleString('id-ID')})
                           </span>
@@ -820,7 +927,7 @@ export default memo(function InputPenjualan({
 
       {/* KANAN: Keranjang & Pembayaran / Cek Stok */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md bg-bg-surface flex flex-col h-full transform transition-all duration-300 ${showMobileCart ? 'translate-x-0 shadow-2xl opacity-100 visible' : 'translate-x-full opacity-0 invisible'} lg:relative lg:translate-x-0 lg:opacity-100 lg:visible lg:w-[420px] lg:h-auto lg:min-h-[500px] lg:glass-card`}
+        className={`fixed inset-y-0 right-0 z-[60] w-full max-w-md bg-bg-surface flex flex-col h-full transform transition-all duration-300 ${showMobileCart ? 'translate-x-0 shadow-2xl opacity-100 visible' : 'translate-x-full opacity-0 invisible'} lg:relative lg:z-auto lg:translate-x-0 lg:opacity-100 lg:visible lg:w-[420px] lg:h-auto lg:min-h-[500px] lg:glass-card`}
       >
         <div className="flex border-b border-border-default bg-bg-surface/30 shrink-0">
           <button
@@ -917,7 +1024,10 @@ export default memo(function InputPenjualan({
                         {(item.hargaModal || 0) > 0 ? (
                           `Rp ${(item.hargaModal || 0).toLocaleString('id-ID')}`
                         ) : (
-                          <span className="text-warning font-semibold" title="Harga modal belum diisi">
+                          <span
+                            className="text-warning font-semibold"
+                            title="Harga modal belum diisi"
+                          >
                             - ⚠️
                           </span>
                         )}
@@ -995,14 +1105,29 @@ export default memo(function InputPenjualan({
 
             {/* QOL 1.2: Pending Orders Modal */}
             {showPendingModal && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowPendingModal(false)}>
-                <div className="bg-bg-surface border border-border-default rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-5 space-y-3 animate-slide-up" onClick={(e) => e.stopPropagation()}>
-                  <h3 className="text-sm font-bold text-text-primary">📋 Transaksi Tertunda ({pendingOrders.length})</h3>
+              <div
+                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
+                onClick={() => setShowPendingModal(false)}
+              >
+                <div
+                  className="bg-bg-surface border border-border-default rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-5 space-y-3 animate-slide-up"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className="text-sm font-bold text-text-primary">
+                    📋 Transaksi Tertunda ({pendingOrders.length})
+                  </h3>
                   {pendingOrders.map((order) => (
-                    <div key={order.id} className="p-3 bg-bg-elevated rounded-xl border border-border-subtle flex items-center justify-between gap-2">
+                    <div
+                      key={order.id}
+                      className="p-3 bg-bg-elevated rounded-xl border border-border-subtle flex items-center justify-between gap-2"
+                    >
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-text-primary truncate">{order.label}</p>
-                        <p className="text-[10px] text-text-muted mt-0.5">{order.cart.length} item • {order.metode}</p>
+                        <p className="text-xs font-medium text-text-primary truncate">
+                          {order.label}
+                        </p>
+                        <p className="text-[10px] text-text-muted mt-0.5">
+                          {order.cart.length} item • {order.metode}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -1044,7 +1169,10 @@ export default memo(function InputPenjualan({
                   </span>
                 </div>
                 <span className="text-xs text-text-muted">
-                  Sub Total: <strong className="text-text-primary font-bold">Rp {subTotal.toLocaleString('id-ID')}</strong>
+                  Sub Total:{' '}
+                  <strong className="text-text-primary font-bold">
+                    Rp {subTotal.toLocaleString('id-ID')}
+                  </strong>
                 </span>
               </div>
 
@@ -1137,7 +1265,7 @@ export default memo(function InputPenjualan({
             </div>
 
             {/* KOTAK B: Ringkasan & Form Pembayaran (Scrollable Mandiri + BottomNav Clearance) */}
-            <div className="flex-1 overflow-y-auto p-5 pb-28 lg:pb-6 space-y-4 bg-bg-surface/50 rounded-b-2xl">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-bg-surface/50 rounded-b-2xl">
               {/* Sub Total row */}
               <div className="flex justify-between items-end pb-2 border-b border-border-subtle">
                 <span className="text-sm font-semibold text-text-muted">Sub Total</span>
@@ -1151,9 +1279,7 @@ export default memo(function InputPenjualan({
                 <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-bg-elevated/60 border border-border-subtle">
                   <div className="flex items-center gap-2">
                     <span className="text-sm">🛍️</span>
-                    <span className="text-xs font-medium text-text-secondary">
-                      Kantong Plastik
-                    </span>
+                    <span className="text-xs font-medium text-text-secondary">Kantong Plastik</span>
                     <span className="text-[10px] text-text-muted">
                       +Rp {plasticBagPrice.toLocaleString('id-ID')}
                     </span>
@@ -1266,7 +1392,9 @@ export default memo(function InputPenjualan({
                     {/* QOL 1.3: Cash Change Breakdown */}
                     {cashBreakdown.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 p-2.5 bg-green-500/5 border border-green-500/15 rounded-xl">
-                        <span className="w-full text-[10px] font-medium text-green-400/70 mb-0.5">💵 Rincian Kembalian:</span>
+                        <span className="w-full text-[10px] font-medium text-green-400/70 mb-0.5">
+                          💵 Rincian Kembalian:
+                        </span>
                         {cashBreakdown.map((d) => (
                           <span
                             key={d.value}
@@ -1296,20 +1424,60 @@ export default memo(function InputPenjualan({
                 </p>
               )}
 
-              <Button
-                onClick={handleCheckout}
-                variant="primary"
-                className="w-full py-4 text-base shadow-glow mt-2"
-                disabled={cart.length === 0}
-              >
-                Bayar & Cetak Struk
-              </Button>
+              <div className="sticky bottom-0 pt-3 pb-20 lg:pb-3 -mx-5 px-5 bg-bg-surface/95 backdrop-blur-sm border-t border-border-subtle mt-2">
+                <Button
+                  onClick={handleCheckout}
+                  variant="primary"
+                  className="w-full py-4 text-base shadow-glow"
+                  disabled={cart.length === 0}
+                >
+                  Bayar & Cetak Struk
+                </Button>
+              </div>
             </div>
           </>
         )}
       </div>
 
-      {showStruk && <StrukModal order={lastOrder} onClose={() => setShowStruk(false)} />}
+      {/* Floating Undo Checkout Notification (W2-04) */}
+      {undoOrder && undoDeadline && Date.now() <= undoDeadline && (
+        <div className="fixed bottom-6 right-6 z-[95] bg-bg-surface/95 border border-primary/40 shadow-glow rounded-xl p-3 flex items-center gap-3 backdrop-blur-md animate-slide-up">
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-text-primary">
+              Transaksi {undoOrder.transactionId || ''} berhasil!
+            </span>
+            <span className="text-[10px] text-text-muted">
+              Salah input kasir? Anda bisa membatalkannya.
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleUndoCheckout}
+            className="text-xs text-accent-red border-accent-red/30 hover:bg-accent-red/10 py-1.5 px-2.5 font-bold"
+          >
+            ↩️ Undo
+          </Button>
+          <button
+            onClick={() => {
+              setUndoOrder(null);
+              setUndoDeadline(null);
+            }}
+            className="text-text-muted hover:text-text-primary text-xs ml-1"
+            title="Tutup notifikasi"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {showStruk && (
+        <StrukModal
+          order={lastOrder}
+          onClose={() => setShowStruk(false)}
+          onUndo={undoDeadline && Date.now() <= undoDeadline ? handleUndoCheckout : undefined}
+        />
+      )}
 
       {/* Pop-Up Modal QRIS */}
       {showQrisModal && (
@@ -1326,7 +1494,9 @@ export default memo(function InputPenjualan({
             </div>
 
             <div>
-              <p className="text-xs text-text-muted mb-1">{settings?.tokoName || 'ClearTask Store'}</p>
+              <p className="text-xs text-text-muted mb-1">
+                {settings?.tokoName || 'ClearTask Store'}
+              </p>
               <p className="text-2xl font-extrabold text-primary">
                 Rp {grandTotal.toLocaleString('id-ID')}
               </p>
@@ -1341,7 +1511,11 @@ export default memo(function InputPenjualan({
                 />
               ) : (
                 <div className="w-44 h-44 bg-gray-100 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-2">
-                  <svg className="w-16 h-16 text-gray-400 mb-2" viewBox="0 0 24 24" fill="currentColor">
+                  <svg
+                    className="w-16 h-16 text-gray-400 mb-2"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
                     <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-3 0h2v3h-2v-3zm3 3h3v5h-3v-5zm-3 2h2v3h-2v-3zm-3-2h2v5h-2v-5z" />
                   </svg>
                   <span className="text-[10px] text-gray-500 font-bold text-center">
@@ -1380,6 +1554,8 @@ export default memo(function InputPenjualan({
           </div>
         </div>
       )}
+
+      <ConfirmDialogPortal />
     </div>
   );
 });
@@ -1392,6 +1568,7 @@ interface CatalogItemProps {
   harga: number;
   hargaModal?: number | undefined;
   quantity: number;
+  searchQuery?: string;
   onAddToCart: (item: any) => void;
   onUpdateStock: (id: string, data: any) => void;
 }
@@ -1404,6 +1581,7 @@ const CatalogItemCard = memo(function CatalogItemCard({
   harga,
   hargaModal,
   quantity,
+  searchQuery = '',
   onAddToCart,
   onUpdateStock,
 }: CatalogItemProps) {
@@ -1435,7 +1613,9 @@ const CatalogItemCard = memo(function CatalogItemCard({
           isOutOfStock ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.96]'
         }`}
       >
-        <span className="text-sm font-medium text-text-primary line-clamp-2">{namaBarang}</span>
+        <span className="text-sm font-medium text-text-primary line-clamp-2">
+          <HighlightText text={namaBarang} query={searchQuery} />
+        </span>
         <span className="text-xs text-text-muted">{kategori}</span>
         <span className="text-sm font-semibold text-primary mt-2">
           Rp {harga?.toLocaleString('id-ID') || 0}

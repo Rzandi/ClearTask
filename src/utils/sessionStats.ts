@@ -21,6 +21,10 @@ export interface ClosingReportStats {
   session: Session;
   totalTransaksi: number;
   totalPemasukan: number;
+  totalPenjualanTunai: number;
+  totalKembalian: number;
+  totalPengeluaranTunai: number;
+  kasTunaiBersih: number;
   breakdownKategori: Breakdown[];
   breakdownMetode: Breakdown[];
   transaksiTertinggi: Transaction | null;
@@ -36,7 +40,8 @@ export interface ClosingReportStats {
  */
 export function calculateSessionStats(
   session: Session,
-  transactions: Transaction[]
+  transactions: Transaction[],
+  expenses: any[] = []
 ): ClosingReportStats {
   // Handle empty transactions case (7.2)
   if (!transactions || transactions.length === 0) {
@@ -44,6 +49,10 @@ export function calculateSessionStats(
       session,
       totalTransaksi: 0,
       totalPemasukan: 0,
+      totalPenjualanTunai: 0,
+      totalKembalian: 0,
+      totalPengeluaranTunai: 0,
+      kasTunaiBersih: 0,
       breakdownKategori: [],
       breakdownMetode: [],
       transaksiTertinggi: null,
@@ -61,6 +70,10 @@ export function calculateSessionStats(
       session,
       totalTransaksi: 0,
       totalPemasukan: 0,
+      totalPenjualanTunai: 0,
+      totalKembalian: 0,
+      totalPengeluaranTunai: 0,
+      kasTunaiBersih: 0,
       breakdownKategori: [],
       breakdownMetode: [],
       transaksiTertinggi: null,
@@ -71,6 +84,32 @@ export function calculateSessionStats(
   // Calculate totals
   const totalTransaksi = activeTransactions.length;
   const totalPemasukan = activeTransactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
+
+  // W2-02: Kas Tunai calculation
+  let totalPenjualanTunai = 0;
+  let totalKembalian = 0;
+
+  activeTransactions.forEach((tx) => {
+    if (tx.metode?.toLowerCase() === 'tunai') {
+      totalPenjualanTunai += Number(tx.total) || 0;
+      totalKembalian += Number(tx.kembalian) || 0;
+    }
+  });
+
+  const activeExpenses = Array.isArray(expenses) ? expenses : [];
+  const totalPengeluaranTunai = activeExpenses.reduce((sum, exp) => {
+    const isCash = !exp.metode || exp.metode.toLowerCase() === 'tunai';
+    if (!isCash) return sum;
+    if (session) {
+      if (exp.sessionId && exp.sessionId === session.id) return sum + (Number(exp.jumlah) || 0);
+      if (session.tanggalMulai && exp.tanggal === session.tanggalMulai) {
+        return sum + (Number(exp.jumlah) || 0);
+      }
+    }
+    return sum;
+  }, 0);
+
+  const kasTunaiBersih = totalPenjualanTunai - totalKembalian - totalPengeluaranTunai;
 
   // Calculate breakdown by kategori
   const kategoriMap = new Map<string, Breakdown>();
@@ -87,7 +126,8 @@ export function calculateSessionStats(
           totalPemasukan: 0,
         };
         existing.jumlahTransaksi += Number(item.qty) || 1;
-        existing.totalPemasukan += Number(item.total) || (Number(item.hargaSatuan || 0) * (Number(item.qty) || 1));
+        existing.totalPemasukan +=
+          Number(item.total) || Number(item.hargaSatuan || 0) * (Number(item.qty) || 1);
         kategoriMap.set(key, existing);
       });
     } else {
@@ -142,6 +182,10 @@ export function calculateSessionStats(
     session,
     totalTransaksi,
     totalPemasukan,
+    totalPenjualanTunai,
+    totalKembalian,
+    totalPengeluaranTunai,
+    kasTunaiBersih,
     breakdownKategori,
     breakdownMetode,
     transaksiTertinggi,

@@ -17,6 +17,7 @@ import App from './App';
 import AppBootstrap from './components/AppBootstrap';
 import ErrorBoundary from './components/ErrorBoundary';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { ToastProvider } from './hooks/useToast';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -24,7 +25,9 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <AppBootstrap>
         <SettingsProvider>
-          <App />
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </SettingsProvider>
       </AppBootstrap>
     </ErrorBoundary>

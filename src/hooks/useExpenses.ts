@@ -19,8 +19,15 @@ export interface ExpenseItem {
   syncStatus?: 'local' | 'synced';
 }
 
-export function useExpenses() {
-  const expenses = useLiveQuery(() => db.expenses.orderBy('tanggal').reverse().toArray()) || [];
+export function useExpenses(limit: number = 1000) {
+  const expenses =
+    useLiveQuery(
+      () =>
+        limit > 0
+          ? db.expenses.orderBy('tanggal').reverse().limit(limit).toArray()
+          : db.expenses.orderBy('tanggal').reverse().toArray(),
+      [limit]
+    ) || [];
 
   const addExpense = useCallback(
     async (expenseData: Omit<ExpenseItem, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'>) => {
@@ -52,9 +59,21 @@ export function useExpenses() {
     await db.expenses.delete(id);
   }, []);
 
+  const updateExpense = useCallback(
+    async (id: string, updates: Partial<Omit<ExpenseItem, 'id' | 'createdAt'>>) => {
+      await db.expenses.update(id, {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+        syncStatus: 'local',
+      });
+    },
+    []
+  );
+
   return {
     expenses,
     addExpense,
     deleteExpense,
+    updateExpense,
   };
 }

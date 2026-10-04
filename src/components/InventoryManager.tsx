@@ -10,11 +10,22 @@ import { formatRupiah } from '../utils/formatters';
 import InventoryModal from './InventoryModal';
 import ConfirmDialog from './ConfirmDialog';
 import db from '../services/db';
+import { transactionService } from '../services/transactionService';
+import { useSettings } from '../contexts/SettingsContext';
+import { parseCSVLine } from '../utils/csvParser';
+import { parseIDNumber } from '../utils/parseIDNumber';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
+import HighlightText from './ui/HighlightText';
 
 const LOW_STOCK_THRESHOLD = 5;
 
 export default function InventoryManager() {
+  const { settings } = useSettings();
+  const currentUser = settings?.kasirName || 'Admin';
   const { inventory, addInventoryItem, updateInventoryItem, deleteInventoryItem } = useInventory();
+  const { confirm, ConfirmDialogPortal } = useConfirm();
+  const { showToast } = useToast();
 
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
@@ -24,7 +35,9 @@ export default function InventoryManager() {
   const [onlyLowStock, setOnlyLowStock] = useState(false);
 
   const lowStockCount = useMemo(() => {
-    return inventory.filter((item) => (item.quantity || 0) <= (item.minStock || LOW_STOCK_THRESHOLD)).length;
+    return inventory.filter(
+      (item) => (item.quantity || 0) <= (item.minStock || LOW_STOCK_THRESHOLD)
+    ).length;
   }, [inventory]);
 
   const isFilterActive = filterKategori !== 'all' || searchQuery.trim().length > 0 || onlyLowStock;
@@ -39,7 +52,9 @@ export default function InventoryManager() {
   const filteredInventory = useMemo(() => {
     let items = [...inventory];
     if (onlyLowStock) {
-      items = items.filter((item) => (item.quantity || 0) <= (item.minStock || LOW_STOCK_THRESHOLD));
+      items = items.filter(
+        (item) => (item.quantity || 0) <= (item.minStock || LOW_STOCK_THRESHOLD)
+      );
     }
     if (filterKategori !== 'all') {
       items = items.filter((item) => item.kategori === filterKategori);
@@ -107,7 +122,7 @@ export default function InventoryManager() {
       }
       setShowModal(false);
     } catch (err: any) {
-      alert(err.message || 'Gagal menyimpan barang');
+      showToast(err.message || 'Gagal menyimpan barang', 'error');
     }
   }
 
@@ -117,7 +132,7 @@ export default function InventoryManager() {
         deleteInventoryItem(deleteTarget.id);
         setDeleteTarget(null);
       } catch (err: any) {
-        alert(err.message || 'Gagal menghapus barang');
+        showToast(err.message || 'Gagal menghapus barang', 'error');
       }
     }
   }
@@ -127,7 +142,7 @@ export default function InventoryManager() {
     // Supaya tidak membebani RAM selama app jalan
     const totalTx = await db.transactions.count();
     if (totalTx === 0) {
-      alert('Tidak ada data transaksi untuk disinkronisasi.');
+      showToast('Tidak ada data transaksi untuk disinkronisasi.', 'warning');
       return;
     }
 
@@ -169,19 +184,21 @@ export default function InventoryManager() {
     }
 
     if (uniqueItems.length === 0) {
-      alert('Semua barang unik dari riwayat transaksi sudah ada di Master Barang.');
+      showToast('Semua barang unik dari riwayat transaksi sudah ada di Master Barang.', 'warning');
       return;
     }
 
-    const confirmSync = window.confirm(
-      `Ditemukan ${uniqueItems.length} barang baru dari riwayat transaksi.\nTambahkan ke Master Barang dengan stok 0?`
-    );
+    const confirmSync = await confirm({
+      title: 'Sinkronisasi Barang',
+      message: `Ditemukan ${uniqueItems.length} barang baru dari riwayat transaksi.\nTambahkan ke Master Barang dengan stok 0?`,
+      confirmLabel: 'Sinkronkan',
+    });
 
     if (confirmSync) {
       uniqueItems.forEach((item) => {
         addInventoryItem(item);
       });
-      alert(`${uniqueItems.length} barang berhasil disinkronisasi.`);
+      showToast(`${uniqueItems.length} barang berhasil disinkronisasi.`, 'success');
     }
   }
 
@@ -192,10 +209,20 @@ export default function InventoryManager() {
 
   function handleExportCSV() {
     if (inventory.length === 0) {
-      alert('Tidak ada data inventaris untuk diekspor.');
+      showToast('Tidak ada data inventaris untuk diekspor.', 'warning');
       return;
     }
-    const headers = ['SKU', 'Nama Barang', 'Kategori', 'Sub Kategori', 'Harga Modal', 'Harga Jual', 'Stok', 'Stok Minim', 'Satuan'];
+    const headers = [
+      'SKU',
+      'Nama Barang',
+      'Kategori',
+      'Sub Kategori',
+      'Harga Modal',
+      'Harga Jual',
+      'Stok',
+      'Stok Minim',
+      'Satuan',
+    ];
     const rows = inventory.map((i) => [
       `"${i.sku || i.barcode || ''}"`,
       `"${(i.namaBarang || '').replace(/"/g, '""')}"`,
@@ -205,7 +232,7 @@ export default function InventoryManager() {
       i.harga || 0,
       i.quantity || 0,
       i.minStock || 5,
-      `"${i.satuan || 'Pcs'}"`
+      `"${i.satuan || 'Pcs'}"`,
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -219,7 +246,17 @@ export default function InventoryManager() {
   }
 
   function handleDownloadTemplateCSV() {
-    const headers = ['SKU', 'Nama Barang', 'Kategori', 'Sub Kategori', 'Harga Modal', 'Harga Jual', 'Stok', 'Stok Minim', 'Satuan'];
+    const headers = [
+      'SKU',
+      'Nama Barang',
+      'Kategori',
+      'Sub Kategori',
+      'Harga Modal',
+      'Harga Jual',
+      'Stok',
+      'Stok Minim',
+      'Satuan',
+    ];
     const sample = ['SKU-10001', 'Kopi Hitam', 'Minuman', 'Kopi', 5000, 10000, 50, 5, 'Pcs'];
     const csvContent = [headers.join(','), sample.join(',')].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -236,12 +273,12 @@ export default function InventoryManager() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const text = evt.target?.result as string;
         const lines = text.split('\n').filter((l) => l.trim().length > 0);
         if (lines.length <= 1) {
-          alert('File CSV kosong atau tidak memiliki baris data.');
+          showToast('File CSV kosong atau tidak memiliki baris data.', 'error');
           return;
         }
 
@@ -249,62 +286,82 @@ export default function InventoryManager() {
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i];
           if (!line) continue;
-          const cols = line.split(',').map((c) => c.replace(/^"|"$/g, '').trim());
+          const cols = parseCSVLine(line);
           if (cols.length >= 3 && cols[1]) {
             const sku = cols[0] || `SKU-${Date.now().toString().slice(-6)}${i}`;
             const namaBarang = cols[1] || '';
             const kategori = cols[2] || 'Umum';
             const subKategori = cols[3] || '';
-            const hargaModal = parseInt(cols[4] || '0', 10) || 0;
-            const harga = parseInt(cols[5] || '0', 10) || 0;
-            const quantity = parseInt(cols[6] || '0', 10) || 0;
-            const minStock = parseInt(cols[7] || '5', 10) || 5;
+            const hargaModal = parseIDNumber(cols[4] || '0');
+            const harga = parseIDNumber(cols[5] || '0');
+            const quantity = parseIDNumber(cols[6] || '0');
+            const minStock = parseIDNumber(cols[7] || '5') || 5;
             const satuan = cols[8] || 'Pcs';
 
-            addInventoryItem({
-              sku,
-              namaBarang,
-              kategori,
-              subKategori,
-              hargaModal,
-              harga,
-              quantity,
-              minStock,
-              satuan,
-            });
-            count++;
+            try {
+              await addInventoryItem(
+                {
+                  sku,
+                  namaBarang,
+                  kategori,
+                  subKategori,
+                  hargaModal,
+                  harga,
+                  quantity,
+                  minStock,
+                  satuan,
+                },
+                { skipDuplicate: true }
+              );
+              count++;
+            } catch (itemErr: any) {
+              console.warn(`Skip item ${namaBarang}:`, itemErr.message);
+            }
           }
         }
-        alert(`Berhasil mengimpor ${count} barang inventaris.`);
+        showToast(`Berhasil mengimpor ${count} barang inventaris.`, 'success');
       } catch (err: any) {
-        alert('Gagal mengimpor file CSV: ' + err.message);
+        showToast('Gagal mengimpor file CSV: ' + err.message, 'error');
       }
     };
     reader.readAsText(file);
     e.target.value = '';
   }
 
-  function handleUnpackDus(item: any) {
-    const packStock = item.packStock || 0;
-    const packRatio = item.packRatio || 24;
+  async function handleUnpackDus(item: any) {
+    const packStock = Number(item.packStock) || 0;
+    const packRatio = Number(item.packRatio) || 0;
     const packUnit = item.packUnit || 'Dus';
 
     if (packStock <= 0) {
-      alert(`Stok ${packUnit} kosong (0). Tidak dapat melakukan unpack.`);
+      showToast(`Stok ${packUnit} kosong (0). Tidak dapat melakukan unpack.`, 'warning');
       return;
     }
 
-    const confirmUnpack = window.confirm(
-      `Konfirmasi Unpack 1 ${packUnit} ${item.namaBarang}?\n` +
+    if (packRatio <= 0) {
+      showToast(
+        `Rasio isi ${packUnit} belum diatur untuk ${item.namaBarang}. Silakan edit barang untuk menentukan rasio isi ${packUnit}.`,
+        'warning'
+      );
+      return;
+    }
+
+    const confirmUnpack = await confirm({
+      title: `Unpack ${packUnit}`,
+      message:
+        `Konfirmasi Unpack 1 ${packUnit} ${item.namaBarang}?\n` +
         `• Stok ${packUnit} berkurang 1 (${packStock} -> ${packStock - 1})\n` +
-        `• Stok Pcs bertambah +${packRatio} (${item.quantity || 0} -> ${(item.quantity || 0) + packRatio})`
-    );
+        `• Stok ${item.satuan || 'Pcs'} bertambah +${packRatio} (${item.quantity || 0} -> ${(item.quantity || 0) + packRatio})`,
+      confirmLabel: 'Unpack',
+    });
 
     if (confirmUnpack) {
-      updateInventoryItem(item.id, {
-        quantity: (item.quantity || 0) + packRatio,
-        packStock: packStock - 1,
-      });
+      const res = await transactionService.unpackInventoryItem(item.id, currentUser);
+      if (!res.success) {
+        showToast(res.error || 'Gagal melakukan unpack.', 'error');
+      } else {
+        showToast(`Berhasil membongkar 1 ${packUnit} ${item.namaBarang}`, 'success');
+      }
     }
   }
 
@@ -314,7 +371,7 @@ export default function InventoryManager() {
     );
 
     if (lowStockItems.length === 0) {
-      alert('Semua stok barang dalam kondisi aman. Tidak ada item restock.');
+      showToast('Semua stok barang dalam kondisi aman. Tidak ada item restock.', 'warning');
       return;
     }
 
@@ -330,7 +387,7 @@ export default function InventoryManager() {
           })`
       ),
       `----------------------------------`,
-      `Mohon diproses untuk pengiriman ulang. Terima kasih!`
+      `Mohon diproses untuk pengiriman ulang. Terima kasih!`,
     ];
 
     const message = encodeURIComponent(textLines.join('\n'));
@@ -567,10 +624,12 @@ export default function InventoryManager() {
                     <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-text-primary">{item.namaBarang}</p>
+                          <p className="font-medium text-text-primary">
+                            <HighlightText text={item.namaBarang} query={searchQuery} />
+                          </p>
                           {(item.sku || item.barcode) && (
                             <span className="px-1.5 py-0.5 rounded bg-bg-elevated border border-border-subtle text-[10px] font-mono text-text-muted">
-                              {item.sku || item.barcode}
+                              <HighlightText text={item.sku || item.barcode} query={searchQuery} />
                             </span>
                           )}
                         </div>
@@ -590,7 +649,9 @@ export default function InventoryManager() {
                         <div className="font-semibold text-primary">{formatRupiah(item.harga)}</div>
                         {(item.wholesaleMinQty ?? 0) > 0 && (item.wholesalePrice ?? 0) > 0 && (
                           <div className="text-[10px] text-text-muted">
-                            <span className="text-warning font-semibold">Grosir:</span> ≥{item.wholesaleMinQty} {item.satuan} ({formatRupiah(item.wholesalePrice ?? 0)})
+                            <span className="text-warning font-semibold">Grosir:</span> ≥
+                            {item.wholesaleMinQty} {item.satuan} (
+                            {formatRupiah(item.wholesalePrice ?? 0)})
                           </div>
                         )}
                       </td>
@@ -612,12 +673,13 @@ export default function InventoryManager() {
                           {((item.packStock ?? 0) > 0 || item.packUnit) && (
                             <div className="flex items-center gap-1 text-[10px]">
                               <span className="text-text-muted font-medium">
-                                Stok {item.packUnit || 'Dus'}: <strong className="text-text-primary">{item.packStock || 0}</strong>
+                                Stok {item.packUnit || 'Dus'}:{' '}
+                                <strong className="text-text-primary">{item.packStock || 0}</strong>
                               </span>
                               {(item.packStock ?? 0) > 0 && (
                                 <button
                                   onClick={() => handleUnpackDus(item)}
-                                  title={`Unpack 1 ${item.packUnit || 'Dus'} (+${item.packRatio || 24} ${item.satuan || 'Pcs'})`}
+                                  title={`Unpack 1 ${item.packUnit || 'Dus'} (+${item.packRatio || 0} ${item.satuan || 'Pcs'})`}
                                   className="px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40 font-bold transition-colors"
                                 >
                                   ⚡ Unpack
@@ -890,6 +952,8 @@ export default function InventoryManager() {
             onConfirm={handleDeleteConfirm}
             onCancel={() => setDeleteTarget(null)}
           />
+
+          <ConfirmDialogPortal />
         </>,
         document.body
       )}

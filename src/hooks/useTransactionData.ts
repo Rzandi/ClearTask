@@ -7,6 +7,7 @@ import { useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSettings } from '../contexts/SettingsContext';
 import db from '../services/db';
+import { transactionService } from '../services/transactionService';
 
 import { type Transaction } from '../types/index';
 
@@ -81,193 +82,37 @@ export function useTransactionData(
   const isLoading = rawTransactions === undefined;
   const transactions = rawTransactions || [];
 
-  // ── Add Transaction ──
-  const addTransaction = useCallback(async (orderData: any) => {
-    if (!orderData.items || orderData.items.length === 0)
-      throw new Error('Keranjang belanja kosong');
-    if (orderData.total === undefined || orderData.total < 0)
-      throw new Error('Total transaksi tidak valid');
-
-    // W0-03: Validate each item — reject qty <= 0 and hargaSatuan < 0
-    for (const item of orderData.items) {
-      const qty = Number(item.qty);
-      if (item.qty === undefined || item.qty === null || isNaN(qty) || qty <= 0) {
-        throw new Error(`Kuantitas barang "${item.namaBarang || 'item'}" harus lebih dari 0`);
-      }
-      const hargaSatuan = Number(item.hargaSatuan);
-      if (item.hargaSatuan !== undefined && item.hargaSatuan !== null && (isNaN(hargaSatuan) || hargaSatuan < 0)) {
-        throw new Error(`Harga satuan barang "${item.namaBarang || 'item'}" tidak boleh negatif`);
-      }
-    }
-
-    let newTx: Transaction | undefined;
-    await db.transaction('rw', [db.meta, db.transactions, db.inventory], async () => {
-      const metaSeq = await db.meta.get({ key: 'seq' });
-      const seq = metaSeq ? metaSeq.value + 1 : 1;
-      await db.meta.put({ ...(metaSeq || {}), key: 'seq', value: seq });
-
-      // P0-FIX: Build inventory lookup Map for O(1) access (was O(items × inventory))
-      const invItems = await db.inventory.toArray();
-      const invMap = new Map<string, (typeof invItems)[0]>();
-      for (const inv of invItems) {
-        const key = (inv.namaBarang || '').trim().toLowerCase();
-        if (key) invMap.set(key, inv);
-      }
-
-      // Deduct stock and auto-detect new products
-      const stockWarnings: string[] = [];
-
-      for (const item of orderData.items) {
-        if (!item.namaBarang || !item.namaBarang.trim()) continue;
-
-        const itemName = item.namaBarang.trim().toLowerCase();
-        const match = invMap.get(itemName);
-
-        if (match) {
-          // P0-FIX: Allow negative stock for accurate data tracking
-          // Previously Math.max(0, ...) silently clamped — hiding oversell
-          // W0-03: No silent '|| 1' fallback — deduct exact validated quantity
-          const currentStock = match.quantity || 0;
-          const deductQty = Number(item.qty);
-          const newQty = currentStock - deductQty;
-
-          if (newQty < 0) {
-            stockWarnings.push(
-              `Stok "${match.namaBarang}" tidak cukup (sisa: ${currentStock}, dibutuhkan: ${deductQty}). Stok menjadi ${newQty}.`
-            );
-          }
-
-          await db.inventory.update(match.id, {
-            quantity: newQty,
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentUser,
-          });
-          // Update map reference for subsequent items of same product in cart
-          match.quantity = newQty;
-        } else {
-          // Auto-detect new product: register with default Stock = 0, Modal = 0
-          const newProduct = {
-            id:
-              typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-                ? crypto.randomUUID()
-                : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-                    const r = (Math.random() * 16) | 0;
-                    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-                    return v.toString(16);
-                  }),
-            namaBarang: item.namaBarang.trim(),
-            kategori: item.kategori || 'Lainnya',
-            subKategori: item.subKategori || '',
-            harga: item.hargaSatuan || 0,
-            hargaModal: 0,
-            satuan: 'Pcs',
-            quantity: 0,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentUser,
-            syncStatus: 'local',
-          };
-          await db.inventory.add(newProduct);
-        }
-      }
-
-      // Item 28: Clock Tampering Guard — Monotonic timestamp verification
-      const lastTx = await db.transactions.orderBy('createdAt').last();
-      let nowMs = Date.now();
-      if (lastTx && lastTx.createdAt) {
-        const lastTxMs = new Date(lastTx.createdAt).getTime();
-        if (lastTxMs >= nowMs) {
-          nowMs = lastTxMs + 1000; // Monotonic sequence guarantee
-        }
-      }
-      const safeIsoTime = new Date(nowMs).toISOString();
-
-      // Item 34: Floating Point Precision Guard — Round all currency values
-      const roundedTotal = Math.round(Number(orderData.total) || 0);
-      const roundedUangDiterima = Math.round(Number(orderData.uangDiterima) || roundedTotal);
-      const roundedKembalian = Math.round(Number(orderData.kembalian) || 0);
-
-      const sanitizedItems = (orderData.items || []).map((item: any) => ({
-        ...item,
-        qty: Number(item.qty),
-        hargaSatuan: Math.round(Number(item.hargaSatuan) || 0),
-        hargaModal: Math.round(Number(item.hargaModal) || 0),
-        total: Math.round(
-          item.total !== undefined && !isNaN(Number(item.total))
-            ? Number(item.total)
-            : Number(item.qty) * Number(item.hargaSatuan) || 0
-        ),
-      }));
-
-      // Item 33: Collision-Free Device Prefix
-      const kasirSlug = (orderData.kasir || currentUser).replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4) || 'KSR';
-      const txId = orderData.transactionId || `TRX-${kasirSlug}-${String(seq).padStart(5, '0')}`;
-
-      newTx = {
-        ...orderData,
-        items: sanitizedItems,
-        total: roundedTotal,
-        uangDiterima: roundedUangDiterima,
-        kembalian: roundedKembalian,
-        kasir: orderData.kasir || currentUser,
-        transactionId: txId,
-        createdAt: safeIsoTime,
-        updatedAt: safeIsoTime,
-        syncStatus: 'local',
-        status: 'Selesai',
-        // P0-FIX: Attach stock warnings so UI can display insufficient stock info
-        ...(stockWarnings.length > 0 ? { stockWarnings } : {}),
-      };
-
-      await db.transactions.add(newTx);
-    });
-
-    return newTx!;
-  }, []);
-
-  // ── Update Transaction ──
-  const updateTransaction = useCallback(
-    async (id: string | number, data: any) => {
-      const numId = Number(id);
-      if (isNaN(numId)) return null;
-
-      const changes = {
-        ...data,
-        updatedAt: new Date().toISOString(),
-        updatedBy: currentUser,
-      };
-
-      const updatedRows = await db.transactions.update(numId, changes);
-      if (updatedRows === 0) return null;
-
-      return await db.transactions.get(numId);
+  // ── Add Transaction (W1-04: Delegates to transactionService) ──
+  const addTransaction = useCallback(
+    async (orderData: any) => {
+      return await transactionService.createTransaction(orderData, currentUser);
     },
     [currentUser]
   );
 
-  // ── Delete Transaction (Soft Delete — QOL C) ──
-  const deleteTransaction = useCallback(async (id: string | number) => {
-    const numId = Number(id);
-    if (isNaN(numId)) return;
+  // ── Update Transaction (W1-04: Delegates to transactionService) ──
+  const updateTransaction = useCallback(
+    async (id: string | number, data: any) => {
+      return await transactionService.updateTransaction(id, data, currentUser);
+    },
+    [currentUser]
+  );
 
-    await db.transactions.update(numId, {
-      deletedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-  }, []);
+  // ── Delete / Void Transaction (W1-04: Delegates to transactionService) ──
+  const deleteTransaction = useCallback(
+    async (id: string | number, reason?: string) => {
+      await transactionService.voidTransaction(id, reason, currentUser);
+    },
+    [currentUser]
+  );
 
-  // ── Restore Soft-Deleted Transaction ──
-  const restoreTransaction = useCallback(async (id: string | number) => {
-    const numId = Number(id);
-    if (isNaN(numId)) return;
-
-    const record = await db.transactions.get(numId);
-    if (!record) return;
-    // Remove deletedAt field entirely
-    delete record.deletedAt;
-    record.updatedAt = new Date().toISOString();
-    await db.transactions.put(record);
-  }, []);
+  // ── Restore Soft-Deleted Transaction (W1-04: Delegates to transactionService) ──
+  const restoreTransaction = useCallback(
+    async (id: string | number) => {
+      await transactionService.restoreTransaction(id, currentUser);
+    },
+    [currentUser]
+  );
 
   return {
     isLoading,

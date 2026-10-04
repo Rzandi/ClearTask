@@ -14,8 +14,10 @@ export interface AppSettings {
   qrisNsm?: string;
   /** Biaya kantong plastik: aktif/nonaktif */
   plasticBagEnabled?: boolean;
-  /** Harga kantong plastik dalam Rupiah (default 500) */
-  plasticBagPrice?: number;
+  /** Mode outdoor kontras tinggi: aktif/nonaktif */
+  outdoorMode?: boolean;
+  /** Ukuran kertas struk thermal: 58mm atau 80mm (W3-08) */
+  receiptPaperSize?: '58mm' | '80mm';
   [key: string]: unknown;
 }
 
@@ -26,13 +28,15 @@ export const defaultSettings: AppSettings = {
   appSubtitle: 'Pencatatan Penjualan',
   theme: 'dark',
   accentColor: '#00f0ff',
-  tokoAlamat: 'Jl. Contoh Alamat No. 123',
-  tokoTelepon: '0812-3456-7890',
+  tokoAlamat: '',
+  tokoTelepon: '',
   strukFooter: 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan',
   soundEnabled: true,
   hapticEnabled: true,
   plasticBagEnabled: false,
   plasticBagPrice: 500,
+  outdoorMode: false,
+  receiptPaperSize: '58mm',
 };
 
 export const VALID_ACCENT_COLORS = ['#00f0ff', '#00ff88', '#ff3366', '#bc8cff', '#f0b429'];

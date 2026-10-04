@@ -47,12 +47,23 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const theme = settings?.theme;
   const accentColor = settings?.accentColor;
+  const outdoorMode = Boolean(settings?.outdoorMode);
 
   useEffect(() => {
     if (theme && accentColor) {
       applyThemeToDOM(theme, accentColor);
     }
   }, [theme, accentColor]);
+
+  // W0-08: Apply outdoor high-contrast mode from settings (persisted across reloads)
+  useEffect(() => {
+    const root = document.documentElement;
+    if (outdoorMode) {
+      root.classList.add('outdoor-high-contrast');
+    } else {
+      root.classList.remove('outdoor-high-contrast');
+    }
+  }, [outdoorMode]);
 
   async function updateSettings(partial: Partial<AppSettings>) {
     if (!settings) return;

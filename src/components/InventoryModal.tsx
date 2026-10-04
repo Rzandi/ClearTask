@@ -28,12 +28,7 @@ export interface InventoryModalProps {
   editItem?: any;
 }
 
-export default function InventoryModal({
-  isOpen,
-  onClose,
-  onSave,
-  editItem,
-}: InventoryModalProps) {
+export default function InventoryModal({ isOpen, onClose, onSave, editItem }: InventoryModalProps) {
   const handleBack = useCallback(() => {
     onClose();
   }, [onClose]);
@@ -54,7 +49,7 @@ export default function InventoryModal({
     wholesaleMinQty: '',
     wholesalePrice: '',
     packUnit: 'Dus',
-    packRatio: '24',
+    packRatio: '',
     packStock: '0',
   });
 
@@ -80,7 +75,10 @@ export default function InventoryModal({
           wholesaleMinQty: editItem.wholesaleMinQty?.toString() || '',
           wholesalePrice: editItem.wholesalePrice?.toString() || '',
           packUnit: editItem.packUnit || 'Dus',
-          packRatio: editItem.packRatio?.toString() || '24',
+          packRatio:
+            editItem.packRatio !== undefined && editItem.packRatio !== null
+              ? editItem.packRatio.toString()
+              : '',
           packStock: editItem.packStock?.toString() || '0',
         });
       } else {
@@ -97,7 +95,7 @@ export default function InventoryModal({
           wholesaleMinQty: '',
           wholesalePrice: '',
           packUnit: 'Dus',
-          packRatio: '24',
+          packRatio: '',
           packStock: '0',
         });
       }
@@ -349,7 +347,10 @@ export default function InventoryModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5" title="Batas peringatan stok menipis">
+              <label
+                className="block text-xs font-medium text-text-secondary mb-1.5"
+                title="Batas peringatan stok menipis"
+              >
                 Stok Minim
               </label>
               <input

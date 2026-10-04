@@ -154,15 +154,13 @@ export async function exportToExcel(
   workbook.creator = 'ClearTask';
   workbook.created = new Date();
 
-  const sheet = workbook.addWorksheet('Laporan Penjualan', {
-    properties: { defaultColWidth: 18 },
-  });
+  const sheet = workbook.addWorksheet('Laporan Penjualan');
 
   setupBaseWorksheet(sheet, transactions, settings);
 
   // Auto-fit columns
   sheet.columns.forEach((col: any) => {
-    col.width = Math.max(col.width || 12, 14);
+    col.width = Math.max(col.width || 18, 18);
   });
 
   // ── Download ──
@@ -191,9 +189,7 @@ export async function exportSessionExcel(
   workbook.creator = 'ClearTask';
   workbook.created = new Date();
 
-  const sheet = workbook.addWorksheet('Laporan Sesi', {
-    properties: { defaultColWidth: 18 },
-  });
+  const sheet = workbook.addWorksheet('Laporan Sesi');
 
   setupBaseWorksheet(sheet, transactions, settings);
 

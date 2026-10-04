@@ -127,6 +127,20 @@ export function useCategories(): {
       return { success: false, error: 'Kategori tidak ditemukan.' };
     }
 
+    // W1-08: Reject deletion if category is still in use by active inventory items
+    const usedCount = await db.inventory
+      .where('kategori')
+      .equals(name)
+      .filter((item: any) => !item.deletedAt)
+      .count();
+
+    if (usedCount > 0) {
+      return {
+        success: false,
+        error: `Kategori "${name}" masih digunakan oleh ${usedCount} barang di inventaris.`,
+      };
+    }
+
     const newSubCategories = { ...(current?.subCategories || {}) };
     if (Object.hasOwn(newSubCategories, name)) {
       delete newSubCategories[name];

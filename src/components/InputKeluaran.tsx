@@ -6,16 +6,20 @@
 import React, { useState, useMemo } from 'react';
 import { useExpenses, type ExpenseItem } from '../hooks/useExpenses';
 import { formatRupiah, getTodayISO } from '../utils/formatters';
+import { maskRupiah, unmaskRupiah } from '../utils/parseIDNumber';
 import FieldGroup from './ui/FieldGroup';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import EmptyState from './ui/EmptyState';
 import ConfirmDialog from './ConfirmDialog';
+import EditExpenseModal from './EditExpenseModal';
+import { useToast } from '../hooks/useToast';
 
 const KATEGORI_OPTIONS = ['Bahan Baku', 'Operasional', 'Gaji Karyawan', 'Sewa Tempat', 'Lain-lain'];
 
 export default function InputKeluaran() {
-  const { expenses, addExpense, deleteExpense } = useExpenses();
+  const { showToast } = useToast();
+  const { expenses, addExpense, deleteExpense, updateExpense } = useExpenses();
 
   const [form, setForm] = useState({
     tanggal: getTodayISO(),
@@ -27,10 +31,11 @@ export default function InputKeluaran() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
 
-  const jumlahVal = parseInt(form.jumlah, 10) || 0;
+  const jumlahVal = unmaskRupiah(form.jumlah);
   const isValid = form.namaKeluaran.trim().length > 0 && jumlahVal > 0 && form.tanggal.length > 0;
 
   // Filtered expenses
@@ -75,12 +80,20 @@ export default function InputKeluaran() {
     } else if (e.target.name === 'namaKeluaran') {
       delete err.namaKeluaran;
     }
-    if (e.target.name === 'jumlah' && (parseInt(e.target.value, 10) || 0) <= 0) {
-      err.jumlah = 'Nominal harus > 0';
-    } else if (e.target.name === 'jumlah') {
-      delete err.jumlah;
-    }
     setErrors(err);
+  };
+
+  const handleJumlahChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const masked = maskRupiah(raw);
+    setForm((prev) => ({ ...prev, jumlah: masked }));
+    const val = unmaskRupiah(masked);
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (val <= 0) next.jumlah = 'Nominal harus > 0';
+      else delete next.jumlah;
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,8 +122,19 @@ export default function InputKeluaran() {
         catatan: '',
       }));
       setErrors({});
+      showToast('Pengeluaran berhasil dicatat', 'success');
     } catch (err: any) {
-      alert(err.message || 'Gagal menyimpan pengeluaran');
+      showToast(err.message || 'Gagal menyimpan pengeluaran', 'error');
+    }
+  };
+
+  const handleEditSave = async (id: string, updates: Partial<ExpenseItem>) => {
+    try {
+      await updateExpense(id, updates);
+      setEditingExpense(null);
+      showToast('Pengeluaran berhasil diperbarui', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal memperbarui pengeluaran', 'error');
     }
   };
 
@@ -119,8 +143,9 @@ export default function InputKeluaran() {
       try {
         await deleteExpense(deleteTarget.id);
         setDeleteTarget(null);
+        showToast('Pengeluaran berhasil dihapus', 'success');
       } catch (err: any) {
-        alert(err.message || 'Gagal menghapus pengeluaran');
+        showToast(err.message || 'Gagal menghapus pengeluaran', 'error');
       }
     }
   };
@@ -199,10 +224,10 @@ export default function InputKeluaran() {
 
             <FieldGroup label="Jumlah Nominal *">
               <Input
-                type="number"
+                type="text"
                 name="jumlah"
                 value={form.jumlah}
-                onChange={handleChange}
+                onChange={handleJumlahChange}
                 placeholder="Rp 0"
                 className={errors.jumlah ? 'border-red-500' : ''}
               />
@@ -341,23 +366,46 @@ export default function InputKeluaran() {
                         {formatRupiah(item.jumlah)}
                       </td>
                       <td className="py-3 px-3 text-center">
-                        <button
-                          onClick={() => setDeleteTarget(item)}
-                          className="w-7 h-7 flex items-center justify-center mx-auto rounded-lg text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors cursor-pointer"
-                          title="Hapus"
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setEditingExpense(item)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                            title="Edit"
+                            aria-label={`Edit ${item.namaKeluaran}`}
                           >
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(item)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors cursor-pointer"
+                            title="Hapus"
+                            aria-label={`Hapus ${item.namaKeluaran}`}
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -372,7 +420,7 @@ export default function InputKeluaran() {
                     className="bg-bg-input p-3 border border-border-subtle rounded-xl flex flex-col gap-2 relative"
                   >
                     <div className="flex items-start justify-between">
-                      <div className="min-w-0 pr-6">
+                      <div className="min-w-0 pr-16">
                         <h4 className="text-xs font-bold text-text-primary truncate">
                           {item.namaKeluaran}
                         </h4>
@@ -380,22 +428,46 @@ export default function InputKeluaran() {
                           {item.tanggal} • {item.kategori}
                         </p>
                       </div>
-                      <button
-                        onClick={() => setDeleteTarget(item)}
-                        className="absolute top-2.5 right-2.5 w-6 h-6 flex items-center justify-center rounded-lg text-text-muted hover:text-accent-red cursor-pointer"
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
+                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+                        <button
+                          onClick={() => setEditingExpense(item)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 cursor-pointer"
+                          title="Edit"
+                          aria-label={`Edit ${item.namaKeluaran}`}
                         >
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        </svg>
-                      </button>
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(item)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-text-muted hover:text-accent-red hover:bg-accent-red/10 cursor-pointer"
+                          title="Hapus"
+                          aria-label={`Hapus ${item.namaKeluaran}`}
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     {item.catatan && (
                       <p className="text-[10px] text-text-secondary bg-bg-surface px-2 py-1 rounded border border-border-subtle">
@@ -415,6 +487,13 @@ export default function InputKeluaran() {
           )}
         </div>
       </div>
+
+      <EditExpenseModal
+        isOpen={!!editingExpense}
+        expense={editingExpense}
+        onClose={() => setEditingExpense(null)}
+        onSave={handleEditSave}
+      />
 
       <ConfirmDialog
         isOpen={!!deleteTarget}

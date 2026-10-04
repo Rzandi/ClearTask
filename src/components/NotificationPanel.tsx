@@ -1,9 +1,13 @@
 /* ═══════════════════════════════════════════════════════════
-   NotificationPanel — ClearTask
-   Dropdown panel untuk menampilkan 5 transaksi terbaru
+   NotificationPanel — ClearTask (W3-03)
+   Dropdown panel menampilkan notifikasi stok menipis berdasarkan
+   minStock per barang dan riwayat 5 transaksi terbaru.
    ═══════════════════════════════════════════════════════════ */
 
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { useInventory } from '../hooks/useInventory';
+import db from '../services/db';
+import { exportDatabase } from '../services/databaseManager';
 
 function getRelativeTime(isoString: string, nowMs: number) {
   const diff = nowMs - new Date(isoString).getTime();
@@ -29,7 +33,23 @@ export default function NotificationPanel({
   transactions,
 }: NotificationPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<'stock' | 'transactions'>('stock');
 
+  // W3-03: Baca inventaris dan periksa minStock per barang
+  const { inventory } = useInventory();
+
+  const lowStockItems = useMemo(() => {
+    if (!inventory) return [];
+    return inventory
+      .filter((item) => {
+        const threshold =
+          item.minStock !== undefined && item.minStock !== null ? Number(item.minStock) : 5;
+        return (Number(item.quantity) || 0) <= threshold;
+      })
+      .sort((a, b) => (Number(a.quantity) || 0) - (Number(b.quantity) || 0));
+  }, [inventory]);
+
+  // Click outside listener
   useEffect(() => {
     if (!isOpen) return;
 
@@ -61,30 +81,174 @@ export default function NotificationPanel({
       .slice(0, 5);
   }, [transactions]);
 
+  // W3-05: Cek reminder backup berkala
+  const [backupInfo, setBackupInfo] = useState<{ daysSince: number | null; needBackup: boolean }>({
+    daysSince: null,
+    needBackup: false,
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    db.meta
+      .get({ key: 'lastBackupAt' })
+      .then(async (record) => {
+        const txCount = await db.transactions.count();
+        if (txCount === 0) return;
+
+        if (!record?.value) {
+          setBackupInfo({ daysSince: null, needBackup: true });
+          return;
+        }
+        const last = new Date(record.value);
+        const diffDays = Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24));
+        setBackupInfo({ daysSince: diffDays, needBackup: diffDays >= 7 });
+      })
+      .catch(() => {});
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
     <div
       ref={panelRef}
       data-testid="notification-panel"
-      className="fixed left-4 right-4 top-20 sm:absolute sm:top-full sm:left-auto sm:right-0 sm:mt-2 sm:w-80 glass-card shadow-elevated animate-slide-down z-50 max-h-[480px] overflow-y-auto"
+      className="fixed left-4 right-4 top-20 sm:absolute sm:top-full sm:left-auto sm:right-0 sm:mt-2 sm:w-96 glass-card shadow-elevated animate-slide-down z-50 max-h-[500px] flex flex-col border border-border-default overflow-hidden rounded-2xl"
     >
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border-default">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-text-primary">Notifikasi Transaksi</h3>
-          <span className="text-xs text-text-muted">{recentTransactions.length} transaksi</span>
+      {/* Header with Tabs */}
+      <div className="px-4 pt-3 pb-2 border-b border-border-default bg-bg-surface/80 backdrop-blur-md">
+        <div className="flex items-center justify-between mb-2.5">
+          <h3 className="text-sm font-bold text-text-primary tracking-tight">Pusat Notifikasi</h3>
+          <button
+            onClick={onClose}
+            className="text-text-muted hover:text-text-primary text-xs p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            aria-label="Tutup notifikasi"
+          >
+            ✕
+          </button>
         </div>
+
+        {/* Tab Buttons */}
+        <div className="flex rounded-xl bg-bg-elevated p-1 gap-1 border border-border-subtle">
+          <button
+            onClick={() => setActiveTab('stock')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'stock'
+                ? 'bg-accent-red/20 text-accent-red shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <span>Stok Menipis</span>
+            {lowStockItems.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-accent-red text-white">
+                {lowStockItems.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('transactions')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'transactions'
+                ? 'bg-primary/20 text-primary shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <span>Transaksi</span>
+            <span className="text-[10px] text-text-muted">({recentTransactions.length})</span>
+          </button>
+        </div>
+
+        {/* W3-05: Backup reminder banner */}
+        {backupInfo.needBackup && (
+          <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5">
+            <span className="text-amber-400 text-sm mt-0.5">⚠️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-300">
+                {backupInfo.daysSince === null
+                  ? 'Belum pernah membuat backup database'
+                  : `Sudah ${backupInfo.daysSince} hari belum backup data`}
+              </p>
+              <p className="text-[10px] text-text-muted mt-0.5">
+                Simpan salinan cadangan di luar perangkat (Google Drive / Flashdisk) agar data aman.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    await exportDatabase();
+                    setBackupInfo({ daysSince: 0, needBackup: false });
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                className="mt-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500 text-black hover:bg-amber-400 transition-colors cursor-pointer"
+              >
+                Unduh Backup Sekarang
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content */}
-      <div className="py-2">
-        {recentTransactions.length === 0 ? (
-          <div className="px-4 py-8 text-center">
+      <div className="py-2 overflow-y-auto flex-1">
+        {activeTab === 'stock' ? (
+          lowStockItems.length === 0 ? (
+            <div className="px-4 py-10 text-center">
+              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                ✓
+              </div>
+              <p className="text-sm font-medium text-text-primary">Semua Stok Aman</p>
+              <p className="text-xs text-text-muted mt-1">
+                Tidak ada barang dengan stok di bawah batas minimum (minStock).
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border-subtle">
+              {lowStockItems.map((item) => {
+                const minThreshold =
+                  item.minStock !== undefined && item.minStock !== null ? Number(item.minStock) : 5;
+                const isZero = (Number(item.quantity) || 0) <= 0;
+
+                return (
+                  <div
+                    key={item.id || item.namaBarang}
+                    className="px-4 py-2.5 hover:bg-white/[0.03] transition-colors flex items-center justify-between gap-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-text-primary truncate">
+                        {item.namaBarang}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-text-muted bg-white/5 px-1.5 py-0.5 rounded">
+                          {item.kategori || 'Umum'}
+                        </span>
+                        <span className="text-[10px] text-text-muted">
+                          Batas min: {minThreshold} {item.satuan || 'Pcs'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-lg text-xs font-bold ${
+                          isZero
+                            ? 'bg-accent-red/20 text-accent-red border border-accent-red/30'
+                            : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        }`}
+                      >
+                        {isZero ? 'Habis (0)' : `Sisa ${item.quantity || 0}`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : recentTransactions.length === 0 ? (
+          <div className="px-4 py-10 text-center">
             <svg
               className="mx-auto mb-3 text-text-muted"
-              width="48"
-              height="48"
+              width="40"
+              height="40"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -98,30 +262,30 @@ export default function NotificationPanel({
             <p className="text-sm text-text-muted">Belum ada transaksi</p>
           </div>
         ) : (
-          recentTransactions.map((tx, idx) => (
-            <div
-              key={tx.id || tx.transactionId || `tx-${idx}`}
-              className="px-4 py-3 hover:bg-white/[0.03] transition-colors border-b border-border-subtle last:border-b-0"
-            >
-              <div className="flex items-start justify-between gap-3">
+          <div className="divide-y divide-border-subtle">
+            {recentTransactions.map((tx, idx) => (
+              <div
+                key={tx.id || tx.transactionId || `tx-${idx}`}
+                className="px-4 py-2.5 hover:bg-white/[0.03] transition-colors flex items-start justify-between gap-3"
+              >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">
+                  <p className="text-xs font-medium text-text-primary truncate">
                     {tx.items && tx.items.length > 0
                       ? tx.items.length === 1
                         ? tx.items[0].namaBarang
                         : `${tx.items[0].namaBarang} (+${tx.items.length - 1} item lain)`
                       : tx.namaBarang || 'Item Tidak Diketahui'}
                   </p>
-                  <p className="text-xs text-text-muted mt-0.5">
+                  <p className="text-[10px] text-text-muted mt-0.5">
                     {getRelativeTime(tx.createdAt, nowMs)}
                   </p>
                 </div>
-                <div className="text-sm font-semibold text-primary whitespace-nowrap">
-                  Rp {tx.total.toLocaleString('id-ID')}
+                <div className="text-xs font-semibold text-primary whitespace-nowrap">
+                  Rp {(tx.total || 0).toLocaleString('id-ID')}
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </div>

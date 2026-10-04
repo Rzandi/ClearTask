@@ -3,6 +3,59 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+## [3.7.0] - 2026-10-05
+
+Versi 3.7.0 adalah pembaruan besar yang menuntaskan seluruh fondasi **Data Integrity Hardening, Stock Ledger, Cash Reconciliation, & UI Consistency (Workstream W0, W1, W2, dan W3)**. Pembaruan ini memastikan setiap transaksi keuangan dan pergerakan stok memiliki jejak audit (_audit trail_) yang tidak dapat diubah diam-diam, menyatukan operasi database ke service atomik, serta menghadirkan kenyamanan operasional kasir sehari-hari.
+
+### 🛡️ Fixed & Hardened (W0 & W1)
+
+- **ClosingReportModal Hooks Violation (W0-01)**: Memperbaiki aturan hooks React agar tidak conditionally return sebelum semua hooks dipanggil.
+- **Session Void Filter (W0-02)**: Memastikan transaksi void (`deletedAt`) diabaikan dari `getSessionTransactionsAsync` dan `calculateSessionStats`.
+- **Quantity 0 Fallback Guard (W0-03)**: Menolak transaksi dengan qty <= 0 dan hargaSatuan < 0, menghapus silent fallback `|| 1`.
+- **Trash Auto-Purge Confirmation (W0-04)**: Mengganti auto-purge tanpa izin menjadi banner peringatan 30 hari dengan konfirmasi pengguna dan proteksi referensi transaksi.
+- **F-Key Navigation Guard (W0-05)**: Mencegah F-key shortcut membajak keyboard saat kasir sedang mengetik di dalam input field (hanya F1 Bantuan yang aktif).
+- **Shortcut & Enter Checkout (W0-06)**: Menambahkan shortcut Ctrl/Cmd+Enter untuk checkout keranjang, merapikan shortcut di modal bantuan.
+- **Dummy Contact Info Guard (W0-07)**: Menyembunyikan alamat dan nomor telepon dummy dari cetakan struk jika belum diisi di Pengaturan.
+- **Outdoor Mode Persistence (W0-08)**: Menyimpan preferensi mode kontras tinggi (outdoor) ke dalam Dexie settings agar bertahan saat reload.
+- **Laporan Export Excel (TS Fix)**: Menyesuaikan API ExcelJS untuk lebar kolom auto-fit.
+- **ErrorBoundary Production Code (W0-12)**: Menampilkan kode error pendek (mis. E310) dan tombol Salin Detail Error di layar fallback.
+- **Query Performance (W0-14, W0-15, W0-16)**: Menggunakan index `deletedAt` di TrashManager, query nama keranjang di `addTransaction`, dan menambahkan default limit pada `useExpenses`.
+- **Deduplikasi Nama Kanonikal (W1-07)**: Mencegah pendaftaran produk ganda dengan nama kanonikal yang sama pada inventaris aktif.
+- **Proteksi Hapus Kategori Aktif (W1-08)**: Menolak penghapusan kategori yang masih digunakan oleh barang inventaris aktif.
+- **Unpack Dus Atomic (W1-09)**: Menghubungkan tombol unpack di inventaris dan kasir ke `transactionService.unpackInventoryItem`, menghapus fallback default 24.
+- **Versi Format Backup & Derivasi Ledger (W1-10)**: Menambahkan `schemaVersion: 12` pada backup JSON dan derivasi otomatis saldo awal untuk file backup versi lama.
+- **Invarian Stok & Cek Drift (W1-11, W1-12)**: Menambahkan test suite invarian stok dan utilitas deteksi drift stok fisik vs ledger.
+
+### 💰 Keuangan & Rekonsiliasi Kas (W2)
+
+- **Parser Angka Desimal Indonesia (W2-01)**: Utilitas `parseIDNumber` dan `formatIDR` terpadu untuk parsing format desimal ("0,57") dan ribuan ("12.000") di seluruh modul aplikasi.
+- **Kas Tunai Bersih Closing Report (W2-02)**: Menghitung kas tunai bersih (penjualan tunai - kembalian - pengeluaran tunai) di laporan penutupan sesi.
+- **Rekonsiliasi Kas Fisik (W2-03)**: Fitur input kas fisik di modal penutupan sesi dengan deteksi selisih toleransi Rp 50.000 dan alasan wajib jika di luar toleransi.
+- **Undo Checkout Cepat (W2-04)**: Tombol pembatalan transaksi kilat (15 detik) untuk mengembalikan stok dan memulihkan isi keranjang kasir.
+- **Append-Only Audit Log (W2-05, W2-06)**: Skema Dexie v13 tabel `audit_log` dan `auditService` untuk mencatat riwayat void, update, restore dengan alasan wajib.
+- **Immutabilitas Kasir (W2-07)**: Melarang perubahan nama kasir pada transaksi yang sudah tersimpan saat edit pesanan.
+- **Prioritas Harga Custom (W2-08)**: Memprioritaskan harga custom yang diketik kasir di formulir agar tidak tertimpa harga katalog.
+- **Validasi Harga Jual vs Modal (W2-09)**: Menampilkan peringatan konfirmasi jika harga jual yang dimasukkan lebih rendah dari harga modal.
+- **Indikator Modal Transparan (W2-10)**: Menandai item tanpa modal tercatat agar tidak menghasilkan margin 100% semu.
+- **RFC 4180 CSV Parser (W2-11)**: Parser CSV yang aman terhadap koma di dalam tanda kutip dan format desimal Indonesia.
+- **Sesi Lintas Hari (W2-12)**: Menjaga tanggal pembukuan transaksi tetap merujuk pada `tanggalMulai` sesi shift aktif.
+
+### ✨ QOL, Hardware & UI Consistency (W3)
+
+- **Confirm Dialog Berbasis Promise (W3-01)**: Menggantikan seluruh `window.confirm` native dengan hook `useConfirm` modal interaktif yang konsisten.
+- **Notifikasi Toast Non-Blocking (W3-02)**: Menggantikan seluruh `alert()` native dengan sistem toast.
+- **Notifikasi Stok Menipis Dinamis (W3-03)**: Membaca ambang batas `minStock` spesifik per barang di inventaris.
+- **Auto-Reconnect Printer Bluetooth (W3-04)**: Menyimpan ID perangkat printer terakhir dan menyediakan alur koneksi ulang cepat.
+- **Reminder Backup Berkala (W3-05)**: Peringatan otomatis jika database belum diexport/backup selama lebih dari 7 hari.
+- **Custom Date Range Laporan (W3-06)**: Filter rentang tanggal fleksibel (Tanggal Mulai - Tanggal Selesai) pada Laporan Transaksi.
+- **Struk Thermal 80mm & 58mm (W3-08)**: Toggle pilihan format cetak kertas 58mm atau 80mm di modal struk dengan layout tabel rapi dan penyimpanan preferensi.
+- **Highlight Hasil Pencarian (W3-09)**: Komponen `<HighlightText>` untuk menyorot kata kunci pencarian pada katalog barang dan tabel riwayat transaksi.
+- **Cash Drawer Kick Command (W3-17)**: Perintah ESC/POS drawer kick (`ESC p 0 25 250`) otomatis saat mencetak struk transaksi tunai.
+- **Mobile Ergonomics (W3-18)**: Dua scroll container independen pada keranjang belanja mobile dan tombol checkout sticky.
+- **License File (W0-17)**: Menambahkan file lisensi MIT resmi dan field `license` di `package.json`.
+
 ## [3.6.0] - 2026-09-26
 
 Versi 3.6.0 berfokus pada **Data Integrity Hardening, Mobile Ergonomics & Offline Edge Cases Resiliency** berdasarkan audit mendalam terhadap sistem transaksi dan persistensi lokal. Pembaruan ini mencakup pelacakan stok minus tanpa silent-clamp, O(1) inventory lookup map saat checkout, isolasi penuh data soft-delete dari metrik keuangan, penanganan hardware back button di Android PWA, sanitasi karakter printer thermal ESC/POS, deduplikasi kanonikal saat merge database offline, serta perlindungan chunk reload.

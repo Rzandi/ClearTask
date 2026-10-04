@@ -132,8 +132,12 @@ export function generateEscPosBytes(order: ReceiptOrder, settings?: AppSettings)
 
   addCommand([GS, 0x21, 0x00]); // Normal font size
   addCommand([ESC, 0x45, 0x00]); // Bold OFF
-  addLine(settings?.tokoAlamat || 'Jl. Contoh Alamat No. 123');
-  addLine(`Telp: ${settings?.tokoTelepon || '0812-3456-7890'}`);
+  if (settings?.tokoAlamat?.trim()) {
+    addLine(settings.tokoAlamat.trim());
+  }
+  if (settings?.tokoTelepon?.trim()) {
+    addLine(`Telp: ${settings.tokoTelepon.trim()}`);
+  }
 
   // Divider
   addCommand([ESC, 0x61, 0x00]); // Align Left
@@ -205,6 +209,12 @@ export function generateEscPosBytes(order: ReceiptOrder, settings?: AppSettings)
   addLine('\n\n\n\n');
   addCommand([GS, 0x56, 0x42, 0x00]); // GS V B 0 (Feed paper and cut)
 
+  // W0-17: Cash drawer kick — only for cash (Tunai) transactions
+  // ESC p m t1 t2 — Pin 2 connector, pulse ON 50ms, OFF 250ms
+  if (order.metode === 'Tunai') {
+    addCommand([ESC, 0x70, 0x00, 0x19, 0xfa]); // ESC p 0 25 250
+  }
+
   return new Uint8Array(bytesList);
 }
 
@@ -232,31 +242,57 @@ export async function printBluetoothReceipt(
       '00001101-0000-1000-8000-00805f9b34fb', // Serial Port Profile (SPP)
     ];
 
-    // Request targeted printer device with fallback to acceptAllDevices
+    // W3-04: Reconnect printer Bluetooth otomatis jika ada deviceId tersimpan
     let device: any = null;
-    try {
-      device = await nav.bluetooth.requestDevice({
-        filters: [
-          { namePrefix: 'MPT' },
-          { namePrefix: 'RP' },
-          { namePrefix: 'POS' },
-          { namePrefix: 'Printer' },
-          { namePrefix: 'Thermal' },
-          { namePrefix: 'BT' },
-          { namePrefix: 'MTP' },
-          { namePrefix: 'XP-' },
-          { namePrefix: 'HOIN' },
-        ],
-        optionalServices,
-      });
-    } catch (filterError: any) {
-      if (filterError.name === 'NotFoundError' || filterError.message?.includes('cancelled')) {
-        throw filterError;
+    const savedDeviceId = localStorage.getItem('cleartask_last_printer_id');
+
+    if (savedDeviceId && typeof nav.bluetooth.getDevices === 'function') {
+      try {
+        const knownDevices = await nav.bluetooth.getDevices();
+        const found = knownDevices.find((d: any) => d.id === savedDeviceId);
+        if (found) {
+          device = found;
+          onStatusChange(`Menghubungkan kembali ke ${device.name || 'Printer'}...`);
+        }
+      } catch (e) {
+        console.warn('Gagal cek getDevices:', e);
       }
-      device = await nav.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices,
-      });
+    }
+
+    // Request targeted printer device with fallback to acceptAllDevices jika belum ada device
+    if (!device) {
+      try {
+        device = await nav.bluetooth.requestDevice({
+          filters: [
+            { namePrefix: 'MPT' },
+            { namePrefix: 'RP' },
+            { namePrefix: 'POS' },
+            { namePrefix: 'Printer' },
+            { namePrefix: 'Thermal' },
+            { namePrefix: 'BT' },
+            { namePrefix: 'MTP' },
+            { namePrefix: 'XP-' },
+            { namePrefix: 'HOIN' },
+          ],
+          optionalServices,
+        });
+      } catch (filterError: any) {
+        if (filterError.name === 'NotFoundError' || filterError.message?.includes('cancelled')) {
+          throw filterError;
+        }
+        device = await nav.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices,
+        });
+      }
+    }
+
+    // Simpan deviceId & nama printer agar bisa auto-reconnect di kemudian hari
+    if (device?.id) {
+      localStorage.setItem('cleartask_last_printer_id', device.id);
+    }
+    if (device?.name) {
+      localStorage.setItem('cleartask_last_printer_name', device.name);
     }
 
     onStatusChange(`Menghubungkan ke ${device.name || 'Printer'}...`);
@@ -343,4 +379,28 @@ export async function printBluetoothReceipt(
     }
     return false;
   }
+}
+
+/**
+ * Mendapatkan printer bluetooth yang terakhir berhasil terhubung
+ */
+export function getLastConnectedPrinter(): { id: string | null; name: string | null } {
+  try {
+    return {
+      id: localStorage.getItem('cleartask_last_printer_id'),
+      name: localStorage.getItem('cleartask_last_printer_name'),
+    };
+  } catch {
+    return { id: null, name: null };
+  }
+}
+
+/**
+ * Hapus printer yang tersimpan
+ */
+export function forgetLastConnectedPrinter(): void {
+  try {
+    localStorage.removeItem('cleartask_last_printer_id');
+    localStorage.removeItem('cleartask_last_printer_name');
+  } catch {}
 }

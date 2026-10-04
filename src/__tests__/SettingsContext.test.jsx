@@ -157,4 +157,35 @@ describe('SettingsContext', () => {
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
+
+  // ── W0-08: Outdoor mode persistence across settings / reload ──
+  it('9. updateSettings({ outdoorMode: true }) → class outdoor-high-contrast ada di document.documentElement', async () => {
+    const { result } = await renderHookAndReady();
+
+    await act(async () => {
+      await result.current.updateSettings({ outdoorMode: true });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(document.documentElement.classList.contains('outdoor-high-contrast')).toBe(true);
+    expect(result.current.settings.outdoorMode).toBe(true);
+  });
+
+  it('10. updateSettings({ outdoorMode: false }) → class outdoor-high-contrast dihapus dari document.documentElement', async () => {
+    const { result } = await renderHookAndReady();
+
+    await act(async () => {
+      await result.current.updateSettings({ outdoorMode: true });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(document.documentElement.classList.contains('outdoor-high-contrast')).toBe(true);
+
+    await act(async () => {
+      await result.current.updateSettings({ outdoorMode: false });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(document.documentElement.classList.contains('outdoor-high-contrast')).toBe(false);
+    expect(result.current.settings.outdoorMode).toBe(false);
+  });
 });

@@ -4,13 +4,17 @@
    Feature: session-management
    ═══════════════════════════════════════════════════════════ */
 
-import { useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import db from '../services/db';
 import { calculateSessionStats } from '../utils/sessionStats';
 import { exportSessionExcel } from '../utils/exportExcel';
 import { exportSessionCSV } from '../utils/exportCSV';
 import { formatRupiah, formatDate, formatTime, toTitleCase } from '../utils/formatters';
+import { parseIDNumber, maskRupiah } from '../utils/parseIDNumber';
 import { useSettings } from '../contexts/SettingsContext';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useToast } from '../hooks/useToast';
 
 /**
  * ClosingReportModal displays session closing statistics and export options
@@ -49,6 +53,7 @@ function ClosingReportModalInner({
   onClose,
 }: ClosingReportModalProps) {
   const { settings } = useSettings();
+  const { showToast } = useToast();
 
   const handleBack = useCallback(() => {
     onClose();
@@ -62,11 +67,62 @@ function ClosingReportModalInner({
     [transactions]
   );
 
-  // 11.13 Gunakan calculateSessionStats untuk menghitung statistik
+  // Fetch expenses to calculate cash expenses
+  const rawExpenses = useLiveQuery(async () => {
+    return await db.expenses.toArray();
+  });
+  const allExpenses = rawExpenses || [];
+
+  // 11.13 Gunakan calculateSessionStats untuk menghitung statistik (termasuk kas tunai & pengeluaran)
   const stats = useMemo(
-    () => calculateSessionStats(session, activeTransactions),
-    [session, activeTransactions]
+    () => calculateSessionStats(session, activeTransactions, allExpenses),
+    [session, activeTransactions, allExpenses]
   );
+
+  // W2-03: Rekonsiliasi Kas Fisik state
+  const [kasFisikStr, setKasFisikStr] = useState<string>(
+    session?.reconciliation?.kasFisik ? session.reconciliation.kasFisik.toString() : ''
+  );
+  const [alasanSelisih, setAlasanSelisih] = useState<string>(session?.reconciliation?.alasan || '');
+  const [reconciliationSaved, setReconciliationSaved] = useState<boolean>(
+    Boolean(session?.reconciliation)
+  );
+
+  const kasFisik = kasFisikStr ? parseIDNumber(kasFisikStr) : null;
+  const selisihKas = kasFisik !== null ? kasFisik - stats.kasTunaiBersih : null;
+  const isDiscrepancyAboveTolerance = selisihKas !== null && Math.abs(selisihKas) > 50000;
+
+  const handleSaveReconciliation = useCallback(async () => {
+    if (kasFisik === null) return;
+    if (isDiscrepancyAboveTolerance && !alasanSelisih.trim()) {
+      showToast(
+        'Selisih kas melebihi batas toleransi Rp 50.000. Mohon isi alasan perbedaan kas.',
+        'warning'
+      );
+      return;
+    }
+    if (session?.id) {
+      await db.sessions.update(session.id, {
+        reconciliation: {
+          kasFisik,
+          kasEkspektasi: stats.kasTunaiBersih,
+          selisih: selisihKas,
+          alasan: alasanSelisih.trim() || undefined,
+          savedAt: new Date().toISOString(),
+        },
+      });
+      setReconciliationSaved(true);
+      showToast('Rekonsiliasi kas berhasil disimpan', 'success');
+    }
+  }, [
+    session,
+    kasFisik,
+    stats.kasTunaiBersih,
+    selisihKas,
+    isDiscrepancyAboveTolerance,
+    alasanSelisih,
+    showToast,
+  ]);
 
   // Calculate detailed breakdown of sold items during this session
   const soldItemsBreakdown = useMemo(() => {
@@ -214,6 +270,128 @@ function ClosingReportModalInner({
                   {formatRupiah(stats.totalPemasukan)}
                 </p>
               </div>
+            </div>
+
+            {/* W2-02: Kas Tunai Headline */}
+            <div className="bg-bg-elevated rounded-xl p-4 border border-primary/30 shadow-glow/10 space-y-2 mt-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-text-muted">Kas Tunai Bersih Sesi</p>
+                  <p className="text-2xl font-black text-primary">
+                    {formatRupiah(stats.kasTunaiBersih)}
+                  </p>
+                </div>
+                <div className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-[11px] font-bold text-primary">
+                  Tunai Laci
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border-subtle text-[11px]">
+                <div>
+                  <span className="text-text-muted block">Masuk Tunai:</span>
+                  <span className="font-semibold text-text-primary">
+                    {formatRupiah(stats.totalPenjualanTunai)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-muted block">Kembalian:</span>
+                  <span className="font-semibold text-accent-red">
+                    -{formatRupiah(stats.totalKembalian)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-muted block">Pengeluaran:</span>
+                  <span className="font-semibold text-accent-red">
+                    -{formatRupiah(stats.totalPengeluaranTunai)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* W2-03: Rekonsiliasi Kas Fisik */}
+            <div className="bg-bg-elevated rounded-xl p-4 border border-border-subtle space-y-3 mt-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                  Rekonsiliasi Kas Fisik
+                </h4>
+                {reconciliationSaved && (
+                  <span className="text-[10px] font-semibold text-accent-cyan bg-accent-cyan/15 px-2 py-0.5 rounded-full">
+                    ✓ Tersimpan
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-text-muted">
+                Hitung jumlah uang fisik di laci kasir dan bandingkan dengan catatan sistem.
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-xs text-text-muted block">
+                  Jumlah Kas Fisik di Laci (Rp)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 250.000"
+                  value={kasFisikStr}
+                  onChange={(e) => {
+                    setKasFisikStr(maskRupiah(e.target.value));
+                    setReconciliationSaved(false);
+                  }}
+                  className="w-full px-3 py-2 text-sm bg-bg-surface border border-border-default rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              {selisihKas !== null && (
+                <div
+                  className={`p-3 rounded-lg border text-xs space-y-1.5 ${
+                    selisihKas === 0
+                      ? 'bg-accent-cyan/10 border-accent-cyan/30 text-accent-cyan'
+                      : isDiscrepancyAboveTolerance
+                        ? 'bg-accent-red/10 border-accent-red/30 text-accent-red'
+                        : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  }`}
+                >
+                  <div className="flex justify-between font-bold">
+                    <span>Selisih Kas:</span>
+                    <span>
+                      {selisihKas >= 0
+                        ? `+${formatRupiah(selisihKas)}`
+                        : `-${formatRupiah(Math.abs(selisihKas))}`}
+                    </span>
+                  </div>
+                  {selisihKas === 0 ? (
+                    <p className="text-[11px]">✓ Kas fisik cocok sempurna dengan sistem.</p>
+                  ) : isDiscrepancyAboveTolerance ? (
+                    <p className="text-[11px]">
+                      ⚠️ Selisih melebihi batas toleransi toko (Rp 50.000). Alasan wajib diisi.
+                    </p>
+                  ) : (
+                    <p className="text-[11px]">Dalam batas toleransi wajar (≤ Rp 50.000).</p>
+                  )}
+                </div>
+              )}
+
+              {isDiscrepancyAboveTolerance && (
+                <div className="space-y-1">
+                  <label className="text-xs text-accent-red font-medium block">
+                    Alasan Selisih Kas (Wajib)*
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Salah kembalian pada TRX-0004"
+                    value={alasanSelisih}
+                    onChange={(e) => setAlasanSelisih(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-bg-surface border border-accent-red/40 rounded-lg text-text-primary focus:outline-none focus:border-accent-red"
+                  />
+                </div>
+              )}
+
+              {kasFisik !== null && !reconciliationSaved && (
+                <button
+                  type="button"
+                  onClick={handleSaveReconciliation}
+                  className="w-full py-2 px-3 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Simpan Catatan Rekonsiliasi
+                </button>
+              )}
             </div>
           </section>
 
@@ -398,15 +576,21 @@ function ClosingReportModalInner({
                           {formatRupiah(stats.transaksiTertinggi.total)}
                         </p>
                         {(() => {
-                          const items = Array.isArray(stats.transaksiTertinggi?.items) ? stats.transaksiTertinggi.items : [];
+                          const items = Array.isArray(stats.transaksiTertinggi?.items)
+                            ? stats.transaksiTertinggi.items
+                            : [];
                           const firstItemName = items[0]?.namaBarang || '';
                           const legacyName = String(stats.transaksiTertinggi?.namaBarang || '-');
-                          const titleText = items.length > 0 ? items.map((i: any) => i.namaBarang).join(', ') : legacyName;
-                          const displayText = items.length > 0
-                            ? items.length === 1
-                              ? firstItemName
-                              : `${firstItemName} (+${items.length - 1} item)`
-                            : legacyName;
+                          const titleText =
+                            items.length > 0
+                              ? items.map((i: any) => i.namaBarang).join(', ')
+                              : legacyName;
+                          const displayText =
+                            items.length > 0
+                              ? items.length === 1
+                                ? firstItemName
+                                : `${firstItemName} (+${items.length - 1} item)`
+                              : legacyName;
                           return (
                             <p className="text-xs text-text-muted mt-1 truncate" title={titleText}>
                               {displayText}
@@ -432,15 +616,21 @@ function ClosingReportModalInner({
                           {formatRupiah(stats.transaksiTerendah.total)}
                         </p>
                         {(() => {
-                          const items = Array.isArray(stats.transaksiTerendah?.items) ? stats.transaksiTerendah.items : [];
+                          const items = Array.isArray(stats.transaksiTerendah?.items)
+                            ? stats.transaksiTerendah.items
+                            : [];
                           const firstItemName = items[0]?.namaBarang || '';
                           const legacyName = String(stats.transaksiTerendah?.namaBarang || '-');
-                          const titleText = items.length > 0 ? items.map((i: any) => i.namaBarang).join(', ') : legacyName;
-                          const displayText = items.length > 0
-                            ? items.length === 1
-                              ? firstItemName
-                              : `${firstItemName} (+${items.length - 1} item)`
-                            : legacyName;
+                          const titleText =
+                            items.length > 0
+                              ? items.map((i: any) => i.namaBarang).join(', ')
+                              : legacyName;
+                          const displayText =
+                            items.length > 0
+                              ? items.length === 1
+                                ? firstItemName
+                                : `${firstItemName} (+${items.length - 1} item)`
+                              : legacyName;
                           return (
                             <p className="text-xs text-text-muted mt-1 truncate" title={titleText}>
                               {displayText}

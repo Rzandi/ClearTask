@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">ClearTask v3.6.0</h1>
+  <h1 align="center">ClearTask v3.7.0</h1>
   <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Sektor Retail, Minimarket & High-Resiliency POS.</strong></p>
 </p>
 
@@ -9,46 +9,46 @@
 
 ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk kasir, toko kelontong, minimarket, dan UMKM. Semua data tersimpan **100% lokal** di perangkat pengguna menggunakan IndexedDB — tidak ada server, tidak ada akun wajib, tidak ada biaya langganan, dan dapat bekerja secara penuh tanpa jaringan internet.
 
-### Fitur Utama ClearTask v3.6.0
+### Fitur Utama ClearTask v3.7.0
 
-- 🛡️ **Data Integrity & Mobile Resilience Engine (v3.6.0)**:
-  - **Negative Stock & Warning Attachment**: Pelacakan stok akurat tanpa silent-clamping nol. Notifikasi `stockWarnings` disimpan di record transaksi saat terjadi oversell.
-  - **O(1) Inventory Lookup Optimization**: Optimasi checkout berkecepatan tinggi menggunakan map lookup, mengeliminasi full table array scanning.
-  - **Soft-Delete Metrics & Count Isolation**: Isolasi konsisten data terhapus (`deletedAt`) dari omset harian, tren penjualan, total count, dan transaksi terbaru.
-  - **Hardware Back Button Handler (Android PWA / TWA)**: Integrasi riwayat navigasi tombol Back fisik Android untuk menutup modal bertingkat tanpa keluar dari aplikasi.
-  - **Thermal Printer ESC/POS Character Sanitizer**: Sanitasi otomatis karakter unicode/smart-quotes WhatsApp ke code page single-byte (CP437/ASCII) mencegah karakter kotak pada kertas nota.
-  - **Multi-Device Canonical Merge Dedup**: Pencegahan duplikasi produk auto-detect saat menggabungkan database dari multi-perangkat offline.
-  - **Resiliency Guards Hardening**: Isolasi penanganan error dynamic chunk import (`lazyWithRetry`) guna mencegah loop reload tak terbatas.
+- 📊 **Fondasi Data & Ledger Stok (Stock Movements & Product Identity - W1)**:
+  - **Tabel Append-Only `stock_movements` (Dexie v12)**: Setiap pergerakan stok (penjualan, void, restore, edit pesanan, unpack dus, penyesuaian manual) tercatat dalam ledger permanen.
+  - **Atomic `transactionService`**: Menyatukan seluruh alur checkout, pembatalan, pemulihan, dan edit ke dalam satu transaksi database (`db.transaction`) atomik.
+  - **Identitas Produk & Snapshot Transaksi**: Transaksi merekam `inventoryId`, `namaSnapshot`, dan `hargaModalSnapshot` sehingga histori laporan tidak terdistorsi jika data katalog berubah.
+  - **Sesi Kasir Immutable & Closing Snapshot**: Penutupan sesi menyimpan snapshot total omset, metode pembayaran, dan kas bersih. Transaksi paska-tutup ditandai `postCloseAdjusted`.
+  - **Deduplikasi Kanonikal & Proteksi Kategori**: Normalisasi spasi dan huruf kecil pada nama barang, serta penolakan penghapusan kategori yang masih dipakai di inventaris aktif.
+  - **Invarian Stok & Deteksi Drift**: Test suite matematis invarian stok (`quantity = saldo awal + sum(delta)`) dan utilitas `stockDriftCheck` untuk audit inventaris.
 
-- 📚 **Pusat Bantuan & FAQ Interaktif Terpadu (Help & Shortcuts Hub)**:
-  - **7 Kategori FAQ Operasional**: Panduan lengkap troubleshooting, alur kerja kasir, inventaris, laporan keuangan, printer thermal Bluetooth, database, hingga keamanan & offline mode.
-  - **Tab Pintasan Keyboard (Shortcut Keys)**: Tampilan visual interaktif daftar shortcut fisik (`F1` - `F5`, `F8`, `Ctrl+Enter`, `Alt+O`, `?`, `Esc`) untuk operasional kasir ultra-cepat tanpa mouse.
-- 🛍️ **Sektor Retail & Minimarket**:
-  - **Harga Grosir (Tiered Pricing Engine)**: Skema diskon kuantitas bertingkat (_beli banyak lebih murah_) yang otomatis mendeteksi dan menerapkan harga grosir di keranjang POS.
-  - **Multi-UOM Konversi Stok (Dus → Pcs Auto Unpack)**: Manajemen stok kemasan grosir (`packStock`, `packRatio`) dengan aksi 1-klik _⚡ Unpack Dus_ dan prompt cepat di POS saat stok eceran Pcs habis.
-  - **Daftar Belanja Restock Supplier (Purchase Requisition)**: Filter otomatis barang menipis (`stok <= minStock`) dan ekspor daftar belanja 1-tap langsung ke WhatsApp Supplier atau file CSV.
-- ⚡ **Quality of Life (QOL) & Input Kasir**:
-  - **Quick Cash & Cash Breakdown**: Tombol pecahan nominal tunai (`10k`, `20k`, `50k`, `100k`) & widget rincian pecahan lembaran uang kertas (20rb, 10rb, 5rb, 2rb, 1rb).
-  - **Hero Change Display (40px)**: Tampilan nominal kembalian berukuran `40px` bold berwarna hijau murni/merah tegas pada layar pembayaran.
-  - **Pending Order**: Simpan keranjang belanja sementara ke slot tertunda dan pulihkan dengan 1 klik.
-  - **Inline Syntax Command Parser**: Pengetikan cepat di POS (contoh: `Susu 2x @15000 !diskon10%`) yang otomatis terurai menjadi item keranjang.
-  - **Audio & Haptic Feedback**: Efek suara _beep_ kasir (suara beda jika item tak terdaftar) & getaran mikro (`navigator.vibrate`) saat scan/penambahan item.
-  - **Soft Delete & Trash Manager**: Penghapusan transaksi dan master barang berbasis Soft Delete (`deletedAt`) terintegrasi penuh ke Tong Sampah dan pembersihan otomatis > 30 hari.
-- 🎨 **Visual Adaptability & Ergonomi Layout**:
-  - **Dual-Pane 65:35 & Mobile Bottom Sheet**: Tata letak teroptimasi untuk jempol pada mode seluler & mata kasir pada layar tablet/desktop.
-  - **Outdoor High-Contrast & OLED Dark Mode**: Mode visual luar ruangan (rasio kontras WCAG AAA > 7:1) & mode gelap murni `#09090B`.
-  - **Hotkey Sheet Overlay (`?` / `Shift+/`)**: Modal panduan visual shortcut keyboard fisik (`<kbd>F1</kbd>` - `<kbd>F5</kbd>`, `<kbd>F8</kbd>`, `<kbd>Alt+O</kbd>`, `<kbd>Ctrl+Enter</kbd>`).
-  - **First-Time Kiosk Setup Wizard**: Modal onboarding 3 langkah (Profil Toko -> QRIS & Nota -> Tes Cetak).
-- 🛡️ **Live Resiliency & Offline Resilience**:
-  - **Auto-Draft Cart Persistence**: Keranjang kasir tersimpan otomatis di `localStorage` (`cleartask_draft_cart`) & terpulihkan jika tab tertutup.
-  - **Lazy Chunk Retry (`lazyWithRetry`)**: Penanganan otomatis kegagalan pemuatan JS chunk saat pembaruan Service Worker.
-  - **Multi-Tab Sync (`BroadcastChannel`)**: Penyelarasan keranjang & state aplikasi antar tab browser secara real-time.
-  - **Storage Quota & Incognito Warning**: Peringatan otomatis jika sisa memori < 50MB atau aplikasi dibuka di mode Incognito browser.
-  - **Clock Tampering & Monotonic Sequence**: Monotonic sequence guard untuk mencegah kekacauan urutan transaksi jika jam HP dimundurkan.
-  - **Offline Collision-Free Device Prefix**: ID transaksi ber-prefix kasir (`TRX-${kasirSlug}-${seq}`) untuk mencegah tumbukan ID antar perangkat offline.
+- 💰 **Integritas Uang, Rekonsiliasi Kas & Audit Log (W2)**:
+  - **Parser Desimal Indonesia (`parseIDNumber`)**: Penanganan terpadu format angka Indonesia (koma sebagai desimal `"0,57"`, titik sebagai ribuan `"12.000"`).
+  - **Kas Tunai Bersih Sesi**: Perhitungan kas real (penjualan tunai - kembalian - pengeluaran operasional tunai) pada laporan penutupan shift.
+  - **Rekonsiliasi Kas Fisik Pra-Tutup**: Validasi kas fisik di laci sebelum sesi ditutup, dengan peringatan selisih toleransi Rp 50.000 dan kewajiban input alasan.
+  - **Undo Checkout Kilat (15 Detik)**: Tombol pembatalan instan di layar struk untuk mengembalikan stok ke inventaris dan memulihkan isi keranjang kasir.
+  - **Tabel `audit_log` (Dexie v13)**: Riwayat audit append-only yang merekam aksi void, edit, dan restore lengkap beserta identitas kasir, waktu, dan alasan wajib.
+  - **Immutabilitas Kasir**: Nama kasir penginput terkunci dan tidak dapat ditimpa saat transaksi diedit.
+  - **Parser CSV RFC 4180**: Parser import CSV tahan kutipan ganda dan koma dalam nilai.
+
+- ⚡ **QOL, Konsistensi UI & Hardware (W3)**:
+  - **Promise-Based `useConfirm` Dialog**: Menggantikan seluruh `window.confirm` browser dengan modal konfirmasi bertema yang konsisten.
+  - **Notifikasi Toast Non-Blocking**: Notifikasi melayang elegan menggantikan seluruh pemanggilan `alert()` native.
+  - **Notifikasi Stok Menipis Dinamis**: Membaca batas `minStock` spesifik per produk, bukan batas statis seragam.
+  - **Auto-Reconnect Printer Bluetooth**: Penyimpanan perangkat printer terakhir dan koneksi ulang otomatis.
+  - **Format Struk Thermal 80mm & 58mm**: Pilihan layout cetak struk lebar 80mm dan standar 58mm langsung di modal struk kasir.
+  - **Highlight Pencarian (`<HighlightText>`)**: Penyorotan visual kata kunci pencarian pada katalog barang dan tabel riwayat transaksi.
+  - **Cash Drawer Kick Command**: Perintah ESC/POS kick drawer otomatis pada transaksi tunai.
+  - **Mobile Split Cart**: Tata letak mobile ergonomis dengan list barang dan sticky checkout button.
+  - **Periodic Backup Reminder**: Peringatan otomatis jika database belum diexport selama lebih dari 7 hari.
+
+- 🛡️ **Data Integrity & Mobile Resilience Engine (v3.6.0 Baseline)**:
+  - **Negative Stock & Warning Attachment**: Pelacakan stok akurat tanpa silent-clamping nol.
+  - **O(1) Inventory Lookup Optimization**: Optimasi checkout berkecepatan tinggi menggunakan map lookup.
+  - **Hardware Back Button Handler (Android PWA)**: Integrasi tombol Back fisik Android untuk menutup modal bertingkat.
+  - **Multi-UOM Konversi Stok (Dus → Pcs Auto Unpack)**: Manajemen stok kemasan grosir dengan aksi 1-klik _⚡ Unpack Dus_.
+  - **Harga Grosir (Tiered Pricing Engine)**: Skema diskon kuantitas bertingkat otomatis.
+
 - 🛠️ **Strict Typing & Robust Codebase**:
   - 100% Type-Safe (`tsc --noEmit` 0 error) di seluruh komponen, hooks, utilities, dan modal.
-  - 42 test suites (376 unit & property tests) lulus 100%.
+  - 56 test suites (494 unit, integration, dan property tests) lulus 100%.
 
 ---
 
@@ -58,7 +58,7 @@ ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk 
 | ---------- | --------------------------------------------------- |
 | Framework  | React 19 + Vite 8                                   |
 | Styling    | Vanilla CSS + CSS Variables + Tailwind CSS v4       |
-| Database   | IndexedDB via Dexie.js v4 (Schema v11)              |
+| Database   | IndexedDB via Dexie.js v4 (Schema v13)              |
 | Resiliency | BroadcastChannel API + Storage Estimate + Web Audio |
 | Enkripsi   | Web Crypto API (AES-GCM 256 + PBKDF2)               |
 | Export     | ExcelJS (lazy-loaded) + CSV RFC 4180                |

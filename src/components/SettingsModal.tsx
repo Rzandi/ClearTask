@@ -133,7 +133,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       });
       onClose();
     } catch (err: any) {
-      alert(err.message || 'Gagal menyimpan pengaturan');
+      setToast({ message: err.message || 'Gagal menyimpan pengaturan', type: 'error' });
     }
   }
 

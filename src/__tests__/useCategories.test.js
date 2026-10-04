@@ -126,4 +126,30 @@ describe('useCategories hook (Async Dexie)', () => {
       expect(res.success).toBe(false);
     });
   });
+
+  it('9. rejects deleting category when in use by active inventory items (W1-08)', async () => {
+    const { result } = await renderHookAndReady();
+
+    await act(async () => {
+      await result.current.addCategory('Hobi');
+    });
+
+    // Add an item using this category
+    await db.inventory.add({
+      id: 'inv-test-hobi',
+      namaBarang: 'Gitar Akustik',
+      kategori: 'Hobi',
+      quantity: 5,
+      harga: 500000,
+      createdAt: new Date().toISOString(),
+    });
+
+    await act(async () => {
+      const res = await result.current.deleteCategory('Hobi');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('masih digunakan oleh 1 barang');
+    });
+
+    expect(result.current.allCategories).toContain('Hobi');
+  });
 });

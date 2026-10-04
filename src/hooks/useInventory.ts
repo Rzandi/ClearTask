@@ -27,10 +27,31 @@ export function useInventory(): {
   });
   const inventory: InventoryItem[] = (rawInventory || []) as InventoryItem[];
 
+  const canonicalize = (s?: string): string => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
   const addInventoryItem = useCallback(
-    async (itemData: any) => {
+    async (itemData: any, options: { skipDuplicate?: boolean } = {}) => {
+      const itemName = (itemData.namaBarang || itemData.nama || '').trim();
+      const nameKey = canonicalize(itemName);
+
+      if (nameKey) {
+        const existing = await db.inventory
+          .filter(
+            (item: any) => !item.deletedAt && canonicalize(item.namaBarang || item.nama) === nameKey
+          )
+          .first();
+
+        if (existing) {
+          if (options.skipDuplicate) {
+            return existing;
+          }
+          throw new Error(`Barang "${itemName}" sudah ada di inventaris.`);
+        }
+      }
+
       const newItem = {
         ...itemData,
+        namaBarang: itemName || itemData.namaBarang || itemData.nama || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser,
@@ -55,6 +76,23 @@ export function useInventory(): {
 
   const updateInventoryItem = useCallback(
     async (id: string, itemData: any) => {
+      const itemName = itemData.namaBarang || itemData.nama;
+      if (itemName) {
+        const nameKey = canonicalize(itemName);
+        const existing = await db.inventory
+          .filter(
+            (item: any) =>
+              item.id !== id &&
+              !item.deletedAt &&
+              canonicalize(item.namaBarang || item.nama) === nameKey
+          )
+          .first();
+
+        if (existing) {
+          throw new Error(`Barang "${itemName.trim()}" sudah ada di inventaris.`);
+        }
+      }
+
       const changes = {
         ...itemData,
         updatedAt: new Date().toISOString(),
@@ -65,15 +103,18 @@ export function useInventory(): {
     [currentUser]
   );
 
-  const deleteInventoryItem = useCallback(async (id: string) => {
-    // Soft delete — set deletedAt timestamp instead of hard delete
-    // This allows TrashManager to restore the item later
-    await db.inventory.update(id as any, {
-      deletedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      updatedBy: currentUser,
-    });
-  }, [currentUser]);
+  const deleteInventoryItem = useCallback(
+    async (id: string) => {
+      // Soft delete — set deletedAt timestamp instead of hard delete
+      // This allows TrashManager to restore the item later
+      await db.inventory.update(id as any, {
+        deletedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser,
+      });
+    },
+    [currentUser]
+  );
 
   return {
     inventory,

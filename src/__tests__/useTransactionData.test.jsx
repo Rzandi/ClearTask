@@ -61,6 +61,8 @@ describe('useTransactionData Hook & Database Triggers', () => {
         uangDiterima: 50000,
         kembalian: 5000,
       });
+      // Ensure any Dexie change listeners have flushed state updates
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     // Check transaction properties
@@ -95,6 +97,7 @@ describe('useTransactionData Hook & Database Triggers', () => {
         uangDiterima: 100000,
         kembalian: 0,
       });
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     // P0-FIX: Stock should be -3 (2 - 5), not clamped to 0
@@ -129,6 +132,7 @@ describe('useTransactionData Hook & Database Triggers', () => {
         uangDiterima: 10000,
         kembalian: 0,
       });
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     const invItems = await db.inventory.toArray();
@@ -163,6 +167,7 @@ describe('useTransactionData Hook & Database Triggers', () => {
         uangDiterima: 50000,
         kembalian: 25000,
       });
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     // Stock sufficient — no warnings
@@ -196,6 +201,7 @@ describe('useTransactionData Hook & Database Triggers', () => {
         uangDiterima: 110000,
         kembalian: 5000,
       });
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     // Should deduct both: 10 - 3 - 4 = 3

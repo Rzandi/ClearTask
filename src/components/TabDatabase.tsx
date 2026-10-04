@@ -19,10 +19,12 @@ import { useTransactions } from '../hooks/useTransactions';
 import { useSession } from '../hooks/useSession';
 import InventoryManager from './InventoryManager';
 import TrashManager from './TrashManager';
+import { useConfirm } from '../hooks/useConfirm';
 
 // ── Main Component ────────────────────────────────────────
 
 export default function TabDatabase() {
+  const { confirm, ConfirmDialogPortal } = useConfirm();
   const [subTab, setSubTab] = useState('data');
   const [filterSesi, setFilterSesi] = useState('all');
   const [importData, setImportData] = useState<any>(null);
@@ -134,9 +136,12 @@ export default function TabDatabase() {
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const dateStr = oneYearAgo.toISOString();
 
-    const confirmed = window.confirm(
-      'Apakah Anda yakin ingin memindahkan transaksi yang usianya lebih dari 1 tahun ke dalam Arsip?\n\nTransaksi ini tidak akan tampil di riwayat utama untuk mempercepat kinerja, tapi masih tersimpan di database.'
-    );
+    const confirmed = await confirm({
+      title: 'Tutup Buku / Arsip Data',
+      message:
+        'Apakah Anda yakin ingin memindahkan transaksi yang usianya lebih dari 1 tahun ke dalam Arsip?\n\nTransaksi ini tidak akan tampil di riwayat utama untuk mempercepat kinerja, tapi masih tersimpan di database.',
+      confirmLabel: 'Arsipkan',
+    });
     if (!confirmed) return;
 
     showToast('Sedang memproses...', 'warning');
@@ -567,6 +572,8 @@ export default function TabDatabase() {
         onConfirm={handleMergeConfirm}
         onCancel={handleMergeCancel}
       />
+
+      <ConfirmDialogPortal />
 
       {/* ── Toast ─────────────────────────────────────────── */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={dismissToast} />}

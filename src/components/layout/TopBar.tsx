@@ -2,8 +2,9 @@
    TopBar — ClearTask (Header + Search)
    ═══════════════════════════════════════════════════════════ */
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import NotificationPanel from '../NotificationPanel';
+import { useInventory } from '../../hooks/useInventory';
 
 export interface TopBarProps {
   title: string;
@@ -29,6 +30,16 @@ export default function TopBar({
   onHelpOpen,
 }: TopBarProps) {
   const notifRef = useRef(null);
+
+  const { inventory } = useInventory();
+  const lowStockCount = useMemo(() => {
+    if (!inventory) return 0;
+    return inventory.filter((item) => {
+      const threshold =
+        item.minStock !== undefined && item.minStock !== null ? Number(item.minStock) : 5;
+      return (Number(item.quantity) || 0) <= threshold;
+    }).length;
+  }, [inventory]);
 
   // PWA Install state
   const [canInstall, setCanInstall] = useState(!!(window as any).__pwaInstallPrompt);
@@ -212,6 +223,11 @@ export default function TopBar({
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
+            {lowStockCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-accent-red text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-bg-surface shadow-sm animate-pulse">
+                {lowStockCount > 99 ? '99+' : lowStockCount}
+              </span>
+            )}
           </button>
           <NotificationPanel
             isOpen={showNotif}

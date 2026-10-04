@@ -3,6 +3,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useSettings } from '../../contexts/SettingsContext';
+import { useConfirm } from '../../hooks/useConfirm';
 
 export interface SidebarProps {
   activeTab: string;
@@ -20,6 +21,7 @@ export default function Sidebar({
   onOpenSession,
 }: SidebarProps) {
   const { settings } = useSettings();
+  const { confirm, ConfirmDialogPortal } = useConfirm();
   const navItems = [
     { id: 'input', label: 'Input Penjualan', icon: InputIcon },
     { id: 'keluaran', label: 'Input Keluaran', icon: KeluaranIcon },
@@ -129,8 +131,13 @@ export default function Sidebar({
           Bantuan
         </button>
         <button
-          onClick={() => {
-            if (window.confirm('Yakin ingin memuat ulang aplikasi?')) {
+          onClick={async () => {
+            const ok = await confirm({
+              title: 'Muat Ulang Aplikasi',
+              message: 'Yakin ingin memuat ulang aplikasi?',
+              confirmLabel: 'Muat Ulang',
+            });
+            if (ok) {
               window.location.reload();
             }
           }}
@@ -139,6 +146,7 @@ export default function Sidebar({
           <LogoutIcon />
           Muat Ulang
         </button>
+        <ConfirmDialogPortal />
       </div>
     </aside>
   );
@@ -295,4 +303,3 @@ function KeluaranIcon({ active }: { active: boolean }) {
     </svg>
   );
 }
-

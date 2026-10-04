@@ -8,13 +8,15 @@ import { Dexie, type Table, type Transaction as DexieTransaction } from 'dexie';
 
 export class ClearTaskDB extends Dexie {
   transactions!: Table<any, number>;
-  sessions!: Table<any, number>;
-  inventory!: Table<any, number>;
+  sessions!: Table<any, any>;
+  inventory!: Table<any, any>;
   categories!: Table<any, number>;
   settings!: Table<any, number>;
   meta!: Table<any, number>;
   archive_transactions!: Table<any, number>;
   expenses!: Table<any, string>;
+  stock_movements!: Table<any, string>;
+  audit_log!: Table<any, string>;
 
   constructor() {
     super('ClearTaskDB');
@@ -223,10 +225,99 @@ export class ClearTaskDB extends Dexie {
           });
       });
 
+    // W1-02 & W1-03: Product Identity & Stock Movement Ledger
+    this.version(12)
+      .stores({
+        stock_movements: '&id, inventoryId, reason, refId, at',
+      })
+      .upgrade(async (tx: DexieTransaction) => {
+        // 1. Build canonical inventory lookup map: canonicalName -> { id, nama, ... }
+        const canonicalize = (s: string) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        const inventoryItems = await tx.table('inventory').toArray();
+        const inventoryMap = new Map<string, any>();
+        for (const item of inventoryItems) {
+          const key = canonicalize(item.namaBarang || item.nama);
+          if (key && !inventoryMap.has(key)) {
+            inventoryMap.set(key, item);
+          }
+        }
+
+        // 2. Upgrade active transactions: set inventoryId & snapshots
+        await tx
+          .table('transactions')
+          .toCollection()
+          .modify((record: any) => {
+            if (Array.isArray(record.items)) {
+              record.items = record.items.map((item: any) => {
+                const key = canonicalize(item.namaBarang);
+                const matched = inventoryMap.get(key);
+                return {
+                  ...item,
+                  inventoryId: item.inventoryId ?? (matched ? matched.id : null),
+                  namaSnapshot: item.namaSnapshot ?? item.namaBarang ?? '',
+                  hargaModalSnapshot: item.hargaModalSnapshot ?? null,
+                };
+              });
+            }
+          });
+
+        // 3. Upgrade archive transactions if present
+        if (tx.idbtrans.db.objectStoreNames.contains('archive_transactions')) {
+          await tx
+            .table('archive_transactions')
+            .toCollection()
+            .modify((record: any) => {
+              if (Array.isArray(record.items)) {
+                record.items = record.items.map((item: any) => {
+                  const key = canonicalize(item.namaBarang);
+                  const matched = inventoryMap.get(key);
+                  return {
+                    ...item,
+                    inventoryId: item.inventoryId ?? (matched ? matched.id : null),
+                    namaSnapshot: item.namaSnapshot ?? item.namaBarang ?? '',
+                    hargaModalSnapshot: item.hargaModalSnapshot ?? null,
+                  };
+                });
+              }
+            });
+        }
+
+        // 4. Populate opening stock_movements from current inventory quantities
+        const movementsTable = tx.table('stock_movements');
+        const now = new Date().toISOString();
+        const openingMovements = inventoryItems
+          .filter((item: any) => item.id)
+          .map((item: any) => ({
+            id:
+              typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID()
+                : `sm-${item.id}-opening`,
+            inventoryId: item.id,
+            delta: Number(item.quantity) || 0,
+            reason: 'opening',
+            refType: 'manual',
+            refId: 'migration-v12',
+            at: now,
+            by: 'System Migration',
+            note: 'Saldo awal migrasi v12',
+          }));
+
+        if (openingMovements.length > 0) {
+          await movementsTable.bulkAdd(openingMovements);
+        }
+      });
+
+    // W2-05: Append-only audit log table
+    this.version(13).stores({
+      audit_log: '&id, action, entity, entityId, timestamp, actor',
+    });
+
     // Item 25: Dexie Blocked & Versionchange Event Handlers
     this.on('blocked', () => {
       console.warn('Database upgrade is blocked by another open tab.');
-      alert('Pembaruan database tertahan karena ada tab ClearTask lain yang terbuka. Harap tutup tab lain untuk melanjutkan.');
+      alert(
+        'Pembaruan database tertahan karena ada tab ClearTask lain yang terbuka. Harap tutup tab lain untuk melanjutkan.'
+      );
     });
 
     this.on('versionchange', () => {

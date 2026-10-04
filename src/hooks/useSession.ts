@@ -72,25 +72,63 @@ export function useSession(): {
     }
 
     const now = new Date();
+
+    // W1-05: closingSnapshot
+    const [activeTxs, archivedTxs] = await Promise.all([
+      db.transactions.where('sessionId').equals(active.id).toArray(),
+      db.archive_transactions
+        ? db.archive_transactions.where('sessionId').equals(active.id).toArray()
+        : Promise.resolve([]),
+    ]);
+    const validTxs = [...activeTxs, ...archivedTxs].filter((tx) => !tx.deletedAt);
+
+    const paymentMethods: Record<string, number> = {};
+    let totalRevenue = 0;
+    let totalCash = 0;
+
+    for (const tx of validTxs) {
+      const total = Number(tx.total) || 0;
+      totalRevenue += total;
+      const method = tx.metode || 'Tunai';
+      paymentMethods[method] = (paymentMethods[method] || 0) + total;
+      if (method.toLowerCase() === 'tunai') {
+        totalCash += total;
+      }
+    }
+
     const closed = {
       ...active,
       waktuTutup: now.toISOString(),
       tanggalTutup: toLocalDateString(now),
       status: 'ditutup',
+      closingSnapshot: {
+        totalTransactions: validTxs.length,
+        totalRevenue,
+        paymentMethods,
+        totalCash,
+        closedAt: now.toISOString(),
+        closedBy: active.kasir || 'Admin',
+      },
+      updatedAt: now.toISOString(),
     };
 
     await db.sessions.put(closed);
     return closed;
   }, []);
 
-  // getSessionTransactions needs to be async now because it queries the DB
+  // W1-06: getSessionTransactionsAsync merges active and archived transactions
   // W0-02: Filter out voided/soft-deleted transactions (deletedAt !== null)
-  // so closing reports only include active transactions.
   const getSessionTransactionsAsync = useCallback(
     async (sessionId: string): Promise<Transaction[]> => {
       if (!sessionId) return [];
-      const all = await db.transactions.where('sessionId').equals(sessionId).toArray();
-      return all.filter((tx) => !tx.deletedAt);
+      const [activeTxs, archivedTxs] = await Promise.all([
+        db.transactions.where('sessionId').equals(sessionId).toArray(),
+        db.archive_transactions
+          ? db.archive_transactions.where('sessionId').equals(sessionId).toArray()
+          : Promise.resolve([]),
+      ]);
+      const combined = [...activeTxs, ...archivedTxs];
+      return combined.filter((tx) => !tx.deletedAt);
     },
     []
   );

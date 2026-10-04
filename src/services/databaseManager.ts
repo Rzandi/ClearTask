@@ -35,9 +35,11 @@ export async function exportDatabase(): Promise<void> {
   const inventory = await db.inventory.toArray();
   const expenses = await db.expenses.toArray();
   const archiveTransactions = await db.archive_transactions.toArray();
+  const stockMovements = await db.stock_movements.toArray();
 
   const exportData: DatabaseExport = {
     version: '2.0',
+    schemaVersion: 12,
     exportedAt: new Date().toISOString(),
     transactions: Array.isArray(transactions) ? transactions : [],
     sessions: Array.isArray(sessions) ? sessions : [],
@@ -45,6 +47,7 @@ export async function exportDatabase(): Promise<void> {
     inventory: Array.isArray(inventory) ? inventory : [],
     expenses: Array.isArray(expenses) ? expenses : [],
     archive_transactions: Array.isArray(archiveTransactions) ? archiveTransactions : [],
+    stock_movements: Array.isArray(stockMovements) ? stockMovements : [],
     metadata: {
       totalTransactions: Array.isArray(transactions) ? transactions.length : 0,
       totalSessions: Array.isArray(sessions) ? sessions.length : 0,
@@ -522,18 +525,19 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   }
 
   // Scan inventory
+  const canonicalize = (s?: string) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
   const seenInventoryIds = new Set(existingInventoryIds);
   const seenInventoryNames = new Set(
     existingInventory
-      .filter((item: any) => item.namaBarang)
-      .map((item: any) => item.namaBarang.trim().toLowerCase())
+      .filter((item: any) => item.namaBarang || item.nama)
+      .map((item: any) => canonicalize(item.namaBarang || item.nama))
   );
   const inventoryToAdd = importInventory.filter((item: any) => {
     if (!item.id) return false;
     if (seenInventoryIds.has(item.id)) return false;
 
-    // Deduplicate by canonical product name (prevents duplicate entries when auto-detected across multiple offline devices)
-    const nameKey = (item.namaBarang || '').trim().toLowerCase();
+    // Deduplicate by canonical product name (W1-07: trim, lowercase, fold whitespace)
+    const nameKey = canonicalize(item.namaBarang || item.nama);
     if (nameKey && seenInventoryNames.has(nameKey)) return false;
 
     seenInventoryIds.add(item.id);
@@ -584,6 +588,41 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     }
   }
 
+  // Scan stock_movements (W1-10)
+  const existingStockMovements = await db.stock_movements.toArray();
+  const existingStockMovementIds = new Set(existingStockMovements.map((sm: any) => sm.id));
+  const importStockMovements = Array.isArray(importData.stock_movements)
+    ? importData.stock_movements
+    : [];
+  const stockMovementsToAdd = [
+    ...importStockMovements.filter((sm: any) => sm.id && !existingStockMovementIds.has(sm.id)),
+  ];
+
+  // W1-10: If importing legacy backup without stock_movements ledger, synthesize opening movements
+  if (importStockMovements.length === 0 && inventoryToAdd.length > 0) {
+    const nowIso = new Date().toISOString();
+    for (const item of inventoryToAdd) {
+      if (item.id) {
+        stockMovementsToAdd.push({
+          id:
+            typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+              ? crypto.randomUUID()
+              : `sm-${item.id}-opening`,
+          inventoryId: item.id,
+          delta: Number(item.quantity) || 0,
+          reason: 'opening',
+          refType: 'manual',
+          refId: 'import-backup-derivation',
+          at: nowIso,
+          by: 'System Import',
+          note: 'Saldo awal dari import backup lama',
+        });
+      }
+    }
+  }
+
+  const skippedStockMovements = importStockMovements.length - stockMovementsToAdd.length;
+
   const hasCategoryChanges = categoriesToAdd.length > 0 || subCategoriesChanged;
   const categoriesRecordToPut = hasCategoryChanges
     ? {
@@ -624,7 +663,8 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     skippedCategories +
     skippedInventory +
     skippedExpenses +
-    skippedArchiveTransactions;
+    skippedArchiveTransactions +
+    skippedStockMovements;
 
   return {
     __isMergeResult: true,
@@ -634,6 +674,7 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     newInventory: inventoryToAdd.length,
     newExpenses: expensesToAdd.length,
     newArchiveTransactions: archiveTransactionsToAdd.length,
+    newStockMovements: stockMovementsToAdd.length,
     skipped,
     orphanTransactions,
     transactionsToAdd,
@@ -642,6 +683,7 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     inventoryToAdd,
     expensesToAdd,
     archiveTransactionsToAdd,
+    stockMovementsToAdd,
     categoriesRecordToPut,
   };
 }
@@ -652,7 +694,9 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
  * @param {object} data - Either a raw DatabaseExport OR a pre-calculated MergeResult
  *   (from calculateMerge). Pass the MergeResult directly to avoid re-reading the DB.
  */
-export async function applyMerge(data: MergeResult | DatabaseExport): Promise<{ success: boolean; error: string | null }> {
+export async function applyMerge(
+  data: MergeResult | DatabaseExport
+): Promise<{ success: boolean; error: string | null }> {
   // Explicit flag is more reliable than duck-typing on transactionsToAdd
   const mergeResult: MergeResult =
     '__isMergeResult' in data && data.__isMergeResult === true
@@ -677,6 +721,7 @@ export async function applyMerge(data: MergeResult | DatabaseExport): Promise<{ 
         db.inventory,
         db.expenses,
         db.archive_transactions,
+        db.stock_movements,
         db.meta,
       ],
       async () => {
@@ -691,6 +736,9 @@ export async function applyMerge(data: MergeResult | DatabaseExport): Promise<{ 
         }
         if (archiveTransactionsToAdd.length > 0) {
           await db.archive_transactions.bulkAdd(archiveTransactionsToAdd);
+        }
+        if (mergeResult.stockMovementsToAdd && mergeResult.stockMovementsToAdd.length > 0) {
+          await db.stock_movements.bulkAdd(mergeResult.stockMovementsToAdd);
         }
         if (mergeResult.categoriesRecordToPut) {
           await db.categories.put(mergeResult.categoriesRecordToPut);

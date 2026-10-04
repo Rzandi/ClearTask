@@ -4,7 +4,7 @@
    Integrates session management via useSession hook
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useCallback, lazy, Suspense, useEffect } from 'react';
+import { useState, useCallback, Suspense, useEffect } from 'react';
 import AppShell from './components/layout/AppShell';
 import TopBar from './components/layout/TopBar';
 import InputPenjualan from './components/InputPenjualan';
@@ -16,6 +16,7 @@ import { useSession } from './hooks/useSession';
 import { useSettings } from './contexts/SettingsContext';
 import { syncMissingCategories, exportDatabase } from './services/databaseManager';
 import { getDexieErrorMessage } from './utils/errorMessages';
+import db from './services/db';
 import type { ToastItem, ClosingReportData } from './types/index';
 import { SHORTCUTS } from './constants/shortcuts';
 
@@ -36,7 +37,7 @@ const InputKeluaran = lazyWithRetry(() => import('./components/InputKeluaran'));
 const TrashManager = lazyWithRetry(() => import('./components/TrashManager'));
 
 export default function App() {
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
 
   // Sync missing categories on startup to repair old/new preset mismatches
   useEffect(() => {
@@ -71,7 +72,7 @@ export default function App() {
     }
 
     return () => window.removeEventListener('popstate', handlePopState);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleTabChange = useCallback((newTab: string) => {
@@ -80,6 +81,13 @@ export default function App() {
   }, []);
 
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
+
+  // ── W0-05: F-key confirmation guard when inside input fields ──
+  const [fKeyConfirm, setFKeyConfirm] = useState<{
+    open: boolean;
+    label: string;
+    action: (() => void) | null;
+  }>({ open: false, label: '', action: null });
   const [showSetupWizard, setShowSetupWizard] = useState(() => {
     try {
       return localStorage.getItem('cleartask_setup_completed') !== 'true';
@@ -87,6 +95,24 @@ export default function App() {
       return false;
     }
   });
+
+  // ── W0-05: Helper to execute or confirm F-key action ──
+  const execOrConfirmFKey = useCallback((inInput: boolean, label: string, action: () => void) => {
+    if (inInput) {
+      setFKeyConfirm({ open: true, label, action });
+    } else {
+      action();
+    }
+  }, []);
+
+  const handleFKeyConfirm = useCallback(() => {
+    fKeyConfirm.action?.();
+    setFKeyConfirm({ open: false, label: '', action: null });
+  }, [fKeyConfirm]);
+
+  const handleFKeyCancel = useCallback(() => {
+    setFKeyConfirm({ open: false, label: '', action: null });
+  }, []);
 
   // Subkategori F17 & F18: Global Keyboard Shortcuts & Kiosk/Outdoor mode
   useEffect(() => {
@@ -100,11 +126,16 @@ export default function App() {
       const isAllowed =
         e.key.startsWith('F') ||
         (e.altKey && e.key.toLowerCase() === SHORTCUTS.HELP_ALT.key) ||
+        (e.altKey && e.key.toLowerCase() === SHORTCUTS.OUTDOOR_MODE.key) ||
         e.key === SHORTCUTS.HELP_QUESTION.key ||
         (e.shiftKey && e.key === '/');
       if (inInput && !isAllowed) return;
 
-      if (e.key === SHORTCUTS.HELP.key || (e.altKey && e.key.toLowerCase() === SHORTCUTS.HELP_ALT.key)) {
+      // F1 / Alt+H / ? — always instant (no confirmation needed)
+      if (
+        e.key === SHORTCUTS.HELP.key ||
+        (e.altKey && e.key.toLowerCase() === SHORTCUTS.HELP_ALT.key)
+      ) {
         e.preventDefault();
         setShowHotkeyModal((prev) => !prev);
       } else if (e.key === SHORTCUTS.HELP_QUESTION.key || (e.shiftKey && e.key === '/')) {
@@ -112,29 +143,31 @@ export default function App() {
         setShowHotkeyModal((prev) => !prev);
       } else if (e.key === SHORTCUTS.INPUT_TAB.key) {
         e.preventDefault();
-        handleTabChange('input');
+        execOrConfirmFKey(inInput, 'Pindah ke POS Kasir (F2)', () => handleTabChange('input'));
       } else if (e.key === SHORTCUTS.DATABASE_TAB.key) {
         e.preventDefault();
-        handleTabChange('database');
+        execOrConfirmFKey(inInput, 'Pindah ke Database (F3)', () => handleTabChange('database'));
       } else if (e.key === SHORTCUTS.REPORT_TAB.key) {
         e.preventDefault();
-        handleTabChange('laporan');
+        execOrConfirmFKey(inInput, 'Pindah ke Laporan (F4)', () => handleTabChange('laporan'));
       } else if (e.key === SHORTCUTS.FULLSCREEN.key) {
         e.preventDefault();
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-          document.exitFullscreen().catch(() => {});
-        }
+        execOrConfirmFKey(inInput, 'Toggle Fullscreen (F8)', () => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else {
+            document.exitFullscreen().catch(() => {});
+          }
+        });
       } else if (e.altKey && e.key.toLowerCase() === SHORTCUTS.OUTDOOR_MODE.key) {
         e.preventDefault();
-        document.documentElement.classList.toggle('outdoor-high-contrast');
+        updateSettings({ outdoorMode: !settings?.outdoorMode });
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTabChange]);
+  }, [handleTabChange, execOrConfirmFKey, updateSettings, settings?.outdoorMode]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const addToast = useCallback((message: string, type: ToastItem['type'] = 'success') => {
@@ -145,6 +178,36 @@ export default function App() {
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  // W3-05: Periodic backup reminder (> 7 hari atau belum pernah backup)
+  useEffect(() => {
+    const alreadyReminded = sessionStorage.getItem('cleartask_backup_reminder_shown');
+    if (alreadyReminded) return;
+
+    db.meta
+      .get({ key: 'lastBackupAt' })
+      .then(async (record) => {
+        const txCount = await db.transactions.count();
+        if (txCount === 0) return;
+
+        let diffDays = 999;
+        if (record?.value) {
+          const last = new Date(record.value);
+          diffDays = Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        if (diffDays >= 7) {
+          sessionStorage.setItem('cleartask_backup_reminder_shown', 'true');
+          addToast(
+            diffDays >= 999
+              ? '⚠️ Anda belum pernah membuat backup database. Buka tab Database untuk download backup & simpan salinannya di luar perangkat.'
+              : `⚠️ Sudah ${diffDays} hari sejak backup database terakhir. Buka tab Database untuk download backup terbaru.`,
+            'warning'
+          );
+        }
+      })
+      .catch(() => {});
+  }, [addToast]);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
@@ -328,6 +391,16 @@ export default function App() {
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
       <HotkeyModal isOpen={showHotkeyModal} onClose={() => setShowHotkeyModal(false)} />
       <SetupWizardModal isOpen={showSetupWizard} onClose={() => setShowSetupWizard(false)} />
+
+      {/* W0-05: F-key confirmation when pressed inside input fields */}
+      <ConfirmDialog
+        isOpen={fKeyConfirm.open}
+        title="Konfirmasi Navigasi"
+        message={`Anda sedang mengetik. Yakin ingin ${fKeyConfirm.label}? Input yang belum disimpan bisa hilang.`}
+        confirmLabel="Lanjutkan"
+        onConfirm={handleFKeyConfirm}
+        onCancel={handleFKeyCancel}
+      />
 
       {/* 18.8 ClosingReportModal */}
       <ClosingReportModal

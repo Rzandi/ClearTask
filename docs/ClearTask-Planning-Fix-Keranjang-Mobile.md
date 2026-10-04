@@ -1,8 +1,8 @@
 # Planning: Perbaikan Layout Keranjang Mobile — ClearTask
 
 **File terkait:** `src/components/InputPenjualan.tsx`
-**Status:** Draft planning, belum diimplementasi
-**Tanggal:** 26 September 2026
+**Status:** ✅ Selesai diimplementasi (v3.7.0, W3-18)
+**Tanggal:** 26 September 2026 (Diimplementasi: 5 Oktober 2026)
 
 ---
 
