@@ -51,13 +51,30 @@ export function calculateSessionStats(
     };
   }
 
+  // W0-02: Defensively filter out voided/soft-deleted transactions.
+  // Even though getSessionTransactionsAsync now pre-filters, this ensures
+  // correct stats if callers pass unfiltered arrays directly.
+  const activeTransactions = transactions.filter((tx) => !tx.deletedAt);
+
+  if (activeTransactions.length === 0) {
+    return {
+      session,
+      totalTransaksi: 0,
+      totalPemasukan: 0,
+      breakdownKategori: [],
+      breakdownMetode: [],
+      transaksiTertinggi: null,
+      transaksiTerendah: null,
+    };
+  }
+
   // Calculate totals
-  const totalTransaksi = transactions.length;
-  const totalPemasukan = transactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
+  const totalTransaksi = activeTransactions.length;
+  const totalPemasukan = activeTransactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
 
   // Calculate breakdown by kategori
   const kategoriMap = new Map<string, Breakdown>();
-  transactions.forEach((tx) => {
+  activeTransactions.forEach((tx) => {
     if (tx.items && Array.isArray(tx.items) && tx.items.length > 0) {
       tx.items.forEach((item: any) => {
         const rawCat = (item.kategori || 'Lainnya').trim();
@@ -91,7 +108,7 @@ export function calculateSessionStats(
 
   // Calculate breakdown by metode
   const metodeMap = new Map();
-  transactions.forEach((tx) => {
+  activeTransactions.forEach((tx) => {
     const existing = metodeMap.get(tx.metode) || {
       metode: tx.metode,
       jumlahTransaksi: 0,
@@ -104,10 +121,10 @@ export function calculateSessionStats(
   const breakdownMetode = Array.from(metodeMap.values());
 
   // Find highest and lowest transactions
-  let transaksiTertinggi: Transaction | null = transactions[0] || null;
-  let transaksiTerendah: Transaction | null = transactions[0] || null;
+  let transaksiTertinggi: Transaction | null = activeTransactions[0] || null;
+  let transaksiTerendah: Transaction | null = activeTransactions[0] || null;
 
-  transactions.forEach((tx) => {
+  activeTransactions.forEach((tx) => {
     const total = Number(tx.total) || 0;
     if (total > (Number(transaksiTertinggi?.total) || 0)) {
       transaksiTertinggi = tx;

@@ -27,7 +27,22 @@ export interface ClosingReportModalProps {
   onClose: () => void;
 }
 
-export default function ClosingReportModal({
+/**
+ * Wrapper component — handles the isOpen guard WITHOUT calling any hooks
+ * after the conditional return. All hooks live in ClosingReportModalInner.
+ * This fixes a Rules of Hooks violation (W0-01) where `useMemo` was called
+ * after a conditional `return null`.
+ */
+export default function ClosingReportModal(props: ClosingReportModalProps) {
+  if (!props.isOpen) return null;
+  return <ClosingReportModalInner {...props} />;
+}
+
+/**
+ * Inner component — all hooks are called unconditionally here.
+ * Only rendered when isOpen is true (guarded by wrapper above).
+ */
+function ClosingReportModalInner({
   isOpen,
   session,
   transactions = [],
@@ -41,17 +56,23 @@ export default function ClosingReportModal({
 
   useBackHandler(isOpen, handleBack);
 
-  // 11.1 Render null jika isOpen adalah false
-  if (!isOpen) return null;
+  // W0-02: Defensively filter out voided/soft-deleted transactions
+  const activeTransactions = useMemo(
+    () => (transactions || []).filter((tx) => !tx.deletedAt),
+    [transactions]
+  );
 
   // 11.13 Gunakan calculateSessionStats untuk menghitung statistik
-  const stats = calculateSessionStats(session, transactions);
+  const stats = useMemo(
+    () => calculateSessionStats(session, activeTransactions),
+    [session, activeTransactions]
+  );
 
   // Calculate detailed breakdown of sold items during this session
   const soldItemsBreakdown = useMemo(() => {
     const itemsMap: Record<string, { namaBarang: string; qty: number; total: number }> = {};
 
-    transactions.forEach((tx) => {
+    activeTransactions.forEach((tx) => {
       if (tx.items && Array.isArray(tx.items)) {
         tx.items.forEach((item: any) => {
           if (!item.namaBarang) return;
@@ -67,7 +88,7 @@ export default function ClosingReportModal({
 
     // Sort by quantity sold descending
     return Object.values(itemsMap).sort((a, b) => b.qty - a.qty);
-  }, [transactions]);
+  }, [activeTransactions]);
 
   // 11.2 Tampilkan nama sesi atau "Sesi Tanpa Nama"
   const displayName = session?.nama || 'Sesi Tanpa Nama';
@@ -76,12 +97,12 @@ export default function ClosingReportModal({
 
   // 11.9 Handler Export Excel — modal tetap terbuka (11.12)
   function handleExportExcel() {
-    exportSessionExcel(transactions, session, settings);
+    exportSessionExcel(activeTransactions, session, settings);
   }
 
   // 11.10 Handler Export CSV — modal tetap terbuka (11.12)
   function handleExportCSV() {
-    exportSessionCSV(transactions, session);
+    exportSessionCSV(activeTransactions, session);
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {

@@ -84,10 +84,13 @@ export function useSession(): {
   }, []);
 
   // getSessionTransactions needs to be async now because it queries the DB
+  // W0-02: Filter out voided/soft-deleted transactions (deletedAt !== null)
+  // so closing reports only include active transactions.
   const getSessionTransactionsAsync = useCallback(
     async (sessionId: string): Promise<Transaction[]> => {
       if (!sessionId) return [];
-      return await db.transactions.where('sessionId').equals(sessionId).toArray();
+      const all = await db.transactions.where('sessionId').equals(sessionId).toArray();
+      return all.filter((tx) => !tx.deletedAt);
     },
     []
   );
