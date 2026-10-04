@@ -203,4 +203,57 @@ describe('useTransactionData Hook & Database Triggers', () => {
     const invItem = invItems.find((i) => i.namaBarang === 'Nasi Goreng');
     expect(invItem.quantity).toBe(3);
   });
+
+  // ── W0-03: Strict item validations ──
+  it('8. W0-03: Throws error if any item has qty <= 0 (no silent fallback to 1)', async () => {
+    const { result } = renderHookHelper();
+
+    // qty = 0
+    await expect(
+      result.current.addTransaction({
+        items: [{ namaBarang: 'Teh Hangat', qty: 0, hargaSatuan: 5000 }],
+        total: 0,
+      })
+    ).rejects.toThrow('Kuantitas barang "Teh Hangat" harus lebih dari 0');
+
+    // qty = -2
+    await expect(
+      result.current.addTransaction({
+        items: [{ namaBarang: 'Kopi', qty: -2, hargaSatuan: 10000 }],
+        total: 10000,
+      })
+    ).rejects.toThrow('Kuantitas barang "Kopi" harus lebih dari 0');
+  });
+
+  it('9. W0-03: Throws error if any item has negative hargaSatuan', async () => {
+    const { result } = renderHookHelper();
+
+    await expect(
+      result.current.addTransaction({
+        items: [{ namaBarang: 'Kopi Susu', qty: 1, hargaSatuan: -5000 }],
+        total: 5000,
+      })
+    ).rejects.toThrow('Harga satuan barang "Kopi Susu" tidak boleh negatif');
+  });
+
+  it('10. W0-03: Validates that stock is deducted by exact qty, never converted from 0 to 1', async () => {
+    await db.inventory.add({
+      id: 'item-w0',
+      namaBarang: 'Donat Cokelat',
+      quantity: 5,
+    });
+
+    const { result } = renderHookHelper();
+
+    // Attempting qty = 0 must fail and stock must remain untouched
+    await expect(
+      result.current.addTransaction({
+        items: [{ namaBarang: 'Donat Cokelat', qty: 0, hargaSatuan: 5000 }],
+        total: 0,
+      })
+    ).rejects.toThrow();
+
+    const invItem = await db.inventory.get('item-w0');
+    expect(invItem.quantity).toBe(5); // Not deducted!
+  });
 });

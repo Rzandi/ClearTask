@@ -88,6 +88,18 @@ export function useTransactionData(
     if (orderData.total === undefined || orderData.total < 0)
       throw new Error('Total transaksi tidak valid');
 
+    // W0-03: Validate each item — reject qty <= 0 and hargaSatuan < 0
+    for (const item of orderData.items) {
+      const qty = Number(item.qty);
+      if (item.qty === undefined || item.qty === null || isNaN(qty) || qty <= 0) {
+        throw new Error(`Kuantitas barang "${item.namaBarang || 'item'}" harus lebih dari 0`);
+      }
+      const hargaSatuan = Number(item.hargaSatuan);
+      if (item.hargaSatuan !== undefined && item.hargaSatuan !== null && (isNaN(hargaSatuan) || hargaSatuan < 0)) {
+        throw new Error(`Harga satuan barang "${item.namaBarang || 'item'}" tidak boleh negatif`);
+      }
+    }
+
     let newTx: Transaction | undefined;
     await db.transaction('rw', [db.meta, db.transactions, db.inventory], async () => {
       const metaSeq = await db.meta.get({ key: 'seq' });
@@ -114,8 +126,9 @@ export function useTransactionData(
         if (match) {
           // P0-FIX: Allow negative stock for accurate data tracking
           // Previously Math.max(0, ...) silently clamped — hiding oversell
+          // W0-03: No silent '|| 1' fallback — deduct exact validated quantity
           const currentStock = match.quantity || 0;
-          const deductQty = item.qty || 1;
+          const deductQty = Number(item.qty);
           const newQty = currentStock - deductQty;
 
           if (newQty < 0) {
@@ -176,9 +189,14 @@ export function useTransactionData(
 
       const sanitizedItems = (orderData.items || []).map((item: any) => ({
         ...item,
+        qty: Number(item.qty),
         hargaSatuan: Math.round(Number(item.hargaSatuan) || 0),
         hargaModal: Math.round(Number(item.hargaModal) || 0),
-        total: Math.round(Number(item.total) || (item.qty * item.hargaSatuan) || 0),
+        total: Math.round(
+          item.total !== undefined && !isNaN(Number(item.total))
+            ? Number(item.total)
+            : Number(item.qty) * Number(item.hargaSatuan) || 0
+        ),
       }));
 
       // Item 33: Collision-Free Device Prefix
