@@ -7,6 +7,27 @@ import { useState, useCallback } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useBackHandler } from '../hooks/useBackHandler';
 
+async function compressQrisImage(file: File, maxSize = 400, quality = 0.7): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Gagal memuat gambar'));
+    };
+    img.src = url;
+  });
+}
+
 export interface SetupWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -77,11 +98,13 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
   function handleQrisUpload(e: any) {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setQrisImageUrl(evt.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      if (file.size > 10_000_000) {
+        alert('Ukuran gambar terlalu besar (max 10MB)');
+        return;
+      }
+      compressQrisImage(file).then((compressed) => {
+        setQrisImageUrl(compressed);
+      });
     }
   }
 
@@ -117,8 +140,12 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-medium text-text-secondary">Nama Toko / Usaha *</label>
-                <span className={`text-[10px] ${tokoName.length > TOKO_MAX - 10 ? 'text-warning' : 'text-text-muted'}`}>
+                <label className="block text-xs font-medium text-text-secondary">
+                  Nama Toko / Usaha *
+                </label>
+                <span
+                  className={`text-[10px] ${tokoName.length > TOKO_MAX - 10 ? 'text-warning' : 'text-text-muted'}`}
+                >
                   {tokoName.length}/{TOKO_MAX}
                 </span>
               </div>
@@ -137,8 +164,12 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-medium text-text-secondary">Nama Kasir Utama *</label>
-                <span className={`text-[10px] ${kasirName.length > KASIR_MAX - 10 ? 'text-warning' : 'text-text-muted'}`}>
+                <label className="block text-xs font-medium text-text-secondary">
+                  Nama Kasir Utama *
+                </label>
+                <span
+                  className={`text-[10px] ${kasirName.length > KASIR_MAX - 10 ? 'text-warning' : 'text-text-muted'}`}
+                >
                   {kasirName.length}/{KASIR_MAX}
                 </span>
               </div>
@@ -156,7 +187,8 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
               {kasirNameError && <p className="mt-1 text-[11px] text-error">{kasirNameError}</p>}
             </div>
             <div className="p-3 bg-white/[0.02] border border-border-subtle rounded-xl text-xs text-text-muted">
-              💡 Mata uang aplikasi otomatis diset ke <strong className="text-text-primary">Rupiah (Rp)</strong> dalam mode Offline-First.
+              💡 Mata uang aplikasi otomatis diset ke{' '}
+              <strong className="text-text-primary">Rupiah (Rp)</strong> dalam mode Offline-First.
             </div>
           </div>
         )}
@@ -165,7 +197,9 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
         {step === 2 && (
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1">NMID QRIS (Opsional)</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1">
+                NMID QRIS (Opsional)
+              </label>
               <input
                 type="text"
                 value={qrisNsm}
@@ -175,7 +209,9 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1">Upload Gambar QRIS Statis Toko</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1">
+                Upload Gambar QRIS Statis Toko
+              </label>
               <input
                 type="file"
                 accept="image/*"
@@ -184,7 +220,11 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
               />
               {qrisImageUrl && (
                 <div className="mt-2 flex items-center gap-2">
-                  <img src={qrisImageUrl} alt="QRIS Preview" className="w-12 h-12 object-contain rounded-lg border border-border-default bg-white p-1" />
+                  <img
+                    src={qrisImageUrl}
+                    alt="QRIS Preview"
+                    className="w-12 h-12 object-contain rounded-lg border border-border-default bg-white p-1"
+                  />
                   <span className="text-xs text-primary font-medium">✓ QRIS Berhasil Diunggah</span>
                 </div>
               )}
@@ -200,7 +240,8 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
             </div>
             <h3 className="text-sm font-bold text-text-primary">Penyiapan Selesai!</h3>
             <p className="text-xs text-text-muted">
-              ClearTask POS siap digunakan untuk memproses transaksi toko kelontong/retail Anda secara offline & ultra-cepat.
+              ClearTask POS siap digunakan untuk memproses transaksi toko kelontong/retail Anda
+              secara offline & ultra-cepat.
             </p>
           </div>
         )}

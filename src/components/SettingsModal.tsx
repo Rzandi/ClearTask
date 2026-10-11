@@ -12,6 +12,27 @@ import Modal from './ui/Modal';
 import Toast from './Toast';
 import db from '../services/db';
 
+async function compressQrisImage(file: File, maxSize = 400, quality = 0.7): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Gagal memuat gambar'));
+    };
+    img.src = url;
+  });
+}
+
 // ─── Konfigurasi swatch accent color ─────────────────────────────────────────
 
 const ACCENT_SWATCHES = [
@@ -339,11 +360,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (evt) => {
-                          setLocalQrisImageUrl(evt.target?.result as string);
-                        };
-                        reader.readAsDataURL(file);
+                        if (file.size > 10_000_000) {
+                          setToast({
+                            message: 'Ukuran gambar terlalu besar (max 10MB)',
+                            type: 'error',
+                          });
+                          return;
+                        }
+                        compressQrisImage(file).then((compressed) => {
+                          setLocalQrisImageUrl(compressed);
+                        });
                       }
                     }}
                     className="block w-full text-xs text-text-muted file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
