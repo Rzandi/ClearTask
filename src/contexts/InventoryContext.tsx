@@ -8,12 +8,15 @@ import React, { createContext, useContext, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../services/db';
 import { useSettings } from './SettingsContext';
-import type { InventoryItem } from '../types/index';
+import type { InventoryItem, InventoryItemInput } from '../types/index';
 
 export interface InventoryContextValue {
   inventory: InventoryItem[];
-  addInventoryItem: (itemData: any, options?: { skipDuplicate?: boolean }) => Promise<InventoryItem>;
-  updateInventoryItem: (id: string, itemData: any) => Promise<void>;
+  addInventoryItem: (
+    itemData: InventoryItemInput,
+    options?: { skipDuplicate?: boolean }
+  ) => Promise<InventoryItem>;
+  updateInventoryItem: (id: string, itemData: InventoryItemInput) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
 }
 
@@ -32,14 +35,15 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const inventory: InventoryItem[] = (rawInventory || []) as InventoryItem[];
 
   const addInventoryItem = useCallback(
-    async (itemData: any, options: { skipDuplicate?: boolean } = {}) => {
+    async (itemData: InventoryItemInput, options: { skipDuplicate?: boolean } = {}) => {
       const itemName = (itemData.namaBarang || itemData.nama || '').trim();
       const nameKey = canonicalize(itemName);
 
       if (nameKey) {
         const existing = await db.inventory
           .filter(
-            (item: any) => !item.deletedAt && canonicalize(item.namaBarang || item.nama) === nameKey
+            (item: InventoryItem) =>
+              !item.deletedAt && canonicalize(item.namaBarang || item.nama) === nameKey
           )
           .first();
 
@@ -77,13 +81,13 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateInventoryItem = useCallback(
-    async (id: string, itemData: any) => {
+    async (id: string, itemData: InventoryItemInput) => {
       const itemName = itemData.namaBarang || itemData.nama;
       if (itemName) {
         const nameKey = canonicalize(itemName);
         const existing = await db.inventory
           .filter(
-            (item: any) =>
+            (item: InventoryItem) =>
               item.id !== id &&
               !item.deletedAt &&
               canonicalize(item.namaBarang || item.nama) === nameKey
