@@ -191,7 +191,7 @@ export const transactionService = {
               ...item,
               inventoryId: newId,
               namaSnapshot: itemName,
-              hargaModalSnapshot: 0,
+              hargaModalSnapshot: null,
               qty: deductQty,
               hargaSatuan: Math.round(Number(item.hargaSatuan) || 0),
               hargaModal: 0,

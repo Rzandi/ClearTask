@@ -75,7 +75,8 @@ export default function ReportingChart({
 
       if (tx.items && Array.isArray(tx.items)) {
         tx.items.forEach((item: any) => {
-          entry.modal += (item.hargaModal || 0) * (item.qty || 1);
+          if (item.hargaModalSnapshot === null || item.hargaModalSnapshot === undefined) return;
+          entry.modal += item.hargaModalSnapshot * (item.qty || 1);
         });
       }
     });
@@ -224,7 +225,9 @@ export default function ReportingChart({
           <h3 className="text-sm font-semibold text-text-primary">
             Grafik Ikhtisar Performa Bisnis
           </h3>
-          <p className="text-xs text-text-muted">Tren performa bisnis (Pemasukan, Pengeluaran & Laba Bersih).</p>
+          <p className="text-xs text-text-muted">
+            Tren performa bisnis (Pemasukan, Pengeluaran & Laba Bersih).
+          </p>
         </div>
         {/* Legends */}
         <div className="flex items-center gap-4 text-xs font-medium">
