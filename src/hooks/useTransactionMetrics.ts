@@ -40,7 +40,12 @@ export function useTransactionMetrics(): TransactionMetrics {
 
     // P0-FIX: Exclude soft-deleted transactions from historical count
     const historicalTxs = await db.transactions.where('tanggal').below(todayStr).toArray();
-    const historicalCount = historicalTxs.filter((tx: any) => !tx.deletedAt).length;
+    const archivedHistoricalCount = await db.archive_transactions
+      .where('tanggal')
+      .below(todayStr)
+      .count();
+    const historicalCount =
+      historicalTxs.filter((tx: any) => !tx.deletedAt).length + archivedHistoricalCount;
 
     const hasHistoricalData = historicalCount > 0;
     const isFirstDay = !hasHistoricalData || todayTotal === 0;
