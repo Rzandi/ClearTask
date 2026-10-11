@@ -163,8 +163,19 @@ export default function EditTransactionModal({
 
     if (Object.keys(newErrors).length > 0) return;
 
+    const oldNamaBarang = (
+      (transaction.items && transaction.items[0]?.namaBarang) ??
+      (transaction as any).namaBarang ??
+      ''
+    )
+      .trim()
+      .toLowerCase();
+    const newNamaBarang = form.namaBarang.trim().toLowerCase();
+    const namaChanged = newNamaBarang !== oldNamaBarang;
+
     const updatedItem = {
       ...(transaction.items && transaction.items[0] ? transaction.items[0] : {}),
+      ...(namaChanged ? { inventoryId: null } : {}),
       kategori: form.kategori,
       namaBarang: form.namaBarang.trim(),
       qty: parseInt(form.qty, 10),
