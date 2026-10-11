@@ -13,14 +13,19 @@ export interface CartItem {
 
 /**
  * Hitung total harga satu item (qty × hargaSatuan).
- * @param {number} qty
- * @param {number} hargaSatuan
- * @returns {number}
+ * Mendukung qty desimal untuk barang timbangan.
+ * 
+ * @param {number} qty - Quantity (bisa desimal untuk kg, liter, dll)
+ * @param {number} hargaSatuan - Harga per satuan
+ * @returns {number} Total harga (dibulatkan ke rupiah terdekat)
  */
 export function hitungTotalItem(qty: number, hargaSatuan: number): number {
   if (!Number.isFinite(qty) || qty <= 0) return 0;
   if (!Number.isFinite(hargaSatuan) || hargaSatuan < 0) return 0;
-  return Math.round(qty * hargaSatuan);
+  
+  // Kalkulasi dengan presisi penuh, lalu bulatkan ke rupiah terdekat
+  const total = qty * hargaSatuan;
+  return Math.round(total);
 }
 
 /**
@@ -70,6 +75,8 @@ export function hitungGrandTotal(
 
 /**
  * Validasi data item transaksi sebelum disimpan.
+ * Mendukung qty desimal untuk barang timbangan.
+ * 
  * @param {CartItem} item
  * @returns {{ valid: boolean, errors: string[] }}
  */
@@ -87,11 +94,16 @@ export function validasiItem(item: CartItem): { valid: boolean; errors: string[]
   if (!namaStr) {
     errors.push('Nama barang tidak boleh kosong.');
   }
-  if (!Number.isFinite(item?.qty) || (item.qty ?? 0) <= 0) {
+  
+  // Qty validation - support decimal
+  const qty = item?.qty ?? 0;
+  if (!Number.isFinite(qty) || qty <= 0) {
     errors.push('Qty harus lebih dari 0.');
   }
+  
   if (!Number.isFinite(item?.hargaSatuan) || (item.hargaSatuan ?? 0) <= 0) {
     errors.push('Harga satuan harus lebih dari 0.');
   }
+  
   return { valid: errors.length === 0, errors };
 }

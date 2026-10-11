@@ -3,8 +3,9 @@
    Hook for managing Expenses (Keluaran) in Dexie (IndexedDB)
    ═══════════════════════════════════════════════════════════ */
 
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { ExpensesContext } from '../contexts/ExpensesContext';
 import db from '../services/db';
 
 export interface ExpenseItem {
@@ -14,20 +15,31 @@ export interface ExpenseItem {
   namaKeluaran: string;
   jumlah: number;
   catatan?: string;
+  sessionId?: string;        // Bug #2: tie expense to active session
   createdAt?: string;
   updatedAt?: string;
   syncStatus?: 'local' | 'synced';
 }
 
 export function useExpenses(limit: number = 1000) {
-  const expenses =
+  const context = useContext(ExpensesContext);
+
+  const fallbackExpenses =
     useLiveQuery(
-      () =>
-        limit > 0
+      () => {
+        if (context) return null;
+        return limit > 0
           ? db.expenses.orderBy('tanggal').reverse().limit(limit).toArray()
-          : db.expenses.orderBy('tanggal').reverse().toArray(),
-      [limit]
+          : db.expenses.orderBy('tanggal').reverse().toArray();
+      },
+      [Boolean(context), limit]
     ) || [];
+
+  if (context) {
+    return context;
+  }
+
+  const expenses = fallbackExpenses;
 
   const addExpense = useCallback(
     async (expenseData: Omit<ExpenseItem, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'>) => {

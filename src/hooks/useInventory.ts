@@ -3,9 +3,10 @@
    Hook untuk mengelola data Master Barang (Inventaris) di Dexie (IndexedDB)
    ═══════════════════════════════════════════════════════════ */
 
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSettings } from '../contexts/SettingsContext';
+import { InventoryContext } from '../contexts/InventoryContext';
 import db from '../services/db';
 import type { InventoryItem } from '../types/index';
 
@@ -13,18 +14,28 @@ export type { InventoryItem }; // re-export so existing imports from this file k
 
 export function useInventory(): {
   inventory: InventoryItem[];
-  addInventoryItem: (itemData: any) => Promise<InventoryItem>;
-  updateInventoryItem: (id: string, itemData: any) => Promise<void>;
+  addInventoryItem: (itemData: any, options?: { skipDuplicate?: boolean }) => Promise<InventoryItem>;
+  updateInventoryItem: (id: string, itemData: any, reason?: string) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
 } {
+  const context = useContext(InventoryContext);
   const { settings } = useSettings();
   const currentUser = settings?.kasirName || 'Admin';
 
   // Filter soft-deleted items — hanya tampilkan yang deletedAt == null/undefined
-  const rawInventory = useLiveQuery(async () => {
-    const items = await db.inventory.filter((item) => !item.deletedAt).toArray();
-    return items as InventoryItem[];
-  });
+  const rawInventory = useLiveQuery(
+    async () => {
+      if (context) return null;
+      const items = await db.inventory.filter((item) => !item.deletedAt).toArray();
+      return items as InventoryItem[];
+    },
+    [Boolean(context)]
+  );
+
+  if (context) {
+    return context;
+  }
+
   const inventory: InventoryItem[] = (rawInventory || []) as InventoryItem[];
 
   const canonicalize = (s?: string): string => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -75,7 +86,7 @@ export function useInventory(): {
   );
 
   const updateInventoryItem = useCallback(
-    async (id: string, itemData: any) => {
+    async (id: string, itemData: any, reason?: string) => {
       const itemName = itemData.namaBarang || itemData.nama;
       if (itemName) {
         const nameKey = canonicalize(itemName);
@@ -93,12 +104,52 @@ export function useInventory(): {
         }
       }
 
-      const changes = {
-        ...itemData,
-        updatedAt: new Date().toISOString(),
-        updatedBy: currentUser,
-      };
-      await db.inventory.update(id, changes);
+      // W4-03: Capture price changes in transaction
+      await db.transaction('rw', [db.inventory, db.price_history], async () => {
+        const oldItem = await db.inventory.get(id);
+        if (!oldItem) {
+          throw new Error('Item tidak ditemukan');
+        }
+
+        // Check if price changed
+        const hargaJualChanged =
+          itemData.harga !== undefined && itemData.harga !== oldItem.harga;
+        const hargaModalChanged =
+          itemData.hargaModal !== undefined && itemData.hargaModal !== oldItem.hargaModal;
+
+        if (hargaJualChanged || hargaModalChanged) {
+          // Capture old prices BEFORE update
+          const historyEntry = {
+            id:
+              typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID()
+                : 'ph-xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                    const r = (Math.random() * 16) | 0;
+                    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                    return v.toString(16);
+                  }),
+            inventoryId: id,
+            changedAt: new Date().toISOString(),
+            oldHargaJual: oldItem.harga ?? null,
+            oldHargaModal: oldItem.hargaModal ?? null,
+            newHargaJual: itemData.harga ?? oldItem.harga ?? null,
+            newHargaModal: itemData.hargaModal ?? oldItem.hargaModal ?? null,
+            changedBy: currentUser,
+            reason: reason || undefined,
+            changeType: 'manual' as const,
+          };
+
+          await db.price_history.add(historyEntry);
+        }
+
+        // Update inventory item
+        const changes = {
+          ...itemData,
+          updatedAt: new Date().toISOString(),
+          updatedBy: currentUser,
+        };
+        await db.inventory.update(id, changes);
+      });
     },
     [currentUser]
   );

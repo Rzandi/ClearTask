@@ -17,12 +17,17 @@ import { useToast } from '../hooks/useToast';
 
 const KATEGORI_OPTIONS = ['Bahan Baku', 'Operasional', 'Gaji Karyawan', 'Sewa Tempat', 'Lain-lain'];
 
-export default function InputKeluaran() {
+interface InputKeluaranProps {
+  activeSession?: { id: string; tanggalMulai?: string } | null;
+}
+
+export default function InputKeluaran({ activeSession = null }: InputKeluaranProps) {
   const { showToast } = useToast();
   const { expenses, addExpense, deleteExpense, updateExpense } = useExpenses();
 
   const [form, setForm] = useState({
-    tanggal: getTodayISO(),
+    // Bug #2: gunakan tanggalMulai sesi sebagai default kalau sesi aktif (W2-12 cross-midnight)
+    tanggal: activeSession?.tanggalMulai?.slice(0, 10) || getTodayISO(),
     kategori: KATEGORI_OPTIONS[0] || 'Bahan Baku',
     namaKeluaran: '',
     jumlah: '',
@@ -110,6 +115,11 @@ export default function InputKeluaran() {
 
       if (form.catatan.trim()) {
         expenseData.catatan = form.catatan.trim();
+      }
+
+      // Bug #2: tie expense to active session so calculateSessionStats matches correctly
+      if (activeSession?.id) {
+        expenseData.sessionId = activeSession.id;
       }
 
       await addExpense(expenseData);

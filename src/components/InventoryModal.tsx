@@ -51,6 +51,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem }: In
     packUnit: 'Dus',
     packRatio: '',
     packStock: '0',
+    reason: '', // W4-03: Optional reason for price changes
   });
 
   // When modal opens or editItem changes, fill form
@@ -80,6 +81,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem }: In
               ? editItem.packRatio.toString()
               : '',
           packStock: editItem.packStock?.toString() || '0',
+          reason: '', // W4-03: Clear reason on edit
         });
       } else {
         setForm({
@@ -97,6 +99,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem }: In
           packUnit: 'Dus',
           packRatio: '',
           packStock: '0',
+          reason: '', // W4-03
         });
       }
     }
@@ -287,6 +290,23 @@ export default function InventoryModal({ isOpen, onClose, onSave, editItem }: In
               />
             </div>
           </div>
+
+          {/* W4-03: Reason for price change (optional, only shown on edit) */}
+          {editItem && (
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">
+                Alasan Perubahan Harga (Opsional)
+              </label>
+              <input
+                type="text"
+                name="reason"
+                value={form.reason}
+                onChange={handleChange}
+                placeholder="Contoh: Penyesuaian supplier, Promo, Koreksi data"
+                className="w-full px-4 py-2.5 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+              />
+            </div>
+          )}
 
           {/* SKU / Barcode */}
           <div>

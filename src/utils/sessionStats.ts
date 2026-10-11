@@ -30,6 +30,10 @@ export interface ClosingReportStats {
   transaksiTertinggi: Transaction | null;
   transaksiTerendah: Transaction | null;
   allSameTotal?: boolean;
+  // W4-02 Phase 3C: Credit sales statistics
+  totalPenjualanKredit: number;
+  jumlahTransaksiKredit: number;
+  creditCustomers: Array<{ customerId: number; customerName: string; amount: number }>;
 }
 
 /**
@@ -57,6 +61,10 @@ export function calculateSessionStats(
       breakdownMetode: [],
       transaksiTertinggi: null,
       transaksiTerendah: null,
+      // W4-02 Phase 3C: Credit sales
+      totalPenjualanKredit: 0,
+      jumlahTransaksiKredit: 0,
+      creditCustomers: [],
     };
   }
 
@@ -78,6 +86,10 @@ export function calculateSessionStats(
       breakdownMetode: [],
       transaksiTertinggi: null,
       transaksiTerendah: null,
+      // W4-02 Phase 3C: Credit sales
+      totalPenjualanKredit: 0,
+      jumlahTransaksiKredit: 0,
+      creditCustomers: [],
     };
   }
 
@@ -178,6 +190,32 @@ export function calculateSessionStats(
   const allSameTotal =
     (Number(transaksiTertinggi?.total) || 0) === (Number(transaksiTerendah?.total) || 0);
 
+  // W4-02 Phase 3C: Calculate credit sales statistics
+  let totalPenjualanKredit = 0;
+  let jumlahTransaksiKredit = 0;
+  const creditCustomerMap = new Map<string, { customerId: string; customerName: string; amount: number }>();
+
+  activeTransactions.forEach((tx) => {
+    if (tx.metode?.toLowerCase() === 'kredit' && tx.customerId) {
+      jumlahTransaksiKredit += 1;
+      totalPenjualanKredit += Number(tx.total) || 0;
+      
+      // Aggregate by customer
+      const existing = creditCustomerMap.get(tx.customerId);
+      if (existing) {
+        existing.amount += Number(tx.total) || 0;
+      } else {
+        creditCustomerMap.set(tx.customerId, {
+          customerId: tx.customerId,
+          customerName: String(tx.customerName || `Customer #${tx.customerId}`),
+          amount: Number(tx.total) || 0,
+        });
+      }
+    }
+  });
+
+  const creditCustomers = Array.from(creditCustomerMap.values()).sort((a, b) => b.amount - a.amount);
+
   return {
     session,
     totalTransaksi,
@@ -191,5 +229,9 @@ export function calculateSessionStats(
     transaksiTertinggi,
     transaksiTerendah,
     allSameTotal,
+    // W4-02 Phase 3C: Credit sales
+    totalPenjualanKredit,
+    jumlahTransaksiKredit,
+    creditCustomers,
   };
 }

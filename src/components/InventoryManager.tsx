@@ -9,6 +9,7 @@ import { useInventory } from '../hooks/useInventory';
 import { formatRupiah } from '../utils/formatters';
 import InventoryModal from './InventoryModal';
 import ConfirmDialog from './ConfirmDialog';
+import PriceHistoryModal from './PriceHistoryModal'; // W4-03
 import db from '../services/db';
 import { transactionService } from '../services/transactionService';
 import { useSettings } from '../contexts/SettingsContext';
@@ -17,6 +18,7 @@ import { parseIDNumber } from '../utils/parseIDNumber';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import HighlightText from './ui/HighlightText';
+import BarcodeScanner from './BarcodeScanner'; // W3-10
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -33,6 +35,10 @@ export default function InventoryManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterKategori, setFilterKategori] = useState('all');
   const [onlyLowStock, setOnlyLowStock] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false); // W3-10
+  // W4-03: Price History Modal state
+  const [showPriceHistory, setShowPriceHistory] = useState(false);
+  const [priceHistoryItem, setPriceHistoryItem] = useState<any>(null);
 
   const lowStockCount = useMemo(() => {
     return inventory.filter(
@@ -116,7 +122,8 @@ export default function InventoryManager() {
   function handleSave(data: any) {
     try {
       if (editItem) {
-        updateInventoryItem(editItem.id, data);
+        // W4-03: Pass reason parameter to updateInventoryItem
+        updateInventoryItem(editItem.id, data, data.reason);
       } else {
         addInventoryItem(data);
       }
@@ -135,6 +142,26 @@ export default function InventoryManager() {
         showToast(err.message || 'Gagal menghapus barang', 'error');
       }
     }
+  }
+
+  // W3-10: Handle barcode scan
+  function handleBarcodeScan(barcode: string) {
+    // Search for product with this barcode
+    const product = inventory.find((item) => item.barcode === barcode);
+
+    if (product) {
+      // Product found, open edit modal
+      setEditItem(product);
+      setShowModal(true);
+      showToast(`Produk ditemukan: ${product.namaBarang}`, 'success');
+    } else {
+      // Product not found, open add modal with barcode pre-filled
+      setEditItem({ barcode });
+      setShowModal(true);
+      showToast(`Barcode ${barcode} belum terdaftar. Silakan lengkapi data produk.`, 'warning');
+    }
+
+    setShowBarcodeScanner(false);
   }
 
   async function handleSyncFromHistory() {
@@ -276,7 +303,9 @@ export default function InventoryManager() {
     reader.onload = async (evt) => {
       try {
         const text = evt.target?.result as string;
-        const lines = text.split('\n').filter((l) => l.trim().length > 0);
+        // Bug #5: normalize CRLF (Excel Windows) and standalone CR before splitting
+        const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = normalized.split('\n').filter((l) => l.trim().length > 0);
         if (lines.length <= 1) {
           showToast('File CSV kosong atau tidak memiliki baris data.', 'error');
           return;
@@ -296,7 +325,7 @@ export default function InventoryManager() {
             const harga = parseIDNumber(cols[5] || '0');
             const quantity = parseIDNumber(cols[6] || '0');
             const minStock = parseIDNumber(cols[7] || '5') || 5;
-            const satuan = cols[8] || 'Pcs';
+            const satuan = (cols[8] || 'Pcs').trim();
 
             try {
               await addInventoryItem(
@@ -461,6 +490,30 @@ export default function InventoryManager() {
               <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
             </svg>
             <span className="hidden sm:inline">Sinkronisasi</span>
+          </button>
+          {/* W3-10: Scan Barcode Button */}
+          <button
+            onClick={() => setShowBarcodeScanner(true)}
+            title="Scan barcode produk dengan kamera"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-primary/15 border border-primary/30 text-primary hover:bg-primary/25 transition-colors shrink-0"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+              <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+              <rect x="7" y="7" width="10" height="10" rx="1" />
+            </svg>
+            <span className="hidden sm:inline">Scan</span>
           </button>
           <button
             onClick={handleAdd}
@@ -724,6 +777,17 @@ export default function InventoryManager() {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            onClick={() => {
+                              setPriceHistoryItem(item);
+                              setShowPriceHistory(true);
+                            }}
+                            aria-label="Riwayat Harga"
+                            title="Lihat Riwayat Harga"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                          >
+                            📊
+                          </button>
+                          <button
                             onClick={() => handleEdit(item)}
                             aria-label="Edit"
                             className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
@@ -954,6 +1018,24 @@ export default function InventoryManager() {
           />
 
           <ConfirmDialogPortal />
+
+          {/* W3-10: Barcode Scanner */}
+          <BarcodeScanner
+            isOpen={showBarcodeScanner}
+            onClose={() => setShowBarcodeScanner(false)}
+            onScan={handleBarcodeScan}
+          />
+
+          {/* W4-03: Price History Modal */}
+          <PriceHistoryModal
+            isOpen={showPriceHistory}
+            onClose={() => {
+              setShowPriceHistory(false);
+              setPriceHistoryItem(null);
+            }}
+            inventoryId={priceHistoryItem?.id || ''}
+            itemName={priceHistoryItem?.namaBarang || ''}
+          />
         </>,
         document.body
       )}

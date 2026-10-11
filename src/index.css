@@ -41,12 +41,39 @@
   --color-info: #00f0ff;
   --color-pending: #f0b429;
 
-  /* Shadows (Neumorphic) */
+  /* W3-13: Consistent Rounded Scale */
+  --radius-xs: 0.375rem;   /* 6px — chips, badges, small tags */
+  --radius-sm: 0.5rem;     /* 8px — form inputs, small buttons */
+  --radius-md: 0.75rem;    /* 12px — DEFAULT cards, modals */
+  --radius-lg: 1rem;       /* 16px — large cards, primary buttons */
+  --radius-xl: 1.25rem;    /* 20px — hero cards, section wrappers */
+  --radius-2xl: 1.5rem;    /* 24px — fullscreen modals, major containers */
+  --radius-full: 9999px;   /* pills, avatar, circle buttons */
+
+  /* W3-14: Selective Neumorphic Shadows (CSS Variables) */
   --shadow-glow: 0 0 20px rgba(0, 240, 255, 0.15);
   --shadow-glow-lg: 0 0 40px rgba(0, 240, 255, 0.25);
   --shadow-card: 6px 6px 12px #141418, -6px -6px 12px #282a33;
   --shadow-elevated: 10px 10px 20px #141418, -10px -10px 20px #282a33;
   --shadow-inner: inset 4px 4px 8px #141418, inset -4px -4px 8px #282a33;
+  --shadow-sm: 2px 2px 4px rgba(0,0,0,0.15);
+  --shadow-md: 4px 4px 8px rgba(0,0,0,0.2);
+
+  /* W3-15: Typography Scale Variables */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+
+  /* W3-16: Micro-interaction Timings */
+  --transition-fast: 150ms;
+  --transition-base: 200ms;
+  --transition-slow: 300ms;
+  --transition-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* High Contrast Outdoor Mode (Subkategori F18) */
@@ -129,7 +156,7 @@ body {
   -webkit-backdrop-filter: blur(16px);
   background: rgba(40, 42, 51, 0.65);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg); /* W3-13: Consistent radius */
   box-shadow: var(--shadow-card);
 }
 
@@ -137,11 +164,13 @@ body {
   background: var(--color-bg-surface);
   box-shadow: var(--shadow-card);
   border: 1px solid rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-md); /* W3-13: Consistent radius */
 }
 
 .neo-pressed {
   background: var(--color-bg-input);
   box-shadow: var(--shadow-inner);
+  border-radius: var(--radius-md); /* W3-13: Consistent radius */
 }
 
 /* ─── Animations ──────────────────────────────────────────── */
@@ -208,6 +237,65 @@ body {
   }
 }
 
+/* W3-16: Micro-interactions - Count-up animation */
+@keyframes count-up {
+  0% {
+    transform: translateY(10px) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: translateY(-5px) scale(1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* W3-16: Slide-out effect untuk cart items */
+@keyframes slide-out-right {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* W3-16: Bounce scale untuk buttons */
+@keyframes bounce-scale {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* W3-16: Shimmer effect untuk loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* W3-16: Ripple effect */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
 }
@@ -228,6 +316,34 @@ body {
   animation: toast-out 0.25s ease-in forwards;
 }
 
+/* W3-16: New animation utility classes */
+.animate-count-up {
+  animation: count-up 0.5s var(--transition-bounce) forwards;
+}
+
+.animate-slide-out-right {
+  animation: slide-out-right 0.3s ease-out forwards;
+}
+
+.animate-bounce-scale {
+  animation: bounce-scale 0.4s var(--transition-bounce);
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 240, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+}
+
+.animate-ripple {
+  animation: ripple 0.6s ease-out;
+}
+
 /* ─── Form Input Utility ──────────────────────────────────── */
 .form-input {
   width: 100%;
@@ -235,11 +351,11 @@ body {
   font-size: 1rem; /* 16px to prevent iOS auto-zoom */
   background-color: var(--color-bg-input);
   border: 1px solid transparent; /* Remove harsh border */
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-md); /* W3-13: Consistent rounded scale */
   color: var(--color-text-primary);
   outline: none;
   box-shadow: var(--shadow-inner); /* Inner shadow for depth */
-  transition: all 0.25s ease;
+  transition: all var(--transition-base) ease; /* W3-16: CSS variable transition */
 }
 
 .form-input::placeholder {
@@ -311,7 +427,7 @@ input[type='number'] {
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm); /* W3-13: Consistent rounded scale */
 }
 
 @keyframes skeleton-shimmer {
@@ -334,12 +450,12 @@ input[type='number'] {
 .skeleton-avatar {
   height: 40px;
   width: 40px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full); /* W3-13: Use CSS variable */
 }
 .skeleton-card {
   height: 120px;
   width: 100%;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg); /* W3-13: Consistent rounded scale */
 }
 
 /* ─── Empty State ─────────────────────────────────────────── */

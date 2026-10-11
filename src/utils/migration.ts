@@ -154,7 +154,7 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
         if (Array.isArray(transactions) && transactions.length > 0) {
           // Strip the old numeric 'id' field — Dexie auto-generates a new one.
           // legacyId is intentionally NOT preserved (migration-report.md W6-1).
-          const txData = transactions.map((tx: any) => {
+          const txData = transactions.map((tx: Record<string, unknown>) => {
             const { id: _oldId, legacyId: _legacyId, ...rest } = tx;
             return rest;
           });
@@ -163,7 +163,7 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
 
         // Bulk insert sessions
         if (Array.isArray(sessions) && sessions.length > 0) {
-          const sessionData = sessions.map((s: any, idx: number) => ({
+          const sessionData = sessions.map((s: Record<string, unknown>, idx: number) => ({
             ...s,
             id: s.id || `legacy-session-${Date.now()}-${idx}`,
           }));
@@ -172,7 +172,7 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
 
         // Bulk insert inventory
         if (Array.isArray(inventory) && inventory.length > 0) {
-          const invData = inventory.map((inv: any, idx: number) => ({
+          const invData = inventory.map((inv: Record<string, unknown>, idx: number) => ({
             ...inv,
             id: inv.id || `legacy-inv-${Date.now()}-${idx}`,
           }));
@@ -231,13 +231,14 @@ export async function migrateToIndexedDB(): Promise<MigrationResult> {
       },
       error: null,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Migration] Failed:', err);
+    const message = err instanceof Error ? err.message : 'Migration failed';
     return {
       success: false,
       skipped: false,
       counts: {},
-      error: err.message || 'Migration failed',
+      error: message,
     };
   }
 }

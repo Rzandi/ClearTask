@@ -73,11 +73,28 @@ function ClosingReportModalInner({
   });
   const allExpenses = rawExpenses || [];
 
+  // W4-02 Phase 3C: Fetch customers for credit sales display
+  const rawCustomers = useLiveQuery(async () => {
+    return await db.customers.toArray();
+  });
+  const allCustomers = rawCustomers || [];
+
   // 11.13 Gunakan calculateSessionStats untuk menghitung statistik (termasuk kas tunai & pengeluaran)
   const stats = useMemo(
     () => calculateSessionStats(session, activeTransactions, allExpenses),
     [session, activeTransactions, allExpenses]
   );
+
+  // W4-02 Phase 3C: Enrich credit customers with names from database
+  const enrichedCreditCustomers = useMemo(() => {
+    return stats.creditCustomers.map((cc) => {
+      const customer = allCustomers.find((c) => c.id === cc.customerId);
+      return {
+        ...cc,
+        customerName: customer?.nama || cc.customerName,
+      };
+    });
+  }, [stats.creditCustomers, allCustomers]);
 
   // W2-03: Rekonsiliasi Kas Fisik state
   const [kasFisikStr, setKasFisikStr] = useState<string>(
@@ -558,6 +575,54 @@ function ClosingReportModalInner({
                   </div>
                 )}
               </section>
+
+              {/* W4-02 Phase 3C: Credit Sales Summary */}
+              {stats.jumlahTransaksiKredit > 0 && (
+                <section>
+                  <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+                    Penjualan Kredit
+                  </h3>
+                  <div className="bg-bg-elevated rounded-xl p-4 border border-amber-500/30 shadow-glow/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-text-muted">Total Hutang Baru</p>
+                        <p className="text-2xl font-black text-amber-400">
+                          {formatRupiah(stats.totalPenjualanKredit)}
+                        </p>
+                      </div>
+                      <div className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-bold text-amber-400">
+                        {stats.jumlahTransaksiKredit} Transaksi
+                      </div>
+                    </div>
+                    
+                    {enrichedCreditCustomers.length > 0 && (
+                      <div className="pt-3 border-t border-border-subtle">
+                        <p className="text-[11px] font-semibold text-text-secondary mb-2 uppercase tracking-wider">
+                          Pelanggan Kredit Hari Ini
+                        </p>
+                        <div className="space-y-2 max-h-[120px] overflow-y-auto">
+                          {enrichedCreditCustomers.map((customer, idx) => (
+                            <div 
+                              key={idx}
+                              className="flex items-center justify-between py-2 px-3 bg-bg-surface rounded-lg border border-border-subtle hover:border-amber-500/30 transition-colors"
+                            >
+                              <span className="text-xs font-medium text-text-primary truncate max-w-[60%]">
+                                {customer.customerName}
+                              </span>
+                              <span className="text-xs font-bold text-amber-400">
+                                {formatRupiah(customer.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-text-muted mt-2 italic">
+                          💡 Hutang ini sudah tercatat di tab Hutang-Piutang
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
 
               {/* 11.7 Transaksi tertinggi dan terendah */}
               <section>

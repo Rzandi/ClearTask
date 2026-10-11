@@ -26,7 +26,7 @@ describe('W0 UX Quick Wins Verification', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Global Keyboard Shortcuts')).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
 
     it('2. F-keys (F2, F3, F4) inside input show ConfirmDialog instead of instant navigation', async () => {

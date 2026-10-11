@@ -36,10 +36,12 @@ export async function exportDatabase(): Promise<void> {
   const expenses = await db.expenses.toArray();
   const archiveTransactions = await db.archive_transactions.toArray();
   const stockMovements = await db.stock_movements.toArray();
+  // Bug #3: include audit_log in backup so audit trail survives device loss
+  const auditLog = await db.audit_log.toArray();
 
   const exportData: DatabaseExport = {
     version: '2.0',
-    schemaVersion: 12,
+    schemaVersion: 13,   // reflects audit_log table added in version(13)
     exportedAt: new Date().toISOString(),
     transactions: Array.isArray(transactions) ? transactions : [],
     sessions: Array.isArray(sessions) ? sessions : [],
@@ -48,6 +50,7 @@ export async function exportDatabase(): Promise<void> {
     expenses: Array.isArray(expenses) ? expenses : [],
     archive_transactions: Array.isArray(archiveTransactions) ? archiveTransactions : [],
     stock_movements: Array.isArray(stockMovements) ? stockMovements : [],
+    audit_log: Array.isArray(auditLog) ? auditLog : [],
     metadata: {
       totalTransactions: Array.isArray(transactions) ? transactions.length : 0,
       totalSessions: Array.isArray(sessions) ? sessions.length : 0,
@@ -623,6 +626,14 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
 
   const skippedStockMovements = importStockMovements.length - stockMovementsToAdd.length;
 
+  // Bug #3: Scan audit_log — append-only with UUID keys, simple dedup by id
+  const existingAuditLogs = await db.audit_log.toArray();
+  const existingAuditLogIds = new Set(existingAuditLogs.map((al: any) => al.id));
+  const importAuditLogs = Array.isArray((importData as any).audit_log)
+    ? (importData as any).audit_log
+    : [];
+  const auditLogsToAdd = importAuditLogs.filter((al: any) => al.id && !existingAuditLogIds.has(al.id));
+
   const hasCategoryChanges = categoriesToAdd.length > 0 || subCategoriesChanged;
   const categoriesRecordToPut = hasCategoryChanges
     ? {
@@ -684,6 +695,7 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     expensesToAdd,
     archiveTransactionsToAdd,
     stockMovementsToAdd,
+    auditLogsToAdd,
     categoriesRecordToPut,
   };
 }
@@ -722,6 +734,7 @@ export async function applyMerge(
         db.expenses,
         db.archive_transactions,
         db.stock_movements,
+        db.audit_log,
         db.meta,
       ],
       async () => {
@@ -739,6 +752,10 @@ export async function applyMerge(
         }
         if (mergeResult.stockMovementsToAdd && mergeResult.stockMovementsToAdd.length > 0) {
           await db.stock_movements.bulkAdd(mergeResult.stockMovementsToAdd);
+        }
+        // Bug #3: restore audit_log from backup
+        if (mergeResult.auditLogsToAdd && mergeResult.auditLogsToAdd.length > 0) {
+          await db.audit_log.bulkAdd(mergeResult.auditLogsToAdd);
         }
         if (mergeResult.categoriesRecordToPut) {
           await db.categories.put(mergeResult.categoriesRecordToPut);

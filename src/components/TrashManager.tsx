@@ -9,6 +9,7 @@
 import { useState, useCallback, useMemo, memo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../services/db';
+import { transactionService } from '../services/transactionService';
 import Button from './ui/Button';
 import EmptyState from './ui/EmptyState';
 import ConfirmDialog from './ConfirmDialog';
@@ -110,17 +111,18 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
     return false;
   }, []);
 
-  // Restore transaction
+  // Restore transaction — delegates to transactionService to re-deduct stock and write audit_log
   const handleRestoreTx = useCallback(
     async (id: number) => {
-      const record = await db.transactions.get(id);
-      if (!record) return;
-      delete record.deletedAt;
-      record.updatedAt = new Date().toISOString();
-      await db.transactions.put(record);
-      setFeedback('✅ Transaksi berhasil dipulihkan!');
-      setTimeout(() => setFeedback(''), 3000);
-      onRestore?.();
+      try {
+        await transactionService.restoreTransaction(id, 'Admin');
+        setFeedback('✅ Transaksi berhasil dipulihkan!');
+        setTimeout(() => setFeedback(''), 3000);
+        onRestore?.();
+      } catch (err: any) {
+        setFeedback(`❌ Gagal memulihkan transaksi: ${err?.message || 'Error tidak diketahui'}`);
+        setTimeout(() => setFeedback(''), 5000);
+      }
     },
     [onRestore]
   );
@@ -150,6 +152,18 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
       confirmLabel: 'Hapus Permanen',
       onConfirm: async () => {
         setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        // Bug #6: write audit_log before purge
+        try {
+          await db.audit_log.add({
+            id: crypto.randomUUID(),
+            action: 'purge',
+            entity: 'transaction',
+            entityId: String(id),
+            timestamp: new Date().toISOString(),
+            actor: 'Admin',
+            detail: `Transaksi ${txId || id} dihapus permanen dari Trash Manager`,
+          });
+        } catch {}
         await db.transactions.delete(id);
         setFeedback('🗑️ Transaksi dihapus permanen.');
         setTimeout(() => setFeedback(''), 3000);
@@ -174,6 +188,18 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
         confirmLabel: 'Hapus Permanen',
         onConfirm: async () => {
           setConfirmState((prev) => ({ ...prev, isOpen: false }));
+          // Bug #6: write audit_log before purge
+          try {
+            await db.audit_log.add({
+              id: crypto.randomUUID(),
+              action: 'purge',
+              entity: 'inventory',
+              entityId: String(item.id),
+              timestamp: new Date().toISOString(),
+              actor: 'Admin',
+              detail: `Barang "${item.namaBarang}" dihapus permanen dari Trash Manager`,
+            });
+          } catch {}
           await db.inventory.delete(item.id as any);
           setFeedback('🗑️ Barang dihapus permanen.');
           setTimeout(() => setFeedback(''), 3000);

@@ -24,6 +24,8 @@ import { lazyWithRetry } from './utils/resiliencyGuards';
 
 import HotkeyModal from './components/HotkeyModal';
 import SetupWizardModal from './components/SetupWizardModal';
+import CommandPalette from './components/CommandPalette';
+import { useCommandPalette } from './hooks/useCommandPalette';
 
 // Lazy-loaded modals with Chunk Retry Handler (Item 23)
 const SettingsModal = lazyWithRetry(() => import('./components/SettingsModal'));
@@ -35,6 +37,7 @@ const TabDatabase = lazyWithRetry(() => import('./components/TabDatabase'));
 const RiwayatSesi = lazyWithRetry(() => import('./components/RiwayatSesi'));
 const InputKeluaran = lazyWithRetry(() => import('./components/InputKeluaran'));
 const TrashManager = lazyWithRetry(() => import('./components/TrashManager'));
+const CreditManagement = lazyWithRetry(() => import('./components/credit/CreditManagement'));
 
 export default function App() {
   const { settings, updateSettings } = useSettings();
@@ -46,7 +49,7 @@ export default function App() {
     });
   }, []);
 
-  const VALID_TABS = ['input', 'keluaran', 'database', 'riwayat-sesi', 'trash', 'laporan'];
+  const VALID_TABS = ['input', 'keluaran', 'database', 'riwayat-sesi', 'trash', 'laporan', 'hutang-piutang'];
 
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
@@ -150,6 +153,9 @@ export default function App() {
       } else if (e.key === SHORTCUTS.REPORT_TAB.key) {
         e.preventDefault();
         execOrConfirmFKey(inInput, 'Pindah ke Laporan (F4)', () => handleTabChange('laporan'));
+      } else if (e.key === 'F5') {
+        e.preventDefault();
+        execOrConfirmFKey(inInput, 'Pindah ke Hutang-Piutang (F5)', () => handleTabChange('hutang-piutang'));
       } else if (e.key === SHORTCUTS.FULLSCREEN.key) {
         e.preventDefault();
         execOrConfirmFKey(inInput, 'Toggle Fullscreen (F8)', () => {
@@ -294,6 +300,16 @@ export default function App() {
     setShowConfirmClose(true);
   }, []);
 
+  // ── W3-07: Command Palette ──
+  // Declared after handleOpenSession & handleCloseSessionRequest to avoid temporal dead zone (E905)
+  const commandPalette = useCommandPalette({
+    onNavigate: handleTabChange,
+    onOpenSession: handleOpenSession,
+    onCloseSession: handleCloseSessionRequest,
+    activeSession,
+    currentTab: activeTab,
+  });
+
   const handleConfirmClose = useCallback(async () => {
     setShowConfirmClose(false);
 
@@ -338,6 +354,7 @@ export default function App() {
           onNotifClose={() => setShowNotif(false)}
           allTransactions={recentTransactions}
           onHelpOpen={() => setShowHelp(true)}
+          onCommandPaletteOpen={commandPalette.open}
         />
 
         {/* Tab Content */}
@@ -353,7 +370,7 @@ export default function App() {
           {activeTab === 'input' ? (
             <InputPenjualan onSubmit={handleSubmit} activeSession={activeSession} />
           ) : activeTab === 'keluaran' ? (
-            <InputKeluaran />
+            <InputKeluaran activeSession={activeSession} />
           ) : activeTab === 'database' ? (
             <TabDatabase />
           ) : activeTab === 'riwayat-sesi' ? (
@@ -364,6 +381,8 @@ export default function App() {
             />
           ) : activeTab === 'trash' ? (
             <TrashManager />
+          ) : activeTab === 'hutang-piutang' ? (
+            <CreditManagement />
           ) : (
             <LaporanExport
               transactions={transactions}
@@ -391,6 +410,18 @@ export default function App() {
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
       <HotkeyModal isOpen={showHotkeyModal} onClose={() => setShowHotkeyModal(false)} />
       <SetupWizardModal isOpen={showSetupWizard} onClose={() => setShowSetupWizard(false)} />
+
+      {/* W3-07: Command Palette (Cmd/Ctrl+K) */}
+      <CommandPalette
+        isOpen={commandPalette.isOpen}
+        onClose={commandPalette.close}
+        searchQuery={commandPalette.searchQuery}
+        onSearchChange={commandPalette.setSearchQuery}
+        groupedCommands={commandPalette.groupedCommands}
+        selectedIndex={commandPalette.selectedIndex}
+        onSelectIndex={commandPalette.setSelectedIndex}
+        filteredCommands={commandPalette.filteredCommands}
+      />
 
       {/* W0-05: F-key confirmation when pressed inside input fields */}
       <ConfirmDialog

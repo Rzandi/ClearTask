@@ -1,9 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   InputPenjualan — ClearTask (Shopping Cart Version)
-   Supports adding items via Catalog or Manual Input.
-   Handles Order total, Payment received, and Change calculation.
-   v3.5 QOL: Quick Cash, Cash Breakdown, Pending Order,
-             Audio/Haptic, Quick Qty Multipliers
+   InputPenjualan — ClearTask (W3-12 Refactored)
+   Koordinator tipis: semua rendering didelegasikan ke komponen
+   di pos/. File ini hanya memegang state, business logic, dan
+   event handlers — tidak ada JSX UI besar di sini.
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useMemo, useCallback, useEffect, memo } from 'react';
@@ -11,11 +10,8 @@ import { getTodayISO } from '../utils/formatters';
 import { useCategories } from '../hooks/useCategories';
 import { useInventory } from '../hooks/useInventory';
 import { useSettings } from '../contexts/SettingsContext';
-import FieldGroup from './ui/FieldGroup';
 import Button from './ui/Button';
-import Input from './ui/Input';
 import StrukModal from './StrukModal';
-import EmptyState from './ui/EmptyState';
 import { feedbackItemAdded, feedbackCheckout, playErrorSound } from '../utils/audioFeedback';
 import { getCashBreakdown } from '../utils/inlineSyntaxParser';
 import type { CashDenomination } from '../utils/inlineSyntaxParser';
@@ -23,11 +19,17 @@ import { initMultiTabSync, broadcastTabMessage } from '../utils/resiliencyGuards
 import { useBackHandler } from '../hooks/useBackHandler';
 import { parseIDNumber } from '../utils/parseIDNumber';
 import { transactionService } from '../services/transactionService';
+import { createCreditLedger, getCustomerById } from '../services/customerService';
+import { auditService } from '../services/auditService';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
-import HighlightText from './ui/HighlightText';
 
-const METODE_OPTIONS = ['Tunai', 'QRIS', 'Kartu Debit', 'Transfer'];
+// pos/ sub-components (W3-12)
+import CartItemList from './pos/CartItemList';
+import CatalogBrowser from './pos/CatalogBrowser';
+import CheckoutSection from './pos/CheckoutSection';
+import ManualItemForm from './pos/ManualItemForm';
+import StockCheckPanel from './pos/StockCheckPanel';
 
 const parseNumeric = (val: any) => {
   if (val === undefined || val === null || val === '') return 0;
@@ -51,10 +53,10 @@ export default memo(function InputPenjualan({
   const { inventory, updateInventoryItem } = useInventory();
   const { allCategories, subCategoriesFor } = useCategories();
 
-  // Cart State
+  // ── Cart State ───────────────────────────────────────────
   const [cart, setCart] = useState<any[]>([]);
 
-  // Pending Orders (QOL 1.2) - Persist to localStorage (Fix edge case reload)
+  // ── Pending Orders (persist to localStorage) ─────────────
   const [pendingOrders, setPendingOrders] = useState<
     { id: number; label: string; cart: any[]; metode: string; catatan: string }[]
   >(() => {
@@ -69,7 +71,7 @@ export default memo(function InputPenjualan({
   });
   const [showPendingModal, setShowPendingModal] = useState(false);
 
-  // Payment State
+  // ── Payment State ─────────────────────────────────────────
   const [metode, setMetode] = useState('Tunai');
   const [uangDiterima, setUangDiterima] = useState('');
   const [catatan, setCatatan] = useState('');
@@ -78,24 +80,56 @@ export default memo(function InputPenjualan({
   const [undoDeadline, setUndoDeadline] = useState<number | null>(null);
   const [undoOrder, setUndoOrder] = useState<any>(null);
 
-  // Mobile Back Navigation handlers for internal overlays
+  // ── UI State ──────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState('katalog'); // 'katalog' | 'manual'
+  const [formError, setFormError] = useState('');
+  const [showMobileCart, setShowMobileCart] = useState(false);
+  const [rightPaneTab, setRightPaneTab] = useState('cart'); // 'cart' | 'stock'
+
+  // Bridge state: StockCheckPanel → ManualItemForm (onEditManual)
+  const [initialManualForm, setInitialManualForm] = useState<
+    | {
+        namaBarang?: string;
+        kategori?: string;
+        subKategori?: string;
+        qty?: string;
+        hargaSatuan?: string;
+      }
+    | undefined
+  >(undefined);
+
+  // ── Plastik bag ───────────────────────────────────────────
+  const [plasticBagEnabled, setPlasticBagEnabled] = useState(false);
+  const plasticBagPrice = Math.round(Number(settings?.plasticBagPrice) || 500);
+  const plasticBagCharge =
+    settings?.plasticBagEnabled !== false && plasticBagEnabled ? plasticBagPrice : 0;
+
+  // ── Derived totals ────────────────────────────────────────
+  const subTotal = cart.reduce((sum, item) => sum + item.total, 0);
+  const grandTotal = subTotal + plasticBagCharge;
+  const received = parseNumeric(uangDiterima);
+  const kembalian = received > grandTotal ? received - grandTotal : 0;
+
+  const cashBreakdown: CashDenomination[] = useMemo(
+    () => (kembalian > 0 ? getCashBreakdown(kembalian) : []),
+    [kembalian]
+  );
+
+  // ── Back handler for modals ───────────────────────────────
   useBackHandler(showPendingModal, () => setShowPendingModal(false));
   useBackHandler(showQrisModal, () => setShowQrisModal(false));
 
-  // Item 22 & 24: Auto-Draft Cart Persistence & Multi-Tab BroadcastChannel Sync
+  // ── Draft Cart Persistence ────────────────────────────────
   useEffect(() => {
     try {
       const savedDraft = localStorage.getItem('cleartask_draft_cart');
       if (savedDraft) {
         const parsed = JSON.parse(savedDraft);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCart(parsed);
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) setCart(parsed);
       }
     } catch {}
   }, []);
 
-  // Save cart to localStorage on change
   useEffect(() => {
     try {
       if (cart.length > 0) {
@@ -106,7 +140,6 @@ export default memo(function InputPenjualan({
     } catch {}
   }, [cart]);
 
-  // Save pending orders to localStorage on change
   useEffect(() => {
     try {
       if (pendingOrders.length > 0) {
@@ -117,15 +150,68 @@ export default memo(function InputPenjualan({
     } catch {}
   }, [pendingOrders]);
 
-  // Listen to multi-tab sync (Item 24 & Edge Case #2 Guard)
+  // ── W3-07: Command Palette Event Listener ─────────────────
+  useEffect(() => {
+    const handleAddProductFromPalette = (e: CustomEvent) => {
+      const { product } = e.detail;
+      if (!product) return;
+
+      // Add product to cart (similar to catalog browser behavior)
+      setCart((prev) => {
+        const existing = prev.find(
+          (item) => item.inventoryId === product.id && !item.isManual
+        );
+        if (existing) {
+          // Increment qty
+          return prev.map((item) =>
+            item.inventoryId === product.id && !item.isManual
+              ? {
+                  ...item,
+                  qty: item.qty + 1,
+                  total: (item.qty + 1) * item.harga,
+                }
+              : item
+          );
+        } else {
+          // Add new item
+          const newItem = {
+            id: Date.now(),
+            nama: product.nama,
+            barcode: product.barcode || '',
+            qty: 1,
+            harga: product.hargaJual,
+            total: product.hargaJual,
+            inventoryId: product.id,
+            isManual: false,
+            hargaModalSnapshot: product.hargaModal,
+            namaSnapshot: product.nama,
+          };
+          feedbackItemAdded();
+          return [...prev, newItem];
+        }
+      });
+
+      showToast('Produk ditambahkan ke keranjang', 'success');
+    };
+
+    window.addEventListener(
+      'commandPalette:addProduct',
+      handleAddProductFromPalette as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        'commandPalette:addProduct',
+        handleAddProductFromPalette as EventListener
+      );
+    };
+  }, [showToast]);
+
+  // ── Multi-tab sync ────────────────────────────────────────
   useEffect(() => {
     const cleanup = initMultiTabSync((msg) => {
       if (msg.type === 'CART_UPDATED' && Array.isArray(msg.payload)) {
         setCart((currentCart) => {
-          // If incoming broadcast is empty cart (from another checkout), do NOT wipe active cart
-          if (msg.payload.length === 0 && currentCart.length > 0) {
-            return currentCart;
-          }
+          if (msg.payload.length === 0 && currentCart.length > 0) return currentCart;
           return msg.payload;
         });
       }
@@ -133,110 +219,7 @@ export default memo(function InputPenjualan({
     return cleanup;
   }, []);
 
-  // UI State
-  const [activeTab, setActiveTab] = useState('katalog'); // 'katalog' | 'manual'
-  const [formError, setFormError] = useState('');
-  const [showMobileCart, setShowMobileCart] = useState(false);
-  // Manual Form State — kategori diinisialisasi dari allCategories[0] via useEffect
-  // untuk memastikan nilai default selalu sinkron dengan daftar kategori yang sebenarnya
-  const [form, setForm] = useState({
-    kategori: '',
-    subKategori: '',
-    namaBarang: '',
-    qty: '1',
-    hargaSatuan: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Autocomplete and Right Pane Stock States
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [rightPaneTab, setRightPaneTab] = useState('cart'); // 'cart' | 'stock'
-  const [stockSearchQuery, setStockSearchQuery] = useState('');
-  const [localFeedback, setLocalFeedback] = useState('');
-
-  // Sync form.kategori ke allCategories[0] saat daftar kategori pertama kali tersedia.
-  // Ini fix bug: form state awal '' tidak sinkron dengan option pertama di <select>,
-  // yang menyebabkan sub-kategori tidak muncul sampai user manually ganti kategori.
-  useEffect(() => {
-    if (allCategories.length > 0 && form.kategori === '') {
-      setForm((prev) => ({ ...prev, kategori: allCategories[0] || 'Makanan' }));
-    }
-  }, [allCategories]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const suggestions = useMemo(() => {
-    const q = form.namaBarang.trim().toLowerCase();
-    if (!q) return [];
-    return inventory.filter((item) => item.namaBarang?.toLowerCase().includes(q)).slice(0, 5);
-  }, [inventory, form.namaBarang]);
-
-  const handleSelectSuggestion = useCallback((item: any) => {
-    setForm({
-      kategori: item.kategori || allCategories[0] || 'Makanan',
-      subKategori: item.subKategori || '',
-      namaBarang: item.namaBarang || '',
-      qty: '1',
-      hargaSatuan: item.harga?.toString() || '',
-    });
-    setShowSuggestions(false);
-  }, []);
-
-  const matchedInventoryItem = useMemo(() => {
-    const name = form.namaBarang.trim().toLowerCase();
-    if (!name) return null;
-    return inventory.find((item) => (item.namaBarang || '').toLowerCase().trim() === name);
-  }, [inventory, form.namaBarang]);
-
-  // Catalog Filter State
-  const [catalogSearch, setCatalogSearch] = useState('');
-  const [catalogCategory, setCatalogCategory] = useState('all');
-  const [catalogSubCategory, setCatalogSubCategory] = useState('all');
-  const [catalogSort, setCatalogSort] = useState('az');
-
-  // Modal Struk
-  const [showStruk, setShowStruk] = useState(false);
-  const [lastOrder, setLastOrder] = useState<any>(null);
-
-  // ── Plastik bag state (QOL: optional plastic bag charge) ──
-  const [plasticBagEnabled, setPlasticBagEnabled] = useState(false);
-  const plasticBagPrice = Math.round(Number(settings?.plasticBagPrice) || 500);
-  const plasticBagCharge =
-    settings?.plasticBagEnabled !== false && plasticBagEnabled ? plasticBagPrice : 0;
-
-  const subTotal = cart.reduce((sum, item) => sum + item.total, 0);
-  const grandTotal = subTotal + plasticBagCharge;
-  const received = parseNumeric(uangDiterima);
-  const kembalian = received > grandTotal ? received - grandTotal : 0;
-
-  // Filter & Sort Catalog
-  const filteredCatalog = useMemo(() => {
-    let items = [...inventory];
-
-    if (catalogCategory !== 'all') {
-      items = items.filter((i) => i.kategori === catalogCategory);
-      if (catalogSubCategory !== 'all') {
-        items = items.filter((i) => i.subKategori === catalogSubCategory);
-      }
-    }
-
-    if (catalogSearch.trim()) {
-      const q = catalogSearch.toLowerCase();
-      items = items.filter(
-        (i) => i.namaBarang?.toLowerCase().includes(q) || i.kategori?.toLowerCase().includes(q)
-      );
-    }
-
-    items.sort((a, b) => {
-      if (catalogSort === 'az') return (a.namaBarang || '').localeCompare(b.namaBarang || '');
-      if (catalogSort === 'za') return (b.namaBarang || '').localeCompare(a.namaBarang || '');
-      if (catalogSort === 'price_asc') return (a.harga || 0) - (b.harga || 0);
-      if (catalogSort === 'price_desc') return (b.harga || 0) - (a.harga || 0);
-      return 0;
-    });
-
-    return items;
-  }, [inventory, catalogSearch, catalogCategory, catalogSubCategory, catalogSort]);
-
-  // Helper for Wholesale Pricing & HPP calculation
+  // ── Pricing helper ────────────────────────────────────────
   const resolveItemPricing = useCallback(
     (item: any, qty: number) => {
       const invItem =
@@ -244,13 +227,11 @@ export default memo(function InputPenjualan({
           (inv) => inv.namaBarang?.toLowerCase().trim() === item.namaBarang?.toLowerCase().trim()
         ) || item;
 
-      // W2-08: Prioritize user-specified price over catalog default
       const userSpecifiedPrice =
         item.normalHargaSatuan || (item.isCustomPrice ? item.hargaSatuan : undefined);
       const basePrice = userSpecifiedPrice ?? invItem.harga ?? item.hargaSatuan ?? 0;
       const wholesaleMin = invItem.wholesaleMinQty || 0;
       const wholesaleP = invItem.wholesalePrice || 0;
-
       const isWholesale = wholesaleMin > 0 && wholesaleP > 0 && qty >= wholesaleMin;
       const effectivePrice = isWholesale ? wholesaleP : basePrice;
       const hargaModal = invItem.hargaModal ?? item.hargaModal ?? 0;
@@ -267,14 +248,14 @@ export default memo(function InputPenjualan({
     [inventory]
   );
 
-  // Add to cart (with Wholesale Auto-Apply, Dus Unpack Prompt, audio/haptic feedback)
+  // ── Add to cart ───────────────────────────────────────────
   const addToCart = useCallback(
     async (item: any) => {
       const invItem = inventory.find(
         (inv) => inv.namaBarang?.toLowerCase().trim() === item.namaBarang?.toLowerCase().trim()
       );
 
-      // W1-09: Check for Dus Unpack Prompt if Pcs stock is empty but Dus stock exists
+      // W1-09: Dus unpack prompt
       if (invItem && (invItem.quantity || 0) < (item.qty || 1) && (invItem.packStock || 0) > 0) {
         const ratio = Number(invItem.packRatio) || 0;
         if (ratio > 0) {
@@ -304,7 +285,6 @@ export default memo(function InputPenjualan({
         const existing = prev.find(
           (i) => i.namaBarang.toLowerCase() === item.namaBarang.toLowerCase()
         );
-
         const targetQty = existing ? existing.qty + item.qty : item.qty;
         const pricing = resolveItemPricing(item, targetQty);
 
@@ -337,21 +317,40 @@ export default memo(function InputPenjualan({
         ];
       });
       setFormError('');
-      // QOL 1.4: Audio & Haptic feedback
       if (settings?.soundEnabled !== false) feedbackItemAdded();
     },
-    [
-      inventory,
-      resolveItemPricing,
-      updateInventoryItem,
-      settings?.soundEnabled,
-      confirm,
-      showToast,
-      kasirName,
-    ]
+    [inventory, resolveItemPricing, settings?.soundEnabled, confirm, showToast, kasirName]
   );
 
-  // QOL 1.2: Pending Order — save current cart
+  // ── Update qty in cart ────────────────────────────────────
+  const updateCartQty = useCallback(
+    (id: any, newQty: number) => {
+      if (newQty < 1) return;
+      setCart((prev) =>
+        prev.map((i) => {
+          if (i.id !== id) return i;
+          const pricing = resolveItemPricing(i, newQty);
+          return {
+            ...i,
+            qty: newQty,
+            normalHargaSatuan: pricing.normalHargaSatuan,
+            hargaSatuan: pricing.hargaSatuan,
+            hargaModal: pricing.hargaModal,
+            isWholesale: pricing.isWholesale,
+            total: pricing.total,
+          };
+        })
+      );
+    },
+    [resolveItemPricing]
+  );
+
+  // ── Remove from cart ──────────────────────────────────────
+  const removeFromCart = useCallback((id: any) => {
+    setCart((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
+  // ── Pending Orders ────────────────────────────────────────
   const handleSavePendingOrder = useCallback(() => {
     if (cart.length === 0) return;
     const label =
@@ -369,7 +368,6 @@ export default memo(function InputPenjualan({
     setFormError('');
   }, [cart, metode, catatan]);
 
-  // QOL 1.2: Restore pending order
   const handleRestorePendingOrder = useCallback((orderId: number) => {
     setPendingOrders((prev) => {
       const order = prev.find((o) => o.id === orderId);
@@ -383,115 +381,31 @@ export default memo(function InputPenjualan({
     setShowPendingModal(false);
   }, []);
 
-  // QOL 1.2: Delete pending order
   const handleDeletePendingOrder = useCallback((orderId: number) => {
     setPendingOrders((prev) => prev.filter((o) => o.id !== orderId));
   }, []);
 
-  // QOL 1.3: Cash change breakdown
-  const cashBreakdown: CashDenomination[] = useMemo(
-    () => (kembalian > 0 ? getCashBreakdown(kembalian) : []),
-    [kembalian]
+  // ── StockCheckPanel → ManualItemForm bridge ───────────────
+  const handleEditManual = useCallback(
+    (item: any) => {
+      setInitialManualForm({
+        namaBarang: item.namaBarang || '',
+        kategori: item.kategori || allCategories[0] || 'Makanan',
+        subKategori: item.subKategori || '',
+        qty: '1',
+        hargaSatuan: item.harga?.toString() || '',
+      });
+      setActiveTab('manual');
+    },
+    [allCategories]
   );
 
-  const removeFromCart = (id: any) => {
-    setCart((prev) => prev.filter((i) => i.id !== id));
-  };
-
-  const updateCartQty = (id: any, newQty: number) => {
-    if (newQty < 1) return;
-    setCart((prev) =>
-      prev.map((i) => {
-        if (i.id === id) {
-          const pricing = resolveItemPricing(i, newQty);
-          return {
-            ...i,
-            qty: newQty,
-            normalHargaSatuan: pricing.normalHargaSatuan,
-            hargaSatuan: pricing.hargaSatuan,
-            hargaModal: pricing.hargaModal,
-            isWholesale: pricing.isWholesale,
-            total: pricing.total,
-          };
-        }
-        return i;
-      })
-    );
-  };
-
-  const handleManualChange = (field: string, value: string) => {
-    setForm((prev) => {
-      const nextForm = { ...prev, [field]: value };
-      if (field === 'kategori') {
-        nextForm.subKategori = '';
-      }
-      return nextForm;
-    });
-    let err = { ...errors };
-    if (field === 'namaBarang' && !value.trim()) err.namaBarang = 'Nama barang wajib diisi';
-    else delete err.namaBarang;
-
-    if (field === 'qty' && parseNumeric(value) <= 0) err.qty = 'Qty harus > 0';
-    else delete err.qty;
-
-    if (field === 'hargaSatuan' && parseNumeric(value) <= 0) err.hargaSatuan = 'Harga harus > 0';
-    else delete err.hargaSatuan;
-
-    setErrors(err);
-  };
-
-  const handleManualSubmit = async (e: any) => {
-    e.preventDefault();
-    const q = parseNumeric(form.qty);
-    const h = parseNumeric(form.hargaSatuan);
-
-    let err: Record<string, string> = {};
-    if (!form.namaBarang.trim()) err.namaBarang = 'Nama barang wajib diisi';
-    if (q <= 0) err.qty = 'Qty harus > 0';
-    if (h <= 0) err.hargaSatuan = 'Harga harus > 0';
-
-    if (Object.keys(err).length > 0) {
-      setErrors(err);
-      return;
-    }
-
-    const matchedItem = inventory.find(
-      (invItem) => invItem.namaBarang?.toLowerCase().trim() === form.namaBarang.trim().toLowerCase()
-    );
-    const resolvedHargaModal = matchedItem ? matchedItem.hargaModal || 0 : 0;
-
-    // W2-09: Validasi harga jual < modal -> konfirmasi peringatan
-    if (resolvedHargaModal > 0 && h < resolvedHargaModal) {
-      const proceed = await confirm({
-        title: 'Harga Jual di Bawah Modal',
-        message: `⚠️ Peringatan: Harga jual (Rp ${h.toLocaleString('id-ID')}) lebih rendah dari harga modal (Rp ${resolvedHargaModal.toLocaleString('id-ID')}).\nLanjutkan menambahkan ke keranjang?`,
-        confirmLabel: 'Tetap Tambahkan',
-      });
-      if (!proceed) return;
-    }
-
-    addToCart({
-      namaBarang: form.namaBarang.trim(),
-      kategori: form.kategori,
-      subKategori: form.subKategori,
-      hargaSatuan: h,
-      normalHargaSatuan: h,
-      isCustomPrice: true,
-      hargaModal: resolvedHargaModal,
-      qty: q,
-    });
-
-    setForm({ ...form, namaBarang: '', qty: '1', hargaSatuan: '' });
-    setErrors({});
-    setFormError('');
-  };
-
+  // ── Undo Checkout ─────────────────────────────────────────
   const handleUndoCheckout = useCallback(async () => {
     if (!undoOrder || (undoDeadline && Date.now() > undoDeadline)) {
       showToast('Batas waktu untuk membatalkan transaksi telah berakhir.', 'warning');
       return;
     }
-
     try {
       const txId = undoOrder.id || undoOrder.transactionId;
       await transactionService.voidTransaction(txId, 'Undo checkout kasir', kasirName);
@@ -510,8 +424,12 @@ export default memo(function InputPenjualan({
     }
   }, [undoOrder, undoDeadline, kasirName, showToast]);
 
+  // ── Modal Struk state ─────────────────────────────────────
+  const [showStruk, setShowStruk] = useState(false);
+  const [lastOrder, setLastOrder] = useState<any>(null);
+
+  // ── Execute Checkout ──────────────────────────────────────
   const executeCheckout = async () => {
-    // Inject plastik bag as a cart item if enabled
     const finalItems =
       plasticBagCharge > 0
         ? [
@@ -530,22 +448,25 @@ export default memo(function InputPenjualan({
           ]
         : cart;
 
+    // W4-02: Detect credit sale (any item with metode='kredit' and customerId)
+    const creditItem = finalItems.find((item: any) => item.metode === 'kredit' && item.customerId);
+    const isCreditSale = !!creditItem;
+    const customerId = creditItem?.customerId;
+
     const orderData = {
       tanggal: activeSession?.tanggalMulai || tanggal,
       items: finalItems,
       total: grandTotal,
-      metode,
-      uangDiterima: metode === 'Tunai' ? received : grandTotal,
-      kembalian: metode === 'Tunai' ? kembalian : 0,
+      metode: isCreditSale ? 'Kredit' : metode, // Override metode if credit
+      uangDiterima: isCreditSale ? 0 : (metode === 'Tunai' ? received : grandTotal),
+      kembalian: isCreditSale ? 0 : (metode === 'Tunai' ? kembalian : 0),
       catatan,
       kasir: kasirName,
       sessionId: activeSession?.id ?? null,
+      customerId: isCreditSale ? customerId : undefined, // W4-02: Store customer ID
     };
 
-    // Panggil onSubmit untuk menyimpan ke DB
     const savedTx = await onSubmit(orderData);
-
-    // QOL 1.4: Checkout success sound
     if (settings?.soundEnabled !== false) feedbackCheckout();
 
     const finalOrder =
@@ -555,16 +476,57 @@ export default memo(function InputPenjualan({
             ...orderData,
             transactionId:
               savedTx && typeof savedTx === 'object' ? savedTx.transactionId : undefined,
+            id: savedTx && typeof savedTx === 'object' ? savedTx.id : undefined,
           };
+
+    // W4-02: Create credit ledger entry if this is a credit sale
+    if (isCreditSale && customerId && finalOrder.id) {
+      try {
+        const ledger = await createCreditLedger({
+          customerId,
+          transactionId: finalOrder.id,
+          jumlahKredit: grandTotal,
+          catatan: `Penjualan ${finalOrder.transactionId || finalOrder.id}`,
+        });
+
+        // W4-02 Phase 3D: Audit log — look up customer name for rich context
+        const customer = await getCustomerById(customerId).catch(() => undefined);
+        const customerName = customer?.nama ?? `Customer ${customerId}`;
+
+        await auditService.logCreditTransactionCreated({
+          transactionId: finalOrder.transactionId ?? String(finalOrder.id),
+          dbId: finalOrder.id,
+          customerId,
+          customerName,
+          amount: grandTotal,
+          sessionId: activeSession?.id ?? null,
+          kasir: kasirName,
+          itemCount: finalItems.length,
+        });
+
+        await auditService.logCreditLedgerCreated({
+          ledgerId: ledger.id,
+          customerId,
+          customerName,
+          transactionId: finalOrder.transactionId ?? String(finalOrder.id),
+          amount: grandTotal,
+          kasir: kasirName,
+        });
+
+        showToast(`Hutang berhasil dicatat untuk pelanggan`, 'success');
+      } catch (err: any) {
+        console.error('Failed to create credit ledger:', err);
+        showToast(`⚠️ Transaksi tersimpan, tapi gagal catat hutang: ${err.message}`, 'warning');
+      }
+    }
 
     setLastOrder(finalOrder);
     setUndoOrder(finalOrder);
-    setUndoDeadline(Date.now() + 15000); // 15 seconds deadline for Undo
+    setUndoDeadline(Date.now() + 15000);
     setShowStruk(true);
     setShowMobileCart(false);
     setShowQrisModal(false);
 
-    // Reset cart & clear draft
     setCart([]);
     setPlasticBagEnabled(false);
     try {
@@ -585,24 +547,22 @@ export default memo(function InputPenjualan({
       if (settings?.soundEnabled !== false) playErrorSound();
       return setFormError('Uang diterima kurang dari total');
     }
-
     if (metode === 'QRIS') {
       setShowQrisModal(true);
       return;
     }
-
     await executeCheckout();
   };
 
-  // W0-06: Keyboard shortcut Ctrl/Cmd + Enter = Checkout
+  // ── W0-06: Ctrl/Cmd+Enter = Checkout ─────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         const isDialogOpen = Boolean(
           showPendingModal ||
-          showQrisModal ||
-          showStruk ||
-          document.querySelector('[role="dialog"], [aria-modal="true"]')
+            showQrisModal ||
+            showStruk ||
+            document.querySelector('[role="dialog"], [aria-modal="true"]')
         );
         if (cart.length > 0 && !isDialogOpen) {
           e.preventDefault();
@@ -610,14 +570,17 @@ export default memo(function InputPenjualan({
         }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cart, showPendingModal, showQrisModal, showStruk, handleCheckout]);
 
+  // ═══════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════
   return (
     <div className="animate-slide-up flex flex-col lg:flex-row gap-6 h-auto">
-      {/* KIRI: Katalog / Input Manual */}
+
+      {/* ── KIRI: Katalog / Input Manual ── */}
       <div className="flex-1 glass-card flex flex-col min-h-[500px]">
         <div className="flex border-b border-border-default">
           <button
@@ -638,260 +601,30 @@ export default memo(function InputPenjualan({
 
         <div className="flex-1 overflow-y-auto p-5 pb-24 lg:pb-5">
           {activeTab === 'katalog' ? (
-            <div className="space-y-4">
-              {/* Search & Filter Bar */}
-              <div className="flex flex-col gap-2 mb-4">
-                {/* Search — full width */}
-                <div className="relative">
-                  <svg
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Cari katalog..."
-                    value={catalogSearch}
-                    onChange={(e) => setCatalogSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
-                  />
-                </div>
-
-                {/* Filter + Sort — row that always fits */}
-                <div className="flex items-center gap-2">
-                  <select
-                    value={catalogCategory}
-                    onChange={(e) => {
-                      setCatalogCategory(e.target.value);
-                      setCatalogSubCategory('all');
-                    }}
-                    className="flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none cursor-pointer"
-                  >
-                    <option value="all">Semua Kategori</option>
-                    {allCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const sorts = ['az', 'za', 'price_asc', 'price_desc'];
-                      const next = sorts[(sorts.indexOf(catalogSort) + 1) % sorts.length];
-                      setCatalogSort(next as string);
-                    }}
-                    className="w-[50px] h-[38px] shrink-0 flex items-center justify-center bg-bg-input border border-border-default rounded-xl text-xs font-bold text-text-secondary hover:text-primary transition-all cursor-pointer"
-                    title="Ubah Urutan"
-                  >
-                    {catalogSort === 'az' && 'A-Z'}
-                    {catalogSort === 'za' && 'Z-A'}
-                    {catalogSort === 'price_asc' && 'Rp ↑'}
-                    {catalogSort === 'price_desc' && 'Rp ↓'}
-                  </button>
-                </div>
-
-                {catalogCategory !== 'all' && subCategoriesFor(catalogCategory).length > 0 && (
-                  <select
-                    value={catalogSubCategory}
-                    onChange={(e) => setCatalogSubCategory(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none cursor-pointer"
-                  >
-                    <option value="all">Semua Sub-Kategori</option>
-                    {subCategoriesFor(catalogCategory).map((sub) => (
-                      <option key={sub} value={sub}>
-                        {sub}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {filteredCatalog.map((item) => (
-                  <CatalogItemCard
-                    key={item.id}
-                    id={item.id ?? ''}
-                    namaBarang={item.namaBarang}
-                    kategori={item.kategori}
-                    subKategori={item.subKategori ?? ''}
-                    harga={item.harga}
-                    hargaModal={item.hargaModal}
-                    quantity={item.quantity}
-                    searchQuery={catalogSearch}
-                    onAddToCart={addToCart}
-                    onUpdateStock={updateInventoryItem}
-                  />
-                ))}
-                {filteredCatalog.length === 0 && (
-                  <div className="col-span-full py-10">
-                    <EmptyState
-                      icon={
-                        <svg
-                          width="40"
-                          height="40"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                        >
-                          <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />
-                          <path d="M18 2l4 4-4 4" />
-                          <path d="M22 6h-8" />
-                        </svg>
-                      }
-                      title={inventory.length === 0 ? 'Belum ada barang' : 'Tidak ditemukan'}
-                      description={
-                        inventory.length === 0
-                          ? 'Tambahkan di menu Master Barang.'
-                          : 'Coba ubah kata kunci atau filter pencarian.'
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
+            <CatalogBrowser
+              inventory={inventory}
+              allCategories={allCategories}
+              subCategoriesFor={subCategoriesFor}
+              onAddToCart={addToCart}
+              onUpdateStock={updateInventoryItem}
+            />
           ) : (
-            <form onSubmit={handleManualSubmit} className="space-y-5">
-              <FieldGroup label="Tanggal Transaksi">
-                <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
-              </FieldGroup>
-              <FieldGroup label="Nama Barang">
-                <div className="relative">
-                  <Input
-                    type="text"
-                    value={form.namaBarang}
-                    onChange={(e) => {
-                      handleManualChange('namaBarang', e.target.value);
-                      setShowSuggestions(true);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
-                    onClick={() => setShowSuggestions(true)}
-                    placeholder="Nama Item..."
-                    className={errors.namaBarang ? 'border-red-500' : ''}
-                  />
-                  {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 mt-1 bg-bg-surface border border-border-default rounded-xl shadow-xl z-[60] max-h-40 overflow-y-auto divide-y divide-border-subtle">
-                      {suggestions.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onMouseDown={() => handleSelectSuggestion(item)}
-                          className="w-full text-left px-4 py-2.5 text-xs font-semibold text-text-primary hover:bg-white/[0.04] hover:text-primary transition-colors cursor-pointer"
-                        >
-                          <HighlightText text={item.namaBarang} query={form.namaBarang} />{' '}
-                          <span className="text-text-muted text-[10px]">
-                            ({item.kategori} - Rp {item.harga?.toLocaleString('id-ID')})
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {errors.namaBarang && (
-                  <span className="text-xs text-red-400 mt-1 block">{errors.namaBarang}</span>
-                )}
-                {matchedInventoryItem ? (
-                  <span className="text-xs text-green-400 mt-1 block font-medium">
-                    ✓ Terdaftar (Stok: {matchedInventoryItem.quantity || 0}, Jual: Rp{' '}
-                    {matchedInventoryItem.harga?.toLocaleString('id-ID')})
-                  </span>
-                ) : form.namaBarang.trim() ? (
-                  <span className="text-xs text-primary mt-1 block font-medium animate-pulse">
-                    ✨ Barang Baru Terdeteksi! (Stok: 0, Modal: 0)
-                  </span>
-                ) : null}
-              </FieldGroup>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <FieldGroup label="Harga Satuan">
-                    <Input
-                      type="number"
-                      value={form.hargaSatuan}
-                      onChange={(e) => handleManualChange('hargaSatuan', e.target.value)}
-                      placeholder="0"
-                      className={errors.hargaSatuan ? 'border-red-500' : ''}
-                    />
-                    {errors.hargaSatuan && (
-                      <span className="text-xs text-red-400 mt-1 block">{errors.hargaSatuan}</span>
-                    )}
-                  </FieldGroup>
-                </div>
-                <div className="w-24">
-                  <FieldGroup label="Qty">
-                    <Input
-                      type="number"
-                      value={form.qty}
-                      onChange={(e) => handleManualChange('qty', e.target.value)}
-                      className={errors.qty ? 'border-red-500' : ''}
-                    />
-                    {errors.qty && (
-                      <span className="text-xs text-red-400 mt-1 block">{errors.qty}</span>
-                    )}
-                  </FieldGroup>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <FieldGroup label="">
-                    <label className="block text-xs font-semibold text-text-secondary mb-1">
-                      Kategori
-                    </label>
-                    <select
-                      aria-label="Kategori"
-                      value={form.kategori}
-                      onChange={(e) => handleManualChange('kategori', e.target.value)}
-                      className="form-input w-full"
-                    >
-                      {allCategories.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </FieldGroup>
-                </div>
-                <div className="flex-1">
-                  <FieldGroup label="">
-                    <label className="block text-xs font-semibold text-text-secondary mb-1">
-                      Sub-Kategori
-                    </label>
-                    <select
-                      aria-label="Sub-Kategori"
-                      value={form.subKategori}
-                      onChange={(e) => handleManualChange('subKategori', e.target.value)}
-                      className="form-input w-full"
-                    >
-                      <option value="">— Opsional —</option>
-                      {subCategoriesFor(form.kategori).map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  </FieldGroup>
-                </div>
-              </div>
-              <Button type="submit" variant="outline" className="w-full py-3 mt-4">
-                Tambah ke Keranjang
-              </Button>
-            </form>
+            <ManualItemForm
+              key={JSON.stringify(initialManualForm)}
+              inventory={inventory}
+              allCategories={allCategories}
+              subCategoriesFor={subCategoriesFor}
+              tanggal={tanggal}
+              setTanggal={setTanggal}
+              onAddToCart={addToCart}
+              confirm={confirm}
+              initialForm={initialManualForm}
+            />
           )}
         </div>
       </div>
 
-      {/* Mobile Cart Backdrop */}
+      {/* ── Mobile Cart Backdrop ── */}
       {showMobileCart && (
         <div
           className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
@@ -899,7 +632,7 @@ export default memo(function InputPenjualan({
         />
       )}
 
-      {/* Floating Mobile Cart Button */}
+      {/* ── Floating Mobile Cart Button ── */}
       {!showMobileCart && cart.length > 0 && (
         <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-sm animate-slide-up">
           <Button
@@ -908,14 +641,7 @@ export default memo(function InputPenjualan({
             onClick={() => setShowMobileCart(true)}
           >
             <span className="flex items-center gap-2 font-semibold">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
               </svg>
               {cart.length} Item
@@ -925,10 +651,11 @@ export default memo(function InputPenjualan({
         </div>
       )}
 
-      {/* KANAN: Keranjang & Pembayaran / Cek Stok */}
+      {/* ── KANAN: Keranjang & Pembayaran / Cek Stok ── */}
       <div
         className={`fixed inset-y-0 right-0 z-[60] w-full max-w-md bg-bg-surface flex flex-col h-full transform transition-all duration-300 ${showMobileCart ? 'translate-x-0 shadow-2xl opacity-100 visible' : 'translate-x-full opacity-0 invisible'} lg:relative lg:z-auto lg:translate-x-0 lg:opacity-100 lg:visible lg:w-[420px] lg:h-auto lg:min-h-[500px] lg:glass-card`}
       >
+        {/* Tab header */}
         <div className="flex border-b border-border-default bg-bg-surface/30 shrink-0">
           <button
             type="button"
@@ -948,138 +675,22 @@ export default memo(function InputPenjualan({
             className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full bg-bg-elevated text-text-secondary cursor-pointer self-center mr-3"
             onClick={() => setShowMobileCart(false)}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         {rightPaneTab === 'stock' ? (
-          <div className="flex-1 flex flex-col p-5 overflow-hidden">
-            <div className="relative mb-3 shrink-0">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Cari stok barang..."
-                value={stockSearchQuery}
-                onChange={(e) => setStockSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
-              />
-            </div>
-            {localFeedback && (
-              <div className="text-xs text-green-400 bg-green-400/10 py-1.5 px-3 rounded-lg mb-2 text-center font-medium animate-fade-in shrink-0">
-                {localFeedback}
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 pb-16 lg:pb-0">
-              {inventory
-                .filter((item) =>
-                  (item.namaBarang || '').toLowerCase().includes(stockSearchQuery.toLowerCase())
-                )
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-3 bg-bg-surface rounded-xl border border-border-default flex flex-col gap-1.5"
-                  >
-                    <div className="flex justify-between items-start">
-                      <span
-                        className="text-sm font-semibold text-text-primary truncate max-w-[200px]"
-                        title={item.namaBarang}
-                      >
-                        {item.namaBarang}
-                      </span>
-                      <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          (item.quantity || 0) <= 5
-                            ? 'bg-red-500/10 text-red-400'
-                            : 'bg-primary/10 text-primary'
-                        }`}
-                      >
-                        Stok: {item.quantity || 0}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs text-text-muted border-t border-border-subtle pt-2">
-                      <span>Jual: Rp {item.harga?.toLocaleString('id-ID')}</span>
-                      <span>
-                        Modal:{' '}
-                        {(item.hargaModal || 0) > 0 ? (
-                          `Rp ${(item.hargaModal || 0).toLocaleString('id-ID')}`
-                        ) : (
-                          <span
-                            className="text-warning font-semibold"
-                            title="Harga modal belum diisi"
-                          >
-                            - ⚠️
-                          </span>
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="flex gap-2 mt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setForm({
-                            kategori: item.kategori || allCategories[0] || 'Makanan',
-                            subKategori: item.subKategori || '',
-                            namaBarang: item.namaBarang || '',
-                            qty: '1',
-                            hargaSatuan: item.harga?.toString() || '',
-                          });
-                          setActiveTab('manual');
-                          setLocalFeedback(`Dimasukkan ke Input Manual: ${item.namaBarang}`);
-                          setTimeout(() => setLocalFeedback(''), 3000);
-                        }}
-                        className="flex-1 py-1.5 px-2 text-[11px] font-medium rounded-lg border border-border-default text-text-secondary hover:text-primary hover:border-primary transition-colors cursor-pointer"
-                      >
-                        + Edit Manual
-                      </button>
-                      <button
-                        type="button"
-                        disabled={(item.quantity || 0) <= 0}
-                        onClick={() => {
-                          addToCart({
-                            namaBarang: item.namaBarang,
-                            kategori: item.kategori,
-                            subKategori: item.subKategori || '',
-                            hargaSatuan: item.harga || 0,
-                            hargaModal: item.hargaModal || 0,
-                            qty: 1,
-                          });
-                          setLocalFeedback(`Ditambahkan: 1x ${item.namaBarang}`);
-                          setTimeout(() => setLocalFeedback(''), 3000);
-                        }}
-                        className="flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-lg bg-primary/15 text-primary border border-primary/20 hover:bg-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-                      >
-                        + Keranjang
-                      </button>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
+          <StockCheckPanel
+            inventory={inventory}
+            allCategories={allCategories}
+            onAddToCart={addToCart}
+            onEditManual={handleEditManual}
+          />
         ) : (
           <>
-            {/* QOL 1.2: Pending Order Badge & Button */}
+            {/* ── QOL 1.2: Pending Order buttons ── */}
             <div className="flex items-center gap-2 px-5 pt-3 pb-1 shrink-0">
               <button
                 type="button"
@@ -1103,7 +714,7 @@ export default memo(function InputPenjualan({
               )}
             </div>
 
-            {/* QOL 1.2: Pending Orders Modal */}
+            {/* ── QOL 1.2: Pending Orders Modal ── */}
             {showPendingModal && (
               <div
                 className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -1122,9 +733,7 @@ export default memo(function InputPenjualan({
                       className="p-3 bg-bg-elevated rounded-xl border border-border-subtle flex items-center justify-between gap-2"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-text-primary truncate">
-                          {order.label}
-                        </p>
+                        <p className="text-xs font-medium text-text-primary truncate">{order.label}</p>
                         <p className="text-[10px] text-text-muted mt-0.5">
                           {order.cart.length} item • {order.metode}
                         </p>
@@ -1156,292 +765,46 @@ export default memo(function InputPenjualan({
               </div>
             )}
 
-            {/* KOTAK A: Daftar Barang Keranjang (Batas tinggi & scroll mandiri) */}
-            <div className="flex flex-col shrink-0 border-b border-border-default bg-bg-surface/30">
-              {/* Mini Info Header */}
-              <div className="flex items-center justify-between px-5 py-2.5 bg-bg-elevated/40 border-b border-border-subtle/60 shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-                    Daftar Barang
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold">
-                    {cart.length} item
-                  </span>
-                </div>
-                <span className="text-xs text-text-muted">
-                  Sub Total:{' '}
-                  <strong className="text-text-primary font-bold">
-                    Rp {subTotal.toLocaleString('id-ID')}
-                  </strong>
-                </span>
-              </div>
+            {/* ── KOTAK A: Cart Item List ── */}
+            <CartItemList
+              cart={cart}
+              subTotal={subTotal}
+              onUpdateQty={updateCartQty}
+              onRemoveItem={removeFromCart}
+            />
 
-              {/* Scrollable Items Area */}
-              <div className="max-h-[28vh] sm:max-h-[32vh] lg:max-h-[280px] overflow-y-auto p-4 space-y-2.5">
-                {cart.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex justify-between items-center bg-bg-surface p-3 rounded-xl border border-border-default shadow-sm hover:border-primary/20 transition-all"
-                  >
-                    <div className="flex-1 min-w-0 pr-3">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium text-text-primary truncate">
-                          {item.namaBarang}
-                        </p>
-                        {item.isWholesale && (
-                          <span className="px-1.5 py-0.5 rounded bg-warning/20 text-warning text-[10px] font-bold border border-warning/30">
-                            🏷️ Grosir
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        Rp {item.hargaSatuan.toLocaleString('id-ID')}
-                        {item.isWholesale && item.normalHargaSatuan && (
-                          <span className="line-through text-text-muted/60 ml-1 text-[11px]">
-                            Rp {item.normalHargaSatuan.toLocaleString('id-ID')}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    {/* QOL 1.6: Quick Quantity Multipliers (+1, -1, +5) */}
-                    <div className="flex items-center gap-1">
-                      <div className="flex items-center gap-1 bg-bg-input px-1 py-1 rounded-lg border border-border-subtle">
-                        <button
-                          type="button"
-                          onClick={() => updateCartQty(item.id, item.qty - 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-bg-elevated rounded hover:bg-white/10 cursor-pointer text-text-secondary transition-colors text-xs font-bold"
-                          aria-label="Kurangi 1"
-                        >
-                          −1
-                        </button>
-                        <span className="text-sm font-semibold w-6 text-center">{item.qty}</span>
-                        <button
-                          type="button"
-                          onClick={() => updateCartQty(item.id, item.qty + 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-bg-elevated rounded hover:bg-white/10 cursor-pointer text-text-secondary transition-colors text-xs font-bold"
-                          aria-label="Tambah 1"
-                        >
-                          +1
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateCartQty(item.id, item.qty + 5)}
-                          className="w-7 h-7 flex items-center justify-center bg-primary/10 rounded hover:bg-primary/20 cursor-pointer text-primary transition-colors text-[10px] font-bold"
-                          title="Tambah 5"
-                          aria-label="Tambah 5"
-                        >
-                          +5
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(item.id)}
-                      className="ml-2 w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:text-white hover:bg-red-500/80 transition-colors cursor-pointer shrink-0"
-                      aria-label="Hapus dari keranjang"
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M18 6L6 18M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {cart.length === 0 && (
-                  <div className="py-6">
-                    <EmptyState
-                      title="Keranjang Kosong"
-                      description="Pilih barang dari Katalog untuk ditambahkan ke keranjang."
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* KOTAK B: Ringkasan & Form Pembayaran (Scrollable Mandiri + BottomNav Clearance) */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-bg-surface/50 rounded-b-2xl">
-              {/* Sub Total row */}
-              <div className="flex justify-between items-end pb-2 border-b border-border-subtle">
-                <span className="text-sm font-semibold text-text-muted">Sub Total</span>
-                <span className="text-base font-bold text-text-primary">
-                  Rp {subTotal.toLocaleString('id-ID')}
-                </span>
-              </div>
-
-              {/* Plastik bag toggle — hanya tampil kalau fitur diaktifkan di Settings */}
-              {settings?.plasticBagEnabled !== false && (
-                <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-bg-elevated/60 border border-border-subtle">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">🛍️</span>
-                    <span className="text-xs font-medium text-text-secondary">Kantong Plastik</span>
-                    <span className="text-[10px] text-text-muted">
-                      +Rp {plasticBagPrice.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={plasticBagEnabled}
-                    onClick={() => setPlasticBagEnabled((v) => !v)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${plasticBagEnabled ? 'bg-primary' : 'bg-white/10'}`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform ${plasticBagEnabled ? 'translate-x-4' : 'translate-x-0'}`}
-                    />
-                  </button>
-                </div>
-              )}
-
-              {/* Grand Total */}
-              <div className="flex justify-between items-end mb-2 pb-3 border-b border-border-subtle">
-                <span className="text-sm font-semibold text-text-muted">
-                  {plasticBagCharge > 0 ? 'Total (+ Plastik)' : 'Total'}
-                </span>
-                <span className="text-xl font-black text-primary">
-                  Rp {grandTotal.toLocaleString('id-ID')}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                <div className="mb-0">
-                  <FieldGroup label="Metode Pembayaran">
-                    <select
-                      aria-label="Metode Pembayaran"
-                      value={metode}
-                      onChange={(e) => setMetode(e.target.value)}
-                      className="form-input w-full text-sm"
-                    >
-                      {METODE_OPTIONS.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  </FieldGroup>
-                </div>
-
-                {metode === 'Tunai' && (
-                  <div className="space-y-3">
-                    <div className="flex gap-4">
-                      <div className="flex-1">
-                        <FieldGroup label="Uang Diterima">
-                          <Input
-                            type="number"
-                            value={uangDiterima}
-                            onChange={(e) => setUangDiterima(e.target.value)}
-                            placeholder="0"
-                          />
-                        </FieldGroup>
-                      </div>
-                      <div className="flex-1">
-                        <FieldGroup label="Kembalian">
-                          <div
-                            className={`p-[11px] rounded-xl text-sm font-semibold border flex items-center ${kembalian > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-bg-elevated border-border-default text-text-secondary'}`}
-                          >
-                            Rp {kembalian.toLocaleString('id-ID')}
-                          </div>
-                        </FieldGroup>
-                      </div>
-                    </div>
-
-                    {/* Retail Spec: Hero Change Display (40px Bold Text) */}
-                    {received > 0 && (
-                      <div
-                        className={`p-4 rounded-2xl border text-center transition-all ${
-                          received >= grandTotal
-                            ? 'bg-primary/10 border-primary/40 text-primary'
-                            : 'bg-red-500/10 border-red-500/30 text-red-400'
-                        }`}
-                      >
-                        <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
-                          {received >= grandTotal ? 'Uang Kembalian' : 'Uang Kurang'}
-                        </p>
-                        <p className="text-3xl sm:text-[40px] font-black leading-tight mt-1">
-                          Rp {Math.abs(kembalian).toLocaleString('id-ID')}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* QOL 1.1: Quick Cash Nominal Buttons */}
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setUangDiterima(grandTotal.toString())}
-                        className="flex-1 min-w-[60px] py-2 text-[11px] font-bold rounded-lg border border-green-500/30 text-green-400 bg-green-500/10 hover:bg-green-500/20 transition-all cursor-pointer"
-                      >
-                        Uang Pas
-                      </button>
-                      {[10000, 20000, 50000, 100000].map((nominal) => (
-                        <button
-                          key={nominal}
-                          type="button"
-                          onClick={() => setUangDiterima(nominal.toString())}
-                          className="flex-1 min-w-[50px] py-2 text-[11px] font-semibold rounded-lg border border-border-default text-text-secondary bg-bg-elevated hover:text-primary hover:border-primary/40 hover:bg-primary/10 transition-all cursor-pointer"
-                        >
-                          {nominal >= 1000 ? `${nominal / 1000}k` : nominal}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* QOL 1.3: Cash Change Breakdown */}
-                    {cashBreakdown.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 p-2.5 bg-green-500/5 border border-green-500/15 rounded-xl">
-                        <span className="w-full text-[10px] font-medium text-green-400/70 mb-0.5">
-                          💵 Rincian Kembalian:
-                        </span>
-                        {cashBreakdown.map((d) => (
-                          <span
-                            key={d.value}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 text-[11px] font-semibold rounded-md border border-green-500/20"
-                          >
-                            {d.count}× {d.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <FieldGroup label="Catatan (Opsional)">
-                  <Input
-                    type="text"
-                    value={catatan}
-                    onChange={(e) => setCatatan(e.target.value)}
-                    placeholder="Misal: Bawa pulang"
-                  />
-                </FieldGroup>
-              </div>
-
-              {formError && (
-                <p className="text-xs text-red-400 font-medium text-center bg-red-400/10 py-2 rounded-lg">
-                  {formError}
-                </p>
-              )}
-
-              <div className="sticky bottom-0 pt-3 pb-20 lg:pb-3 -mx-5 px-5 bg-bg-surface/95 backdrop-blur-sm border-t border-border-subtle mt-2">
-                <Button
-                  onClick={handleCheckout}
-                  variant="primary"
-                  className="w-full py-4 text-base shadow-glow"
-                  disabled={cart.length === 0}
-                >
-                  Bayar & Cetak Struk
-                </Button>
-              </div>
-            </div>
+            {/* ── KOTAK B: Payment / Checkout ── */}
+            <CheckoutSection
+              subTotal={subTotal}
+              grandTotal={grandTotal}
+              plasticBagEnabled={plasticBagEnabled}
+              setPlasticBagEnabled={setPlasticBagEnabled}
+              plasticBagPrice={plasticBagPrice}
+              plasticBagCharge={plasticBagCharge}
+              metode={metode}
+              setMetode={setMetode}
+              uangDiterima={uangDiterima}
+              setUangDiterima={setUangDiterima}
+              kembalian={kembalian}
+              received={received}
+              cashBreakdown={cashBreakdown}
+              catatan={catatan}
+              setCatatan={setCatatan}
+              formError={formError}
+              cartLength={cart.length}
+              onCheckout={handleCheckout}
+              settings={settings}
+            />
           </>
         )}
       </div>
 
-      {/* Floating Undo Checkout Notification (W2-04) */}
+      {/* ── Floating Undo Checkout Notification (W2-04) ── */}
       {undoOrder && undoDeadline && Date.now() <= undoDeadline && (
-        <div className="fixed bottom-6 right-6 z-[95] bg-bg-surface/95 border border-primary/40 shadow-glow rounded-xl p-3 flex items-center gap-3 backdrop-blur-md animate-slide-up">
+        <div
+          className="fixed right-4 lg:right-6 z-[95] bg-bg-surface/95 border border-primary/40 shadow-glow rounded-xl p-3 flex items-center gap-3 backdrop-blur-md animate-slide-up
+            bottom-24 lg:bottom-6"
+        >
           <div className="flex flex-col">
             <span className="text-xs font-semibold text-text-primary">
               Transaksi {undoOrder.transactionId || ''} berhasil!
@@ -1471,6 +834,7 @@ export default memo(function InputPenjualan({
         </div>
       )}
 
+      {/* ── Struk Modal ── */}
       {showStruk && (
         <StrukModal
           order={lastOrder}
@@ -1479,75 +843,44 @@ export default memo(function InputPenjualan({
         />
       )}
 
-      {/* Pop-Up Modal QRIS */}
+      {/* ── QRIS Modal ── */}
       {showQrisModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
           <div className="glass-card w-full max-w-sm p-6 text-center space-y-4 animate-slide-up bg-bg-surface border border-primary/30 shadow-2xl">
             <div className="flex items-center justify-between border-b border-border-default pb-3">
               <span className="text-sm font-bold text-text-primary">📱 Pembayaran QRIS</span>
-              <button
-                onClick={() => setShowQrisModal(false)}
-                className="text-text-muted hover:text-text-primary text-xs"
-              >
+              <button onClick={() => setShowQrisModal(false)} className="text-text-muted hover:text-text-primary text-xs">
                 ✕
               </button>
             </div>
-
             <div>
-              <p className="text-xs text-text-muted mb-1">
-                {settings?.tokoName || 'ClearTask Store'}
-              </p>
-              <p className="text-2xl font-extrabold text-primary">
-                Rp {grandTotal.toLocaleString('id-ID')}
-              </p>
+              <p className="text-xs text-text-muted mb-1">{settings?.tokoName || 'ClearTask Store'}</p>
+              <p className="text-2xl font-extrabold text-primary">Rp {grandTotal.toLocaleString('id-ID')}</p>
             </div>
-
             <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-gray-200 shadow-inner my-2">
               {settings?.qrisImageUrl ? (
-                <img
-                  src={settings.qrisImageUrl}
-                  alt="QRIS Toko"
-                  className="w-48 h-48 object-contain"
-                />
+                <img src={settings.qrisImageUrl} alt="QRIS Toko" className="w-48 h-48 object-contain" />
               ) : (
                 <div className="w-44 h-44 bg-gray-100 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-2">
-                  <svg
-                    className="w-16 h-16 text-gray-400 mb-2"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
+                  <svg className="w-16 h-16 text-gray-400 mb-2" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-3 0h2v3h-2v-3zm3 3h3v5h-3v-5zm-3 2h2v3h-2v-3zm-3-2h2v5h-2v-5z" />
                   </svg>
-                  <span className="text-[10px] text-gray-500 font-bold text-center">
-                    QRIS STATIS TOKO
-                  </span>
-                  <span className="text-[9px] text-gray-400 text-center">
-                    Scan via BCA / GoPay / OVO / Dana / LinkAja
-                  </span>
+                  <span className="text-[10px] text-gray-500 font-bold text-center">QRIS STATIS TOKO</span>
+                  <span className="text-[9px] text-gray-400 text-center">Scan via BCA / GoPay / OVO / Dana / LinkAja</span>
                 </div>
               )}
               {settings?.qrisNsm && (
                 <p className="text-[10px] font-mono text-gray-600 mt-2">NMID: {settings.qrisNsm}</p>
               )}
             </div>
-
             <p className="text-xs text-text-muted">
               Minta pelanggan melakukan scan QR di atas, lalu klik Konfirmasi setelah dana masuk.
             </p>
-
             <div className="flex gap-2 pt-2">
-              <Button
-                onClick={() => setShowQrisModal(false)}
-                variant="outline"
-                className="flex-1 text-xs py-2.5"
-              >
+              <Button onClick={() => setShowQrisModal(false)} variant="outline" className="flex-1 text-xs py-2.5">
                 Batal
               </Button>
-              <Button
-                onClick={executeCheckout}
-                variant="primary"
-                className="flex-1 text-xs py-2.5 shadow-glow"
-              >
+              <Button onClick={executeCheckout} variant="primary" className="flex-1 text-xs py-2.5 shadow-glow">
                 ✓ Konfirmasi Lunas
               </Button>
             </div>
@@ -1556,97 +889,6 @@ export default memo(function InputPenjualan({
       )}
 
       <ConfirmDialogPortal />
-    </div>
-  );
-});
-
-interface CatalogItemProps {
-  id: string;
-  namaBarang: string;
-  kategori: string;
-  subKategori?: string;
-  harga: number;
-  hargaModal?: number | undefined;
-  quantity: number;
-  searchQuery?: string;
-  onAddToCart: (item: any) => void;
-  onUpdateStock: (id: string, data: any) => void;
-}
-
-const CatalogItemCard = memo(function CatalogItemCard({
-  id,
-  namaBarang,
-  kategori,
-  subKategori,
-  harga,
-  hargaModal,
-  quantity,
-  searchQuery = '',
-  onAddToCart,
-  onUpdateStock,
-}: CatalogItemProps) {
-  const stock = quantity || 0;
-  const isOutOfStock = stock <= 0;
-
-  return (
-    <div
-      className={`p-3 sm:p-4 bg-bg-surface border rounded-xl flex flex-col gap-1 transition-all relative ${
-        isOutOfStock
-          ? 'opacity-60 border-border-default'
-          : 'border-border-default hover:border-primary hover:bg-primary/5 hover:shadow-[0_0_15px_rgba(0,240,255,0.1)]'
-      }`}
-    >
-      <button
-        type="button"
-        disabled={isOutOfStock}
-        onClick={() =>
-          onAddToCart({
-            namaBarang,
-            kategori,
-            subKategori: subKategori || '',
-            hargaSatuan: harga,
-            hargaModal: hargaModal || 0,
-            qty: 1,
-          })
-        }
-        className={`text-left flex flex-col gap-1 w-full focus:outline-none transition-transform ${
-          isOutOfStock ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.96]'
-        }`}
-      >
-        <span className="text-sm font-medium text-text-primary line-clamp-2">
-          <HighlightText text={namaBarang} query={searchQuery} />
-        </span>
-        <span className="text-xs text-text-muted">{kategori}</span>
-        <span className="text-sm font-semibold text-primary mt-2">
-          Rp {harga?.toLocaleString('id-ID') || 0}
-        </span>
-      </button>
-
-      {/* Stock Adjuster */}
-      <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-3">
-        <span className="text-[10px] sm:text-[11px] font-medium text-text-muted">Stok:</span>
-        <div className="flex items-center gap-1 bg-bg-input rounded-md px-1 py-1 border border-border-subtle">
-          <button
-            type="button"
-            onClick={() => onUpdateStock(id, { quantity: Math.max(0, stock - 1) })}
-            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-text-secondary hover:bg-bg-elevated hover:text-primary rounded transition-colors"
-          >
-            -
-          </button>
-          <span
-            className={`text-[11px] sm:text-xs font-bold w-5 sm:w-6 text-center ${isOutOfStock ? 'text-accent-red' : 'text-text-primary'}`}
-          >
-            {stock}
-          </span>
-          <button
-            type="button"
-            onClick={() => onUpdateStock(id, { quantity: stock + 1 })}
-            className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-text-secondary hover:bg-bg-elevated hover:text-primary rounded transition-colors"
-          >
-            +
-          </button>
-        </div>
-      </div>
     </div>
   );
 });

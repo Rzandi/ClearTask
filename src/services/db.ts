@@ -17,6 +17,10 @@ export class ClearTaskDB extends Dexie {
   expenses!: Table<any, string>;
   stock_movements!: Table<any, string>;
   audit_log!: Table<any, string>;
+  customers!: Table<any, string>;
+  credit_ledger!: Table<any, string>;
+  credit_payments!: Table<any, string>;
+  price_history!: Table<any, string>;
 
   constructor() {
     super('ClearTaskDB');
@@ -310,6 +314,18 @@ export class ClearTaskDB extends Dexie {
     // W2-05: Append-only audit log table
     this.version(13).stores({
       audit_log: '&id, action, entity, entityId, timestamp, actor',
+    });
+
+    // W4-02: Customer Credit System (Hutang-piutang pelanggan)
+    this.version(14).stores({
+      customers: '&id, nama, createdAt, updatedAt, deletedAt, totalHutang',
+      credit_ledger: '&id, customerId, transactionId, tanggalTransaksi, status, deletedAt',
+      credit_payments: '&id, ledgerId, customerId, tanggalBayar',
+    });
+
+    // W4-03: Price History (Riwayat perubahan harga per barang)
+    this.version(15).stores({
+      price_history: '&id, inventoryId, changedAt, changedBy',
     });
 
     // Item 25: Dexie Blocked & Versionchange Event Handlers

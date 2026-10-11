@@ -7,6 +7,7 @@ import { useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { toLocalDateString } from '../utils/formatters';
 import db from '../services/db';
+import { auditService } from '../services/auditService';
 import type { Session, Transaction } from '../types/index';
 
 // Re-export so existing imports from useSession.ts keep working
@@ -113,6 +114,53 @@ export function useSession(): {
     };
 
     await db.sessions.put(closed);
+
+    // W4-02 Phase 3D: Audit log — session closed with credit
+    try {
+      const creditTxs = validTxs.filter(
+        (tx) => tx.metode?.toLowerCase() === 'kredit' && tx.customerId
+      );
+
+      if (creditTxs.length > 0) {
+        // Aggregate per customer
+        const byCustomer = new Map<string, { customerName: string; amount: number }>();
+        for (const tx of creditTxs) {
+          const cid = String(tx.customerId);
+          const existing = byCustomer.get(cid);
+          const amount = Number(tx.total) || 0;
+          if (existing) {
+            existing.amount += amount;
+          } else {
+            // Fetch name lazily — fallback to ID if not found
+            const customer = await db.customers.get(cid).catch(() => undefined);
+            byCustomer.set(cid, {
+              customerName: customer?.nama ?? `Customer ${cid}`,
+              amount,
+            });
+          }
+        }
+
+        const customers = Array.from(byCustomer.entries()).map(([customerId, v]) => ({
+          customerId,
+          customerName: v.customerName,
+          amount: v.amount,
+        }));
+
+        const totalCreditAmount = customers.reduce((sum, c) => sum + c.amount, 0);
+
+        await auditService.logSessionClosedWithCredit({
+          sessionId: active.id,
+          totalCreditAmount,
+          jumlahTransaksiKredit: creditTxs.length,
+          customers,
+          kasir: active.kasir ?? closed.closingSnapshot?.closedBy ?? 'Admin',
+        });
+      }
+    } catch (auditErr) {
+      // Audit failure must never break session close
+      console.warn('[useSession] Failed to write audit log for session close:', auditErr);
+    }
+
     return closed;
   }, []);
 

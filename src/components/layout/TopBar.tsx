@@ -16,6 +16,7 @@ export interface TopBarProps {
   onNotifClose: () => void;
   allTransactions: any[];
   onHelpOpen: () => void;
+  onCommandPaletteOpen?: () => void; // W3-07
 }
 
 export default function TopBar({
@@ -28,6 +29,7 @@ export default function TopBar({
   onNotifClose,
   allTransactions,
   onHelpOpen,
+  onCommandPaletteOpen, // W3-07
 }: TopBarProps) {
   const notifRef = useRef(null);
 
@@ -157,6 +159,31 @@ export default function TopBar({
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
             <span className="hidden sm:inline">Install</span>
+          </button>
+        )}
+
+        {/* W3-07: Command Palette Button */}
+        {onCommandPaletteOpen && (
+          <button
+            aria-label="Command Palette (Ctrl+K)"
+            onClick={onCommandPaletteOpen}
+            title="Tekan Ctrl+K untuk membuka"
+            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl neo-flat hover:neo-pressed transition-all cursor-pointer group"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#8b949e"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="group-hover:stroke-primary transition-colors"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
           </button>
         )}
 
