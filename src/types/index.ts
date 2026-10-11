@@ -50,7 +50,14 @@ export interface AuditLogEntry {
     | 'customer_created'
     | 'customer_updated'
     | 'customer_deactivated';
-  entity: 'transaction' | 'session' | 'inventory' | 'expense' | 'credit_ledger' | 'customer' | 'credit_payment';
+  entity:
+    | 'transaction'
+    | 'session'
+    | 'inventory'
+    | 'expense'
+    | 'credit_ledger'
+    | 'customer'
+    | 'credit_payment';
   entityId: string | number;
   timestamp: string;
   actor: string;
@@ -155,60 +162,105 @@ export interface Expense {
 // ── Customer & Credit (W4-02) ──────────────────────────────
 
 export interface Customer {
-  id: string;                    // UUID
-  nama: string;                  // Customer name
-  telepon?: string;              // Phone number (optional)
-  alamat?: string;               // Address (optional)
-  catatan?: string;              // Notes (optional)
-  totalHutang: number;           // Running total debt (cached)
-  createdAt: string;             // ISO timestamp
-  updatedAt: string;             // ISO timestamp
-  deletedAt?: string | null;     // Soft delete
+  id: string; // UUID
+  nama: string; // Customer name
+  telepon?: string; // Phone number (optional)
+  alamat?: string; // Address (optional)
+  catatan?: string; // Notes (optional)
+  totalHutang: number; // Running total debt (cached)
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+  deletedAt?: string | null; // Soft delete
   syncStatus?: string;
 }
 
 // ── Price History (W4-03) ──────────────────────────────────
 
 export interface PriceHistoryEntry {
-  id: string;                    // UUID
-  inventoryId: string;           // FK to inventory.id
-  changedAt: string;             // ISO timestamp
-  oldHargaJual: number | null;   // Old selling price (null if first time set)
-  oldHargaModal: number | null;  // Old cost price (null if first time set)
-  newHargaJual: number | null;   // New selling price
-  newHargaModal: number | null;  // New cost price
-  changedBy: string;             // Cashier/admin name
-  reason?: string;               // Optional: "Penyesuaian supplier", "Promo", etc
+  id: string; // UUID
+  inventoryId: string; // FK to inventory.id
+  changedAt: string; // ISO timestamp
+  oldHargaJual: number | null; // Old selling price (null if first time set)
+  oldHargaModal: number | null; // Old cost price (null if first time set)
+  newHargaJual: number | null; // New selling price
+  newHargaModal: number | null; // New cost price
+  changedBy: string; // Cashier/admin name
+  reason?: string; // Optional: "Penyesuaian supplier", "Promo", etc
   changeType?: 'manual' | 'bulk_import' | 'system'; // How the change was made
 }
 
 export interface CreditLedger {
-  id: string;                    // UUID
-  customerId: string;            // FK to Customer
-  transactionId: string;         // FK to Transaction
-  jumlahKredit: number;          // Credit amount (always > 0)
-  sisaHutang: number;            // Remaining unpaid (>= 0)
-  tanggalTransaksi: string;      // YYYY-MM-DD (local date)
-  tanggalJatuhTempo?: string;    // YYYY-MM-DD (optional due date)
+  id: string; // UUID
+  customerId: string; // FK to Customer
+  transactionId: string; // FK to Transaction
+  jumlahKredit: number; // Credit amount (always > 0)
+  sisaHutang: number; // Remaining unpaid (>= 0)
+  tanggalTransaksi: string; // YYYY-MM-DD (local date)
+  tanggalJatuhTempo?: string; // YYYY-MM-DD (optional due date)
   status: 'lunas' | 'belum_lunas'; // Payment status
-  catatan?: string;              // Notes
-  createdAt: string;             // ISO timestamp
-  updatedAt: string;             // ISO timestamp
-  deletedAt?: string | null;     // Soft delete (void transaction)
+  catatan?: string; // Notes
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+  deletedAt?: string | null; // Soft delete (void transaction)
   syncStatus?: string;
 }
 
 export interface CreditPayment {
-  id: string;                    // UUID
-  ledgerId: string;              // FK to CreditLedger
-  customerId: string;            // FK to Customer (denormalized)
-  jumlahBayar: number;           // Payment amount (> 0)
-  tanggalBayar: string;          // YYYY-MM-DD (local date)
-  metodePembayaran: string;      // 'tunai' | 'transfer' | etc
-  catatan?: string;              // Payment notes
-  createdAt: string;             // ISO timestamp
-  createdBy: string;             // Cashier name
+  id: string; // UUID
+  ledgerId: string; // FK to CreditLedger
+  customerId: string; // FK to Customer (denormalized)
+  jumlahBayar: number; // Payment amount (> 0)
+  tanggalBayar: string; // YYYY-MM-DD (local date)
+  metodePembayaran: string; // 'tunai' | 'transfer' | etc
+  catatan?: string; // Payment notes
+  createdAt: string; // ISO timestamp
+  createdBy: string; // Cashier name
   syncStatus?: string;
+}
+
+// ── Export Settings (W4-05) ────────────────────────────────
+
+export interface ExportSettings {
+  tokoName?: string;
+  kasirName?: string;
+  includeHeader?: boolean;
+  includeFooter?: boolean;
+}
+
+// ── Inventory Item Input (W4-05) ───────────────────────────
+
+export interface InventoryItemInput {
+  id?: string;
+  namaBarang?: string;
+  nama?: string;
+  kategori?: string;
+  subKategori?: string;
+  harga?: number;
+  hargaModal?: number;
+  satuan?: string;
+  quantity?: number;
+  minStock?: number;
+  sku?: string;
+  barcode?: string;
+  wholesaleMinQty?: number;
+  wholesalePrice?: number;
+  packUnit?: string;
+  packRatio?: number;
+  packStock?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+  syncStatus?: string;
+}
+
+// ── Sync Message Payload (W4-05) ───────────────────────────
+
+export interface SyncMessagePayload {
+  sessionId?: string;
+  transactionId?: string;
+  inventoryId?: string;
+  cartData?: CartItem[];
+  [key: string]: any; // Allow additional fields for future extensibility
 }
 
 // ── UI State ───────────────────────────────────────────────
@@ -246,7 +298,7 @@ export interface DatabaseExport {
   expenses?: Expense[];
   archive_transactions?: Transaction[];
   stock_movements?: StockMovement[];
-  audit_log?: any[];          // Bug #3: include audit trail in backup
+  audit_log?: AuditLogEntry[]; // Bug #3: include audit trail in backup
   metadata: DatabaseExportMetadata;
 }
 
@@ -268,7 +320,7 @@ export interface MergeResult {
   newExpenses: number;
   newArchiveTransactions: number;
   newStockMovements?: number;
-  newAuditLogs?: number;       // Bug #3
+  newAuditLogs?: number; // Bug #3
   skipped: number;
   orphanTransactions: number;
   transactionsToAdd: Transaction[];
@@ -278,6 +330,6 @@ export interface MergeResult {
   expensesToAdd: Expense[];
   archiveTransactionsToAdd: Transaction[];
   stockMovementsToAdd?: StockMovement[];
-  auditLogsToAdd?: any[];      // Bug #3
+  auditLogsToAdd?: AuditLogEntry[]; // Bug #3
   categoriesRecordToPut?: CategoriesRecord | null;
 }

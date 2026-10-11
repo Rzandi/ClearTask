@@ -6,10 +6,19 @@
 
 import { StrictMode } from 'react';
 
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+  prompt(): Promise<void>;
+}
+
 declare global {
   interface Window {
-    __pwaInstallPrompt: any;
+    __pwaInstallPrompt: BeforeInstallPromptEvent | null;
     __pwaInstalled: boolean;
+  }
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
   }
 }
 import { createRoot } from 'react-dom/client';
