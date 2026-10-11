@@ -43,7 +43,16 @@ export default function RiwayatSesi({
       const map: Record<string, number> = {};
       await Promise.all(
         allSessions.map(async (session) => {
-          map[session.id] = await db.transactions.where('sessionId').equals(session.id).count();
+          const activeTxs = await db.transactions
+            .where('sessionId')
+            .equals(session.id)
+            .filter((tx: any) => !tx.deletedAt)
+            .count();
+          const archivedTxs = await db.archive_transactions
+            .where('sessionId')
+            .equals(session.id)
+            .count();
+          map[session.id] = activeTxs + archivedTxs;
         })
       );
       setTxCountMap(map);
