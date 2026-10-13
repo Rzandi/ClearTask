@@ -11,11 +11,11 @@ export interface ToastMessage {
   id: number;
   message: string;
   type: 'success' | 'error' | 'warning';
-  duration?: number;
+  duration?: number | undefined;
 }
 
 interface ToastContextValue {
-  showToast: (message: string, type?: ToastMessage['type'], duration?: number) => void;
+  showToast: (message: string, type?: ToastMessage['type'], duration?: number | undefined) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);

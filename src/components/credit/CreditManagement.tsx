@@ -9,24 +9,27 @@ import CustomerListPage from './CustomerListPage';
 import CustomerDetailPage from './CustomerDetailPage';
 import CustomerFormModal from './CustomerFormModal';
 import PaymentModal from './PaymentModal';
+import CreditAgingReport from './CreditAgingReport';
 import type { Customer, CreditLedger } from '../../types';
 
 interface Props {
   kasirName: string; // From session context
 }
 
-type View = 'list' | 'detail';
+type View = 'list' | 'detail' | 'report';
 
 export default function CreditManagement({ kasirName }: Props) {
   const [view, setView] = useState<View>('list');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  
+
   // Modal states
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentLedger, setPaymentLedger] = useState<CreditLedger | null>(null);
-  
+  const [paymentCustomer, setPaymentCustomer] = useState<Customer | null>(null);
+  const [unpaidLedgersForPayment, setUnpaidLedgersForPayment] = useState<CreditLedger[]>([]);
+
   // Refresh triggers
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -80,12 +83,26 @@ export default function CreditManagement({ kasirName }: Props) {
 
   const handleRecordPayment = useCallback((ledger: CreditLedger) => {
     setPaymentLedger(ledger);
+    setPaymentCustomer(null);
+    setUnpaidLedgersForPayment([]);
     setShowPaymentModal(true);
   }, []);
+
+  const handleRecordCustomerPayment = useCallback(
+    (customer: Customer, unpaidLedgers: CreditLedger[]) => {
+      setPaymentCustomer(customer);
+      setUnpaidLedgersForPayment(unpaidLedgers);
+      setPaymentLedger(null);
+      setShowPaymentModal(true);
+    },
+    []
+  );
 
   const handlePaymentModalClose = useCallback(() => {
     setShowPaymentModal(false);
     setPaymentLedger(null);
+    setPaymentCustomer(null);
+    setUnpaidLedgersForPayment([]);
   }, []);
 
   const handlePaymentSuccess = useCallback(() => {
@@ -95,6 +112,34 @@ export default function CreditManagement({ kasirName }: Props) {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Top View Selector (Hidden when in Detail View) */}
+      {view !== 'detail' && (
+        <div className="flex border-b border-border-default bg-bg-surface/50 px-4 pt-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-xl transition-all border-t border-l border-r cursor-pointer ${
+              view === 'list'
+                ? 'bg-bg-surface border-border-default text-primary shadow-sm -mb-[1px]'
+                : 'border-transparent text-text-muted hover:text-text-primary bg-transparent'
+            }`}
+          >
+            👥 Data Pelanggan
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('report')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-xl transition-all border-t border-l border-r cursor-pointer ${
+              view === 'report'
+                ? 'bg-bg-surface border-border-default text-primary shadow-sm -mb-[1px]'
+                : 'border-transparent text-text-muted hover:text-text-primary bg-transparent'
+            }`}
+          >
+            📊 Laporan & Aging Piutang
+          </button>
+        </div>
+      )}
+
       {/* Main Content */}
       {view === 'list' && (
         <CustomerListPage
@@ -104,6 +149,10 @@ export default function CreditManagement({ kasirName }: Props) {
         />
       )}
 
+      {view === 'report' && (
+        <CreditAgingReport key={refreshKey} onSelectCustomer={handleSelectCustomer} />
+      )}
+
       {view === 'detail' && selectedCustomer && (
         <CustomerDetailPage
           key={`${selectedCustomer.id}-${refreshKey}`}
@@ -111,6 +160,7 @@ export default function CreditManagement({ kasirName }: Props) {
           onBack={handleBackToList}
           onEdit={handleEditCustomer}
           onRecordPayment={handleRecordPayment}
+          onRecordCustomerPayment={handleRecordCustomerPayment}
         />
       )}
 
@@ -126,6 +176,8 @@ export default function CreditManagement({ kasirName }: Props) {
         isOpen={showPaymentModal}
         onClose={handlePaymentModalClose}
         ledger={paymentLedger}
+        customer={paymentCustomer}
+        unpaidLedgers={unpaidLedgersForPayment}
         kasirName={kasirName}
         onSuccess={handlePaymentSuccess}
       />

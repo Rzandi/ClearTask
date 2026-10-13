@@ -45,24 +45,24 @@ export function parseInlineCommand(input: string): ParsedCartItem | null {
   // 2. Extract quantity — supports "2x", "x2", "2X", "X2"
   //    Also supports leading qty: "2x Susu" or trailing: "Susu 2x"
 
-  // Pattern A: trailing "2x" or "2X" (e.g. "Susu 2x")
-  const trailingQtyRegex = /\s+(\d+)\s*[xX]\s*$/;
+  // Pattern A: trailing "2x" or "2X" (e.g. "Susu 2x" or "Indomie2x")
+  const trailingQtyRegex = /\s*(\d+)\s*[xX]\s*$/;
   const trailingMatch = text.match(trailingQtyRegex);
   if (trailingMatch) {
     const qNum = parseInt(trailingMatch[1]!, 10);
     if (!isNaN(qNum) && qNum > 0) qty = qNum;
     text = text.replace(trailingQtyRegex, '').trim();
   } else {
-    // Pattern B: leading "2x " or "x2 " (e.g. "2x Susu" or "x2 Susu")
-    const leadingQtyRegex = /^(\d+)\s*[xX]\s+/;
+    // Pattern B: leading "2x " or "x2 " (e.g. "2x Susu" or "2xSusu")
+    const leadingQtyRegex = /^(\d+)\s*[xX]\s*/;
     const leadingMatch = text.match(leadingQtyRegex);
     if (leadingMatch) {
       const qNum = parseInt(leadingMatch[1]!, 10);
       if (!isNaN(qNum) && qNum > 0) qty = qNum;
       text = text.replace(leadingQtyRegex, '').trim();
     } else {
-      // Pattern C: "x2" at end (e.g. "Susu x2")
-      const xTrailingRegex = /\s+[xX](\d+)\s*$/;
+      // Pattern C: "x2" at end (e.g. "Susu x2" or "Susux2")
+      const xTrailingRegex = /\s*[xX](\d+)\s*$/;
       const xTrailingMatch = text.match(xTrailingRegex);
       if (xTrailingMatch) {
         const qNum = parseInt(xTrailingMatch[1]!, 10);

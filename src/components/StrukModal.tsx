@@ -13,7 +13,7 @@ import { useBackHandler } from '../hooks/useBackHandler';
 export interface StrukModalProps {
   order: any;
   onClose: () => void;
-  onUndo?: () => void;
+  onUndo?: (() => void) | (() => Promise<void>) | undefined;
 }
 
 export default function StrukModal({ order, onClose, onUndo }: StrukModalProps) {
@@ -252,13 +252,29 @@ export default function StrukModal({ order, onClose, onUndo }: StrukModalProps) 
                 <tbody className="divide-y divide-dashed divide-gray-200">
                   {order.items.map((item: any, idx: number) => (
                     <tr key={idx}>
-                      <td className="py-1 font-semibold">{item.namaBarang}</td>
+                      <td className="py-1">
+                        <span className="font-semibold">{item.namaBarang}</span>
+                        {(item.totalDiskon || 0) > 0 && (
+                          <span className="ml-1 text-[9px] text-gray-500">
+                            (
+                            {(item.diskonPersen || 0) > 0
+                              ? `-${item.diskonPersen}%`
+                              : `-Rp${(item.diskonNominal || 0).toLocaleString('id-ID')}`}
+                            )
+                          </span>
+                        )}
+                      </td>
                       <td className="py-1 text-center">{item.qty}</td>
                       <td className="py-1 text-right">
                         {item.hargaSatuan.toLocaleString('id-ID')}
                       </td>
                       <td className="py-1 text-right font-medium">
                         {item.total.toLocaleString('id-ID')}
+                        {(item.totalDiskon || 0) > 0 && (
+                          <div className="text-[9px] text-gray-400 line-through">
+                            {(item.totalSebelumDiskon || 0).toLocaleString('id-ID')}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -269,12 +285,30 @@ export default function StrukModal({ order, onClose, onUndo }: StrukModalProps) 
             <div className="border-b border-dashed border-gray-400 pb-2 mb-2">
               {order.items.map((item: any, idx: number) => (
                 <div key={idx} className="mb-2">
-                  <div className="font-semibold">{item.namaBarang}</div>
+                  <div className="font-semibold">
+                    {item.namaBarang}
+                    {(item.totalDiskon || 0) > 0 && (
+                      <span className="ml-1 text-[9px] text-gray-500 font-normal">
+                        (
+                        {(item.diskonPersen || 0) > 0
+                          ? `-${item.diskonPersen}%`
+                          : `-Rp${(item.diskonNominal || 0).toLocaleString('id-ID')}`}
+                        )
+                      </span>
+                    )}
+                  </div>
                   <div className="flex justify-between pl-2">
                     <span>
                       {item.qty} x {item.hargaSatuan.toLocaleString('id-ID')}
                     </span>
-                    <span>{item.total.toLocaleString('id-ID')}</span>
+                    <span>
+                      {item.total.toLocaleString('id-ID')}
+                      {(item.totalDiskon || 0) > 0 && (
+                        <span className="ml-1 text-[9px] text-gray-400 line-through">
+                          {(item.totalSebelumDiskon || 0).toLocaleString('id-ID')}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -282,6 +316,37 @@ export default function StrukModal({ order, onClose, onUndo }: StrukModalProps) 
           )}
 
           <div className="border-b border-dashed border-gray-400 pb-2 mb-2">
+            {/* W4-04: Transaction discount & savings */}
+            {(order.diskonTransaksi || order.totalDiskon) && (
+              <>
+                {order.diskonTransaksi && (
+                  <div className="flex justify-between text-[11px] text-gray-500">
+                    <span>
+                      Diskon Transaksi{' '}
+                      {order.diskonTransaksi.tipe === 'persen'
+                        ? `(${order.diskonTransaksi.nilai}%)`
+                        : ''}
+                    </span>
+                    <span>
+                      -
+                      {(order.diskonTransaksi.tipe === 'persen'
+                        ? Math.round(
+                            order.items.reduce((s: number, i: any) => s + i.total, 0) *
+                              (order.diskonTransaksi.nilai / (100 - order.diskonTransaksi.nilai))
+                          )
+                        : order.diskonTransaksi.nilai
+                      ).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                )}
+                {(order.totalDiskon || 0) > 0 && (
+                  <div className="flex justify-between text-[11px] text-gray-500">
+                    <span>Total Hemat</span>
+                    <span>-{order.totalDiskon.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+              </>
+            )}
             <div className="flex justify-between font-bold text-sm">
               <span>TOTAL</span>
               <span>{order.total.toLocaleString('id-ID')}</span>

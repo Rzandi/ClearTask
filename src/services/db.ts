@@ -330,9 +330,8 @@ export class ClearTaskDB extends Dexie {
 
     // Item 25: Dexie Blocked & Versionchange Event Handlers
     this.on('blocked', () => {
-      console.warn('Database upgrade is blocked by another open tab.');
-      alert(
-        'Pembaruan database tertahan karena ada tab ClearTask lain yang terbuka. Harap tutup tab lain untuk melanjutkan.'
+      console.warn(
+        'Database upgrade is blocked by another open tab. Harap tutup tab lain untuk melanjutkan.'
       );
     });
 

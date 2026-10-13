@@ -14,7 +14,7 @@ export interface CartItem {
 /**
  * Hitung total harga satu item (qty × hargaSatuan).
  * Mendukung qty desimal untuk barang timbangan.
- * 
+ *
  * @param {number} qty - Quantity (bisa desimal untuk kg, liter, dll)
  * @param {number} hargaSatuan - Harga per satuan
  * @returns {number} Total harga (dibulatkan ke rupiah terdekat)
@@ -22,7 +22,7 @@ export interface CartItem {
 export function hitungTotalItem(qty: number, hargaSatuan: number): number {
   if (!Number.isFinite(qty) || qty <= 0) return 0;
   if (!Number.isFinite(hargaSatuan) || hargaSatuan < 0) return 0;
-  
+
   // Kalkulasi dengan presisi penuh, lalu bulatkan ke rupiah terdekat
   const total = qty * hargaSatuan;
   return Math.round(total);
@@ -76,7 +76,7 @@ export function hitungGrandTotal(
 /**
  * Validasi data item transaksi sebelum disimpan.
  * Mendukung qty desimal untuk barang timbangan.
- * 
+ *
  * @param {CartItem} item
  * @returns {{ valid: boolean, errors: string[] }}
  */
@@ -94,16 +94,84 @@ export function validasiItem(item: CartItem): { valid: boolean; errors: string[]
   if (!namaStr) {
     errors.push('Nama barang tidak boleh kosong.');
   }
-  
+
   // Qty validation - support decimal
   const qty = item?.qty ?? 0;
   if (!Number.isFinite(qty) || qty <= 0) {
     errors.push('Qty harus lebih dari 0.');
   }
-  
+
   if (!Number.isFinite(item?.hargaSatuan) || (item.hargaSatuan ?? 0) <= 0) {
     errors.push('Harga satuan harus lebih dari 0.');
   }
-  
+
   return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Hitung diskon per item — support persen atau nominal.
+ * @param qty - Jumlah barang
+ * @param hargaSatuan - Harga per satuan
+ * @param diskonPersen - Diskon persentase (0–100), default 0
+ * @param diskonNominal - Diskon nominal Rp (flat per line), default 0
+ * @returns {{ totalSebelumDiskon, totalDiskon, totalSetelahDiskon }}
+ */
+export function hitungItemDiskon(
+  qty: number,
+  hargaSatuan: number,
+  diskonPersen: number = 0,
+  diskonNominal: number = 0
+): { totalSebelumDiskon: number; totalDiskon: number; totalSetelahDiskon: number } {
+  const totalSebelumDiskon = hitungTotalItem(qty, hargaSatuan);
+  if (totalSebelumDiskon <= 0) {
+    return { totalSebelumDiskon: 0, totalDiskon: 0, totalSetelahDiskon: 0 };
+  }
+
+  let totalDiskon = 0;
+
+  // Apply percentage discount first
+  if (Number.isFinite(diskonPersen) && diskonPersen > 0 && diskonPersen <= 100) {
+    totalDiskon += Math.round(totalSebelumDiskon * (diskonPersen / 100));
+  }
+
+  // Then add nominal discount
+  if (Number.isFinite(diskonNominal) && diskonNominal > 0) {
+    totalDiskon += Math.round(diskonNominal);
+  }
+
+  // Cap discount at totalSebelumDiskon (cannot go negative)
+  totalDiskon = Math.min(totalDiskon, totalSebelumDiskon);
+
+  return {
+    totalSebelumDiskon,
+    totalDiskon,
+    totalSetelahDiskon: totalSebelumDiskon - totalDiskon,
+  };
+}
+
+/**
+ * Hitung diskon transaksi — diterapkan ke subtotal setelah diskon item.
+ * @param subTotal - Sub total setelah semua item discount
+ * @param tipe - 'persen' atau 'nominal'
+ * @param nilai - Nilai diskon (persentase 0-100 atau nominal Rp)
+ * @returns {{ nilaiDiskon: number, totalSetelahDiskon: number }}
+ */
+export function hitungDiskonTransaksi(
+  subTotal: number,
+  tipe: 'persen' | 'nominal',
+  nilai: number
+): { nilaiDiskon: number; totalSetelahDiskon: number } {
+  if (!Number.isFinite(subTotal) || subTotal <= 0 || !Number.isFinite(nilai) || nilai <= 0) {
+    return { nilaiDiskon: 0, totalSetelahDiskon: Math.max(subTotal, 0) };
+  }
+
+  const nilaiDiskon =
+    tipe === 'persen'
+      ? Math.round(subTotal * (Math.min(Math.max(nilai, 0), 100) / 100))
+      : Math.round(Math.min(nilai, subTotal));
+
+  return {
+    nilaiDiskon,
+    totalSetelahDiskon: subTotal - nilaiDiskon,
+  };
 }

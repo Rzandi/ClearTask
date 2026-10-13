@@ -38,14 +38,18 @@ export function useTransactionMetrics(): TransactionMetrics {
       .filter((tx: any) => tx.tanggal === yesterdayStr)
       .reduce((sum: number, tx: any) => sum + (tx.total || 0), 0);
 
-    // P0-FIX: Exclude soft-deleted transactions from historical count
-    const historicalTxs = await db.transactions.where('tanggal').below(todayStr).toArray();
+    // Exclude soft-deleted transactions from historical count using lightweight count
+    const activeHistoricalCount = await db.transactions
+      .where('tanggal')
+      .below(todayStr)
+      .filter((tx: any) => !tx.deletedAt)
+      .count();
     const archivedHistoricalCount = await db.archive_transactions
       .where('tanggal')
       .below(todayStr)
+      .filter((tx: any) => !tx.deletedAt)
       .count();
-    const historicalCount =
-      historicalTxs.filter((tx: any) => !tx.deletedAt).length + archivedHistoricalCount;
+    const historicalCount = activeHistoricalCount + archivedHistoricalCount;
 
     const hasHistoricalData = historicalCount > 0;
     const isFirstDay = !hasHistoricalData || todayTotal === 0;

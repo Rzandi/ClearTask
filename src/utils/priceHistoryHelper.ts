@@ -16,12 +16,12 @@ export async function getPriceHistory(
   inventoryId: string,
   limit: number = 50
 ): Promise<PriceHistoryEntry[]> {
-  return await db.price_history
+  const entries = await db.price_history
     .where('inventoryId')
     .equals(inventoryId)
-    .reverse() // Latest first
-    .limit(limit)
-    .toArray();
+    .sortBy('changedAt');
+
+  return entries.reverse().slice(0, limit);
 }
 
 /**
@@ -53,11 +53,11 @@ export async function exportPriceHistory(inventoryId?: string): Promise<void> {
   );
 
   // Generate CSV
-  if (enriched.length === 0) {
+  const firstRow = enriched[0];
+  if (!firstRow) {
     throw new Error('Tidak ada data riwayat harga untuk di-export');
   }
-
-  const headers = Object.keys(enriched[0]);
+  const headers = Object.keys(firstRow);
   const csvRows = [
     headers.join(','),
     ...enriched.map((row) =>
@@ -80,9 +80,7 @@ export async function exportPriceHistory(inventoryId?: string): Promise<void> {
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.href = url;
-  link.download = inventoryId
-    ? `riwayat-harga-${inventoryId}.csv`
-    : 'riwayat-harga-semua.csv';
+  link.download = inventoryId ? `riwayat-harga-${inventoryId}.csv` : 'riwayat-harga-semua.csv';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

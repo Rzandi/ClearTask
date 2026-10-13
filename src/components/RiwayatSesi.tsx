@@ -51,6 +51,7 @@ export default function RiwayatSesi({
           const archivedTxs = await db.archive_transactions
             .where('sessionId')
             .equals(session.id)
+            .filter((tx: any) => !tx.deletedAt)
             .count();
           map[session.id] = activeTxs + archivedTxs;
         })

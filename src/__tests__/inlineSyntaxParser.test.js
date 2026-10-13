@@ -86,6 +86,13 @@ describe('parseInlineCommand', () => {
     const r = parseInlineCommand('Es Teh Manis 2x @5000');
     expect(r).toEqual({ namaBarang: 'Es Teh Manis', qty: 2, hargaSatuan: 5000 });
   });
+
+  it('should parse zero-space quantity syntax: "Indomie2x" and "2xIndomie @4000"', () => {
+    const r1 = parseInlineCommand('Indomie2x');
+    expect(r1).toEqual({ namaBarang: 'Indomie', qty: 2, hargaSatuan: null });
+    const r2 = parseInlineCommand('2xIndomie @4000');
+    expect(r2).toEqual({ namaBarang: 'Indomie', qty: 2, hargaSatuan: 4000 });
+  });
 });
 
 // ─── hasInlineSyntax ────────────────────────────────────────

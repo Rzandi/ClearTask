@@ -14,7 +14,10 @@ export type { InventoryItem }; // re-export so existing imports from this file k
 
 export function useInventory(): {
   inventory: InventoryItem[];
-  addInventoryItem: (itemData: any, options?: { skipDuplicate?: boolean }) => Promise<InventoryItem>;
+  addInventoryItem: (
+    itemData: any,
+    options?: { skipDuplicate?: boolean }
+  ) => Promise<InventoryItem>;
   updateInventoryItem: (id: string, itemData: any, reason?: string) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
 } {
@@ -23,18 +26,11 @@ export function useInventory(): {
   const currentUser = settings?.kasirName || 'Admin';
 
   // Filter soft-deleted items — hanya tampilkan yang deletedAt == null/undefined
-  const rawInventory = useLiveQuery(
-    async () => {
-      if (context) return null;
-      const items = await db.inventory.filter((item) => !item.deletedAt).toArray();
-      return items as InventoryItem[];
-    },
-    [Boolean(context)]
-  );
-
-  if (context) {
-    return context;
-  }
+  const rawInventory = useLiveQuery(async () => {
+    if (context) return [];
+    const items = await db.inventory.filter((item) => !item.deletedAt).toArray();
+    return items as InventoryItem[];
+  }, [Boolean(context)]);
 
   const inventory: InventoryItem[] = (rawInventory || []) as InventoryItem[];
 
@@ -108,12 +104,11 @@ export function useInventory(): {
       await db.transaction('rw', [db.inventory, db.price_history], async () => {
         const oldItem = await db.inventory.get(id);
         if (!oldItem) {
-          throw new Error('Item tidak ditemukan');
+          return;
         }
 
         // Check if price changed
-        const hargaJualChanged =
-          itemData.harga !== undefined && itemData.harga !== oldItem.harga;
+        const hargaJualChanged = itemData.harga !== undefined && itemData.harga !== oldItem.harga;
         const hargaModalChanged =
           itemData.hargaModal !== undefined && itemData.hargaModal !== oldItem.hargaModal;
 
@@ -166,6 +161,10 @@ export function useInventory(): {
     },
     [currentUser]
   );
+
+  if (context) {
+    return context;
+  }
 
   return {
     inventory,

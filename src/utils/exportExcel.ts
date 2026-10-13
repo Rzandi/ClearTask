@@ -5,7 +5,7 @@
 
 import { formatDate, formatTime, toLocalDateString } from './formatters';
 import { triggerDownload } from './downloadHelper';
-import { type Transaction, type Session } from './sessionStats';
+import { type Transaction, type Session, type ExportSettings } from '../types/index';
 
 /**
  * Helper to sanitize values to prevent Excel Formula Injection (DDE)
@@ -22,7 +22,11 @@ function sanitizeExcelValue(value: any): any {
 /**
  * Helper to setup the base worksheet (header, data rows, formatting)
  */
-function setupBaseWorksheet(sheet: any, transactions: Transaction[], settings: any = {}) {
+function setupBaseWorksheet(
+  sheet: any,
+  transactions: Transaction[],
+  settings: ExportSettings = {}
+) {
   // ── Optional Header Rows (Toko & Kasir) ──
   if (settings.tokoName) {
     const tokoRow = sheet.addRow([settings.tokoName]);
@@ -145,7 +149,7 @@ function setupBaseWorksheet(sheet: any, transactions: Transaction[], settings: a
  */
 export async function exportToExcel(
   transactions: Transaction[],
-  settings: any = {},
+  settings: ExportSettings = {},
   filename: string = 'ClearTask_Laporan'
 ): Promise<void> {
   const { default: ExcelJS } = await import('exceljs');
@@ -181,7 +185,7 @@ export async function exportToExcel(
 export async function exportSessionExcel(
   transactions: Transaction[],
   session: Session,
-  settings: any = {}
+  settings: ExportSettings = {}
 ): Promise<void> {
   const { default: ExcelJS } = await import('exceljs');
 

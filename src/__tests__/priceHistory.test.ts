@@ -3,9 +3,9 @@
    Unit tests for Price History feature
    ═══════════════════════════════════════════════════════════ */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import db from '../services/db';
-import { getPriceHistory, cleanupOldHistory } from '../utils/priceHistoryHelper';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import 'fake-indexeddb/auto';
+import Dexie from 'dexie';
 import type { InventoryItem } from '../types/index';
 
 // Helper to generate UUID
@@ -19,17 +19,28 @@ function generateUUID(): string {
       });
 }
 
+// Re-import modules fresh per test so DB state never leaks between tests
+async function freshModules() {
+  vi.resetModules();
+  const dbModule = await import('../services/db');
+  const helperModule = await import('../utils/priceHistoryHelper');
+  const db = dbModule.default;
+  await db.open();
+  return {
+    db,
+    getPriceHistory: helperModule.getPriceHistory,
+    cleanupOldHistory: helperModule.cleanupOldHistory,
+  };
+}
+
 describe('W4-03: Price History', () => {
   beforeEach(async () => {
-    await db.delete();
-    await db.open();
-  });
-
-  afterEach(async () => {
-    await db.close();
+    await Dexie.delete('ClearTaskDB');
   });
 
   it('should capture price change on manual update', async () => {
+    const { db, getPriceHistory } = await freshModules();
+
     // Create inventory item
     const itemId = generateUUID();
     const item: InventoryItem = {
@@ -50,7 +61,6 @@ describe('W4-03: Price History', () => {
       const oldItem = await db.inventory.get(itemId);
       if (!oldItem) throw new Error('Item not found');
 
-      // Capture price history
       await db.price_history.add({
         id: generateUUID(),
         inventoryId: itemId,
@@ -64,23 +74,23 @@ describe('W4-03: Price History', () => {
         changeType: 'manual',
       });
 
-      // Update inventory
       await db.inventory.update(itemId, { harga: 5500, hargaModal: 4200 });
     });
 
     // Verify history entry
     const history = await getPriceHistory(itemId);
     expect(history).toHaveLength(1);
-    expect(history[0].oldHargaJual).toBe(5000);
-    expect(history[0].newHargaJual).toBe(5500);
-    expect(history[0].oldHargaModal).toBe(4000);
-    expect(history[0].newHargaModal).toBe(4200);
-    expect(history[0].reason).toBe('Penyesuaian supplier');
-    expect(history[0].changeType).toBe('manual');
+    expect(history[0]?.oldHargaJual).toBe(5000);
+    expect(history[0]?.newHargaJual).toBe(5500);
+    expect(history[0]?.oldHargaModal).toBe(4000);
+    expect(history[0]?.newHargaModal).toBe(4200);
+    expect(history[0]?.reason).toBe('Penyesuaian supplier');
+    expect(history[0]?.changeType).toBe('manual');
   });
 
   it('should NOT create history entry if price unchanged', async () => {
-    // Create inventory item
+    const { db, getPriceHistory } = await freshModules();
+
     const itemId = generateUUID();
     const item: InventoryItem = {
       id: itemId,
@@ -95,16 +105,16 @@ describe('W4-03: Price History', () => {
     };
     await db.inventory.add(item);
 
-    // Update only non-price field
+    // Update only non-price field — no history entry should be created
     await db.inventory.update(itemId, { namaBarang: 'Updated Name', quantity: 15 });
 
-    // Verify NO history entry created
     const history = await getPriceHistory(itemId);
     expect(history).toHaveLength(0);
   });
 
   it('should track bulk import price changes', async () => {
-    // Create 3 items
+    const { db } = await freshModules();
+
     const item1Id = generateUUID();
     const item2Id = generateUUID();
     const item3Id = generateUUID();
@@ -145,7 +155,6 @@ describe('W4-03: Price History', () => {
       },
     ]);
 
-    // Simulate bulk import with price changes
     const bulkChanges = [
       { id: item1Id, oldHarga: 1000, newHarga: 1500 },
       { id: item2Id, oldHarga: 2000, newHarga: 2500 },
@@ -165,12 +174,10 @@ describe('W4-03: Price History', () => {
           reason: 'Bulk import CSV',
           changeType: 'bulk_import',
         });
-
         await db.inventory.update(change.id, { harga: change.newHarga });
       }
     });
 
-    // Verify history entries
     const allHistory = await db.price_history.toArray();
     expect(allHistory).toHaveLength(2);
     expect(allHistory.every((h) => h.changeType === 'bulk_import')).toBe(true);
@@ -178,7 +185,8 @@ describe('W4-03: Price History', () => {
   });
 
   it('should export price history to CSV', async () => {
-    // Create item
+    const { db, getPriceHistory } = await freshModules();
+
     const itemId = generateUUID();
     await db.inventory.add({
       id: itemId,
@@ -192,12 +200,11 @@ describe('W4-03: Price History', () => {
       updatedAt: new Date().toISOString(),
     });
 
-    // Add price history entries
     await db.price_history.bulkAdd([
       {
         id: generateUUID(),
         inventoryId: itemId,
-        changedAt: new Date().toISOString(),
+        changedAt: new Date(Date.now() - 1000).toISOString(), // slightly older
         oldHargaJual: 5000,
         oldHargaModal: 4000,
         newHargaJual: 5500,
@@ -209,7 +216,7 @@ describe('W4-03: Price History', () => {
       {
         id: generateUUID(),
         inventoryId: itemId,
-        changedAt: new Date().toISOString(),
+        changedAt: new Date().toISOString(), // newest
         oldHargaJual: 5500,
         oldHargaModal: 4200,
         newHargaJual: 6000,
@@ -220,16 +227,16 @@ describe('W4-03: Price History', () => {
       },
     ]);
 
-    // Verify we can query the history
     const history = await getPriceHistory(itemId);
     expect(history).toHaveLength(2);
-    expect(history[0].newHargaJual).toBe(6000); // Newest first
-    expect(history[1].newHargaJual).toBe(5500);
+    expect(history[0]?.newHargaJual).toBe(6000); // Newest first
+    expect(history[1]?.newHargaJual).toBe(5500);
   });
 
   it('should cleanup old history entries', async () => {
-    const itemId = generateUUID();
+    const { db, getPriceHistory, cleanupOldHistory } = await freshModules();
 
+    const itemId = generateUUID();
     await db.inventory.add({
       id: itemId,
       namaBarang: 'Test',
@@ -241,7 +248,7 @@ describe('W4-03: Price History', () => {
       updatedAt: new Date().toISOString(),
     });
 
-    // Add old entry (13 months ago)
+    // Entry 13 months ago
     const oldDate = new Date();
     oldDate.setMonth(oldDate.getMonth() - 13);
 
@@ -257,7 +264,7 @@ describe('W4-03: Price History', () => {
       changeType: 'manual',
     });
 
-    // Add recent entry
+    // Recent entry
     await db.price_history.add({
       id: generateUUID(),
       inventoryId: itemId,
@@ -270,13 +277,11 @@ describe('W4-03: Price History', () => {
       changeType: 'manual',
     });
 
-    // Cleanup entries older than 12 months
     const deletedCount = await cleanupOldHistory(12);
     expect(deletedCount).toBe(1);
 
-    // Verify only recent entry remains
     const remaining = await getPriceHistory(itemId);
     expect(remaining).toHaveLength(1);
-    expect(remaining[0].newHargaJual).toBe(2000);
+    expect(remaining[0]?.newHargaJual).toBe(2000);
   });
 });

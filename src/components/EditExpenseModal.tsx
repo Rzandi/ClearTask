@@ -88,13 +88,14 @@ export default function EditExpenseModal({
 
     try {
       setIsSaving(true);
-      await onSave(expense.id, {
+      const updateData: Partial<ExpenseItem> = {
         tanggal: form.tanggal,
-        kategori: form.kategori,
         namaKeluaran: form.namaKeluaran.trim(),
         jumlah: jumlahVal,
-        catatan: form.catatan.trim() || undefined,
-      });
+      };
+      if (form.kategori) updateData.kategori = form.kategori;
+      if (form.catatan.trim()) updateData.catatan = form.catatan.trim();
+      await onSave(expense.id, updateData);
       onClose();
       showToast('Pengeluaran berhasil diperbarui', 'success');
     } catch (err: any) {
@@ -106,16 +107,21 @@ export default function EditExpenseModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-expense-title"
     >
       <div
-        className="bg-bg-surface border border-border-default rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 animate-scale-up"
+        className="bg-bg-surface border-t sm:border border-border-default rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 animate-slide-up sm:animate-scale-up max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Drag Handle Pill */}
+        <div className="sm:hidden flex justify-center pb-1 -mt-1 cursor-pointer" onClick={onClose}>
+          <div className="w-12 h-1.5 rounded-full bg-border-strong" />
+        </div>
+
         <div className="flex items-center justify-between border-b border-border-default pb-3">
           <h3
             id="edit-expense-title"

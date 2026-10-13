@@ -33,15 +33,7 @@ async function compressQrisImage(file: File, maxSize = 400, quality = 0.7): Prom
   });
 }
 
-// ─── Konfigurasi swatch accent color ─────────────────────────────────────────
-
-const ACCENT_SWATCHES = [
-  { value: '#00f0ff', label: 'Cyan Neon' },
-  { value: '#00ff88', label: 'Hijau Neon' },
-  { value: '#ff3366', label: 'Pink Neon' },
-  { value: '#bc8cff', label: 'Ungu' },
-  { value: '#f0b429', label: 'Oranye' },
-];
+import { THEME_COLOR_PRESETS } from '../config/settingsConfig';
 
 // ─── Komponen ─────────────────────────────────────────────────────────────────
 
@@ -514,31 +506,36 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
             </div>
 
-            {/* Accent Color */}
+            {/* Accent Color Palette */}
             <div>
-              <p className="text-sm font-medium text-text-secondary mb-2">Warna Aksen</p>
-              <div className="flex gap-3">
-                {ACCENT_SWATCHES.map(({ value, label }) => {
-                  const isActive = settings.accentColor === value;
+              <p className="text-sm font-medium text-text-secondary mb-2">Tema & Warna Aksen</p>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {THEME_COLOR_PRESETS.map(({ value, label }) => {
+                  const isActive = settings.accentColor?.toLowerCase() === value.toLowerCase();
                   return (
                     <button
                       key={value}
+                      type="button"
                       onClick={() => updateSettings({ accentColor: value })}
                       aria-label={label}
                       aria-pressed={isActive}
                       title={label}
-                      style={{
-                        backgroundColor: value,
-                        outline: isActive ? `3px solid ${value}` : 'none',
-                        outlineOffset: '2px',
-                      }}
-                      className={[
-                        'w-8 h-8 rounded-full transition-all',
+                      className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all cursor-pointer ${
                         isActive
-                          ? 'scale-110 shadow-[0_0_15px_rgba(255,255,255,0.2)]'
-                          : 'opacity-70 hover:opacity-100 hover:scale-105 shadow-inner',
-                      ].join(' ')}
-                    />
+                          ? 'border-primary bg-primary/10 shadow-sm'
+                          : 'border-border-default hover:border-border-strong bg-bg-surface/50'
+                      }`}
+                    >
+                      <span
+                        className={`w-6 h-6 rounded-full transition-transform ${
+                          isActive ? 'scale-110 ring-2 ring-white/50 shadow' : 'opacity-85'
+                        }`}
+                        style={{ backgroundColor: value }}
+                      />
+                      <span className="text-[10px] text-text-muted truncate max-w-full font-medium">
+                        {label.split(' ')[0]}
+                      </span>
+                    </button>
                   );
                 })}
               </div>

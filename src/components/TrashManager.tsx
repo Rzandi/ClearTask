@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo, memo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../services/db';
 import { transactionService } from '../services/transactionService';
+import type { Transaction, InventoryItem, CartItem } from '../types/index';
 import Button from './ui/Button';
 import EmptyState from './ui/EmptyState';
 import ConfirmDialog from './ConfirmDialog';
@@ -38,19 +39,25 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   // W0-14: Query using deletedAt index to avoid full table scan
   const deletedTransactions =
     useLiveQuery(async () => {
-      const records = await db.transactions.where('deletedAt').above('').toArray();
+      const records = (await db.transactions
+        .where('deletedAt')
+        .above('')
+        .toArray()) as Transaction[];
       return records.sort(
-        (a: any, b: any) =>
-          new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime()
+        (a: Transaction, b: Transaction) =>
+          new Date(b.deletedAt!).getTime() - new Date(a.deletedAt!).getTime()
       );
     }) || [];
 
   const deletedInventory =
     useLiveQuery(async () => {
-      const records = await db.inventory.where('deletedAt').above('').toArray();
+      const records = (await db.inventory
+        .where('deletedAt')
+        .above('')
+        .toArray()) as InventoryItem[];
       return records.sort(
-        (a: any, b: any) =>
-          new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime()
+        (a: InventoryItem, b: InventoryItem) =>
+          new Date(b.deletedAt!).getTime() - new Date(a.deletedAt!).getTime()
       );
     }) || [];
 
@@ -62,12 +69,18 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   }, []);
 
   const expiredTransactions = useMemo(
-    () => deletedTransactions.filter((tx: any) => tx.deletedAt && tx.deletedAt < cutoffISO),
+    () =>
+      (deletedTransactions as Transaction[]).filter(
+        (tx: Transaction) => tx.deletedAt && tx.deletedAt < cutoffISO
+      ),
     [deletedTransactions, cutoffISO]
   );
 
   const expiredInventory = useMemo(
-    () => deletedInventory.filter((item: any) => item.deletedAt && item.deletedAt < cutoffISO),
+    () =>
+      (deletedInventory as InventoryItem[]).filter(
+        (item: InventoryItem) => item.deletedAt && item.deletedAt < cutoffISO
+      ),
     [deletedInventory, cutoffISO]
   );
 
@@ -77,50 +90,56 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   /**
    * Helper: check if an inventory item is referenced by any transaction (active or archived)
    */
-  const isItemReferencedInTransactions = useCallback(async (invItem: any): Promise<boolean> => {
-    const itemName = (invItem.namaBarang || '').trim().toLowerCase();
-    const itemId = String(invItem.id);
+  const isItemReferencedInTransactions = useCallback(
+    async (invItem: InventoryItem): Promise<boolean> => {
+      const itemName = (invItem.namaBarang || '').trim().toLowerCase();
+      const itemId = String(invItem.id);
 
-    const foundInActive = await db.transactions
-      .filter((tx: any) => {
-        if (!tx.items || !Array.isArray(tx.items)) return false;
-        return tx.items.some(
-          (it: any) =>
-            (it.inventoryId && String(it.inventoryId) === itemId) ||
-            (it.namaBarang && it.namaBarang.trim().toLowerCase() === itemName)
-        );
-      })
-      .first();
-
-    if (foundInActive) return true;
-
-    if (db.archive_transactions) {
-      const foundInArchive = await db.archive_transactions
-        .filter((tx: any) => {
+      const foundInActive = await db.transactions
+        .filter((tx: Transaction) => {
           if (!tx.items || !Array.isArray(tx.items)) return false;
           return tx.items.some(
-            (it: any) =>
+            (it: CartItem) =>
               (it.inventoryId && String(it.inventoryId) === itemId) ||
               (it.namaBarang && it.namaBarang.trim().toLowerCase() === itemName)
           );
         })
         .first();
-      if (foundInArchive) return true;
-    }
 
-    return false;
-  }, []);
+      if (foundInActive) return true;
+
+      if (db.archive_transactions) {
+        const foundInArchive = await db.archive_transactions
+          .filter((tx: Transaction) => {
+            if (!tx.items || !Array.isArray(tx.items)) return false;
+            return tx.items.some(
+              (it: CartItem) =>
+                (it.inventoryId && String(it.inventoryId) === itemId) ||
+                (it.namaBarang && it.namaBarang.trim().toLowerCase() === itemName)
+            );
+          })
+          .first();
+        if (foundInArchive) return true;
+      }
+
+      return false;
+    },
+    []
+  );
 
   // Restore transaction — delegates to transactionService to re-deduct stock and write audit_log
   const handleRestoreTx = useCallback(
-    async (id: number) => {
+    async (id?: number) => {
+      if (id === undefined) return;
       try {
         await transactionService.restoreTransaction(id, 'Admin');
         setFeedback('✅ Transaksi berhasil dipulihkan!');
         setTimeout(() => setFeedback(''), 3000);
         onRestore?.();
-      } catch (err: any) {
-        setFeedback(`❌ Gagal memulihkan transaksi: ${err?.message || 'Error tidak diketahui'}`);
+      } catch (err: unknown) {
+        setFeedback(
+          `❌ Gagal memulihkan transaksi: ${err instanceof Error ? err.message : 'Error tidak diketahui'}`
+        );
         setTimeout(() => setFeedback(''), 5000);
       }
     },
@@ -128,7 +147,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   );
 
   // Restore inventory item
-  const handleRestoreInv = useCallback(async (id: string) => {
+  const handleRestoreInv = useCallback(async (id?: string) => {
+    if (!id) return;
     const record = await db.inventory.get(id as any);
     if (!record) return;
     delete record.deletedAt;
@@ -144,7 +164,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   }, []);
 
   // Permanent delete single transaction with confirmation
-  const promptPermanentDeleteTx = useCallback((id: number, txId: string) => {
+  const promptPermanentDeleteTx = useCallback((id?: number, txId?: string) => {
+    if (id === undefined) return;
     setConfirmState({
       isOpen: true,
       title: 'Hapus Transaksi Permanen',
@@ -173,10 +194,12 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
 
   // Permanent delete single inventory item with reference check
   const promptPermanentDeleteInv = useCallback(
-    async (item: any) => {
+    async (item: InventoryItem) => {
       const isReferenced = await isItemReferencedInTransactions(item);
       if (isReferenced) {
-        setFeedback(`⚠️ Barang "${item.namaBarang}" tidak dapat dihapus permanen karena masih dirujuk oleh riwayat transaksi.`);
+        setFeedback(
+          `⚠️ Barang "${item.namaBarang}" tidak dapat dihapus permanen karena masih dirujuk oleh riwayat transaksi.`
+        );
         setTimeout(() => setFeedback(''), 5000);
         return;
       }
@@ -213,7 +236,9 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   const handlePurgeExpiredConfirmed = useCallback(async () => {
     setConfirmState((prev) => ({ ...prev, isOpen: false }));
 
-    const txIds = expiredTransactions.map((tx: any) => tx.id);
+    const txIds = expiredTransactions
+      .map((tx: Transaction) => tx.id)
+      .filter((id): id is number => id !== undefined);
     if (txIds.length > 0) {
       await db.transactions.bulkDelete(txIds);
     }
@@ -226,7 +251,7 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
       if (isRef) {
         skippedCount++;
       } else {
-        deletableInvIds.push(item.id);
+        if (item.id) deletableInvIds.push(item.id);
       }
     }
 
@@ -257,7 +282,9 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   const handleEmptyTrashConfirmed = useCallback(async () => {
     setConfirmState((prev) => ({ ...prev, isOpen: false }));
 
-    const txIds = deletedTransactions.map((tx: any) => tx.id);
+    const txIds = deletedTransactions
+      .map((tx: Transaction) => tx.id)
+      .filter((id): id is number => id !== undefined);
     if (txIds.length > 0) {
       await db.transactions.bulkDelete(txIds);
     }
@@ -270,7 +297,7 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
       if (isRef) {
         skippedCount++;
       } else {
-        deletableInvIds.push(item.id);
+        if (item.id) deletableInvIds.push(item.id);
       }
     }
 
@@ -297,7 +324,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
     });
   }, [totalDeleted, handleEmptyTrashConfirmed]);
 
-  const formatDate = (iso: string) => {
+  const formatDate = (iso?: string | null) => {
+    if (!iso) return '-';
     try {
       return new Date(iso).toLocaleString('id-ID', {
         day: '2-digit',
@@ -311,7 +339,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
     }
   };
 
-  const getDaysAgo = (iso: string) => {
+  const getDaysAgo = (iso?: string | null) => {
+    if (!iso) return '-';
     const diff = Date.now() - new Date(iso).getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     if (days === 0) return 'Hari ini';
@@ -343,7 +372,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
       </div>
 
       <p className="text-xs text-text-muted">
-        Item yang dihapus akan tersimpan di sini. Item lama tidak dihapus otomatis demi keamanan data Anda.
+        Item yang dihapus akan tersimpan di sini. Item lama tidak dihapus otomatis demi keamanan
+        data Anda.
       </p>
 
       {/* W0-04: Banner for items older than 30 days */}
@@ -355,7 +385,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
           <div className="flex items-center gap-2.5">
             <span className="text-lg">⚠️</span>
             <p className="text-xs text-amber-200">
-              Terdapat <span className="font-bold text-amber-400">{expiredCount} item</span> yang telah berada di tong sampah lebih dari 30 hari.
+              Terdapat <span className="font-bold text-amber-400">{expiredCount} item</span> yang
+              telah berada di tong sampah lebih dari 30 hari.
             </p>
           </div>
           <Button
@@ -378,7 +409,14 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
         <div className="py-16">
           <EmptyState
             icon={
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
                 <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" />
                 <path d="M10 11v6M14 11v6" />
               </svg>
@@ -395,7 +433,7 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
               <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
                 Transaksi ({deletedTransactions.length})
               </h3>
-              {deletedTransactions.map((tx: any) => (
+              {(deletedTransactions as Transaction[]).map((tx: Transaction) => (
                 <div
                   key={tx.id}
                   className="p-3 bg-bg-surface rounded-xl border border-border-default flex items-center justify-between gap-3"
@@ -405,7 +443,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
                       {tx.transactionId || `TRX-${tx.id}`}
                     </p>
                     <p className="text-[10px] text-text-muted mt-0.5">
-                      {tx.items?.length || 0} item • Rp {(tx.total || 0).toLocaleString('id-ID')} • {tx.metode || 'Tunai'}
+                      {tx.items?.length || 0} item • Rp {(tx.total || 0).toLocaleString('id-ID')} •{' '}
+                      {tx.metode || 'Tunai'}
                     </p>
                     <p className="text-[10px] text-red-400/70 mt-0.5">
                       Dihapus: {formatDate(tx.deletedAt)} ({getDaysAgo(tx.deletedAt)})
@@ -439,7 +478,7 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
               <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
                 Barang Inventaris ({deletedInventory.length})
               </h3>
-              {deletedInventory.map((item: any) => (
+              {(deletedInventory as InventoryItem[]).map((item: InventoryItem) => (
                 <div
                   key={item.id}
                   className="p-3 bg-bg-surface rounded-xl border border-border-default flex items-center justify-between gap-3"
@@ -449,7 +488,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
                       {item.namaBarang || 'Barang'}
                     </p>
                     <p className="text-[10px] text-text-muted mt-0.5">
-                      {item.kategori} • Stok: {item.quantity || 0} • Rp {(item.harga || 0).toLocaleString('id-ID')}
+                      {item.kategori} • Stok: {item.quantity || 0} • Rp{' '}
+                      {(item.harga || 0).toLocaleString('id-ID')}
                     </p>
                     <p className="text-[10px] text-red-400/70 mt-0.5">
                       Dihapus: {formatDate(item.deletedAt)} ({getDaysAgo(item.deletedAt)})

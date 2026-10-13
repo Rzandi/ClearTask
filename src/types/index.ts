@@ -17,6 +17,11 @@ export interface CartItem {
   kategori?: string;
   subKategori?: string;
   hargaModal?: number;
+  // W4-04: Discount per item
+  diskonPersen?: number; // 0–100 percentage discount
+  diskonNominal?: number; // Flat Rp discount per item line
+  totalSebelumDiskon?: number; // qty × hargaSatuan (before discount)
+  totalDiskon?: number; // Total discount amount on this item
 }
 
 export interface StockMovement {
@@ -65,6 +70,12 @@ export interface AuditLogEntry {
   reason?: string;
 }
 
+// W4-04: Transaction-level discount descriptor
+export interface DiskonTransaksi {
+  tipe: 'persen' | 'nominal';
+  nilai: number; // percentage (0–100) or flat Rp amount
+}
+
 export interface Transaction {
   id?: number;
   transactionId: string;
@@ -78,6 +89,9 @@ export interface Transaction {
   metode?: string;
   catatan?: string;
   customerId?: string; // W4-02 Phase 3B: Customer ID for credit sales (UUID)
+  // W4-04: Discount fields
+  diskonTransaksi?: DiskonTransaksi; // Transaction-level discount
+  totalDiskon?: number; // Sum of all discounts (item + transaction)
   createdAt: string; // ISO string
   updatedAt: string;
   syncStatus?: 'local' | 'synced' | 'pending';
@@ -154,6 +168,8 @@ export interface Expense {
   jumlah: number;
   tanggal: string;
   catatan?: string;
+  metode?: string;
+  sessionId?: string;
   createdAt: string;
   updatedAt: string;
   syncStatus?: string;
@@ -164,14 +180,14 @@ export interface Expense {
 export interface Customer {
   id: string; // UUID
   nama: string; // Customer name
-  telepon?: string; // Phone number (optional)
-  alamat?: string; // Address (optional)
-  catatan?: string; // Notes (optional)
+  telepon?: string | undefined; // Phone number (optional)
+  alamat?: string | undefined; // Address (optional)
+  catatan?: string | undefined; // Notes (optional)
   totalHutang: number; // Running total debt (cached)
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
-  deletedAt?: string | null; // Soft delete
-  syncStatus?: string;
+  deletedAt?: string | null | undefined; // Soft delete
+  syncStatus?: string | undefined;
 }
 
 // ── Price History (W4-03) ──────────────────────────────────
@@ -185,8 +201,8 @@ export interface PriceHistoryEntry {
   newHargaJual: number | null; // New selling price
   newHargaModal: number | null; // New cost price
   changedBy: string; // Cashier/admin name
-  reason?: string; // Optional: "Penyesuaian supplier", "Promo", etc
-  changeType?: 'manual' | 'bulk_import' | 'system'; // How the change was made
+  reason?: string | undefined; // Optional: "Penyesuaian supplier", "Promo", etc
+  changeType?: 'manual' | 'bulk_import' | 'system' | undefined; // How the change was made
 }
 
 export interface CreditLedger {
@@ -196,13 +212,13 @@ export interface CreditLedger {
   jumlahKredit: number; // Credit amount (always > 0)
   sisaHutang: number; // Remaining unpaid (>= 0)
   tanggalTransaksi: string; // YYYY-MM-DD (local date)
-  tanggalJatuhTempo?: string; // YYYY-MM-DD (optional due date)
+  tanggalJatuhTempo?: string | undefined; // YYYY-MM-DD (optional due date)
   status: 'lunas' | 'belum_lunas'; // Payment status
-  catatan?: string; // Notes
+  catatan?: string | undefined; // Notes
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
-  deletedAt?: string | null; // Soft delete (void transaction)
-  syncStatus?: string;
+  deletedAt?: string | null | undefined; // Soft delete (void transaction)
+  syncStatus?: string | undefined;
 }
 
 export interface CreditPayment {
@@ -212,10 +228,10 @@ export interface CreditPayment {
   jumlahBayar: number; // Payment amount (> 0)
   tanggalBayar: string; // YYYY-MM-DD (local date)
   metodePembayaran: string; // 'tunai' | 'transfer' | etc
-  catatan?: string; // Payment notes
+  catatan?: string | undefined; // Payment notes
   createdAt: string; // ISO timestamp
   createdBy: string; // Cashier name
-  syncStatus?: string;
+  syncStatus?: string | undefined;
 }
 
 // ── Export Settings (W4-05) ────────────────────────────────
@@ -287,6 +303,16 @@ export interface DatabaseExportMetadata {
   deviceInfo: string;
 }
 
+export interface EncryptedBackupEnvelope {
+  version: string;
+  schemaVersion: number;
+  encrypted: true;
+  salt: string;
+  ciphertext: string;
+  exportedAt: string;
+  metadata?: DatabaseExportMetadata | undefined;
+}
+
 export interface DatabaseExport {
   version: string;
   exportedAt: string;
@@ -299,6 +325,10 @@ export interface DatabaseExport {
   archive_transactions?: Transaction[];
   stock_movements?: StockMovement[];
   audit_log?: AuditLogEntry[]; // Bug #3: include audit trail in backup
+  customers?: Customer[]; // W4-02 & W5-01
+  credit_ledger?: CreditLedger[]; // W4-02 & W5-01
+  credit_payments?: CreditPayment[]; // W4-02 & W5-01
+  price_history?: PriceHistoryEntry[]; // W4-03 & W5-01
   metadata: DatabaseExportMetadata;
 }
 
@@ -321,6 +351,10 @@ export interface MergeResult {
   newArchiveTransactions: number;
   newStockMovements?: number;
   newAuditLogs?: number; // Bug #3
+  newCustomers?: number; // W5-01
+  newCreditLedger?: number; // W5-01
+  newCreditPayments?: number; // W5-01
+  newPriceHistory?: number; // W5-01
   skipped: number;
   orphanTransactions: number;
   transactionsToAdd: Transaction[];
@@ -331,5 +365,9 @@ export interface MergeResult {
   archiveTransactionsToAdd: Transaction[];
   stockMovementsToAdd?: StockMovement[];
   auditLogsToAdd?: AuditLogEntry[]; // Bug #3
+  customersToAdd?: Customer[]; // W5-01
+  creditLedgersToAdd?: CreditLedger[]; // W5-01
+  creditPaymentsToAdd?: CreditPayment[]; // W5-01
+  priceHistoriesToAdd?: PriceHistoryEntry[]; // W5-01
   categoriesRecordToPut?: CategoriesRecord | null;
 }

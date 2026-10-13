@@ -7,6 +7,7 @@ import db from './db';
 import { toLocalDateString } from '../utils/formatters';
 import { triggerDownload } from '../utils/downloadHelper';
 import { KATEGORI_DEFAULT, SUBKATEGORI_PRESET } from '../hooks/useCategories';
+import { generateSalt, deriveKey, encryptData, decryptData } from '../utils/crypto';
 import type {
   Transaction,
   Session,
@@ -15,19 +16,25 @@ import type {
   CategoriesRecord,
   DatabaseExport,
   MergeResult,
+  Customer,
+  CreditLedger,
+  CreditPayment,
+  PriceHistoryEntry,
+  EncryptedBackupEnvelope,
 } from '../types/index';
 
 // Re-export so existing imports of DatabaseExport/MergeResult from this file keep working
-export type { DatabaseExport, MergeResult } from '../types/index';
+export type { DatabaseExport, MergeResult, EncryptedBackupEnvelope } from '../types/index';
 
 // ── Exported functions ────────────────────────────────────
 
 /**
  * Read all data from IndexedDB and trigger a JSON file download.
- * Handles empty database gracefully.
+ * Handles empty database gracefully. Supports optional password encryption (W5-01).
+ * @param {object} [options] - Optional export options (e.g. password for encryption)
  * @returns {Promise<void>}
  */
-export async function exportDatabase(): Promise<void> {
+export async function exportDatabase(options?: { password?: string }): Promise<void> {
   const transactions = await db.transactions.toArray();
   const sessions = await db.sessions.toArray();
   const categoriesDb = await db.categories.toArray();
@@ -38,10 +45,16 @@ export async function exportDatabase(): Promise<void> {
   const stockMovements = await db.stock_movements.toArray();
   // Bug #3: include audit_log in backup so audit trail survives device loss
   const auditLog = await db.audit_log.toArray();
+  // W4-02: include customers, credit ledger, and payments
+  const customers = await db.customers.toArray();
+  const creditLedger = await db.credit_ledger.toArray();
+  const creditPayments = await db.credit_payments.toArray();
+  // W4-03: include price history
+  const priceHistory = await db.price_history.toArray();
 
   const exportData: DatabaseExport = {
     version: '2.0',
-    schemaVersion: 13,   // reflects audit_log table added in version(13)
+    schemaVersion: 15, // reflects schema v15 (customers, credit, price_history)
     exportedAt: new Date().toISOString(),
     transactions: Array.isArray(transactions) ? transactions : [],
     sessions: Array.isArray(sessions) ? sessions : [],
@@ -51,6 +64,10 @@ export async function exportDatabase(): Promise<void> {
     archive_transactions: Array.isArray(archiveTransactions) ? archiveTransactions : [],
     stock_movements: Array.isArray(stockMovements) ? stockMovements : [],
     audit_log: Array.isArray(auditLog) ? auditLog : [],
+    customers: Array.isArray(customers) ? customers : [],
+    credit_ledger: Array.isArray(creditLedger) ? creditLedger : [],
+    credit_payments: Array.isArray(creditPayments) ? creditPayments : [],
+    price_history: Array.isArray(priceHistory) ? priceHistory : [],
     metadata: {
       totalTransactions: Array.isArray(transactions) ? transactions.length : 0,
       totalSessions: Array.isArray(sessions) ? sessions.length : 0,
@@ -62,11 +79,35 @@ export async function exportDatabase(): Promise<void> {
   };
 
   const jsonString = JSON.stringify(exportData, null, 2);
-  const blob = new Blob([jsonString], { type: 'application/json' });
   const dateStr = toLocalDateString(new Date());
-  const filename = `ClearTask_DB_${dateStr}.json`;
 
-  triggerDownload(blob, filename);
+  // W5-01: Password-protected AES-GCM encrypted backup if password provided
+  if (options?.password && options.password.trim().length > 0) {
+    const salt = generateSalt();
+    const key = await deriveKey(options.password.trim(), salt);
+    const ciphertext = await encryptData(jsonString, key);
+
+    const encryptedEnvelope: EncryptedBackupEnvelope = {
+      version: '2.0',
+      schemaVersion: 15,
+      encrypted: true,
+      salt,
+      ciphertext,
+      exportedAt: new Date().toISOString(),
+      metadata: {
+        ...exportData.metadata,
+      },
+    };
+
+    const encryptedJson = JSON.stringify(encryptedEnvelope, null, 2);
+    const blob = new Blob([encryptedJson], { type: 'application/json' });
+    const filename = `ClearTask_DB_${dateStr}.encrypted.json`;
+    triggerDownload(blob, filename);
+  } else {
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const filename = `ClearTask_DB_${dateStr}.json`;
+    triggerDownload(blob, filename);
+  }
 
   // Record backup timestamp so SettingsModal can show the reminder (W5-2)
   try {
@@ -90,6 +131,8 @@ export function validateImport(jsonString: string): {
   valid: boolean;
   data: DatabaseExport | null;
   error: string | null;
+  encrypted?: boolean;
+  salt?: string;
 } {
   // 1. Parse JSON
   let parsed;
@@ -100,6 +143,24 @@ export function validateImport(jsonString: string): {
       valid: false,
       data: null,
       error: 'File tidak dapat dibaca: format JSON tidak valid',
+    };
+  }
+
+  // W5-01: Detect encrypted backup envelope
+  if (parsed && typeof parsed === 'object' && parsed.encrypted === true) {
+    if (typeof parsed.salt !== 'string' || typeof parsed.ciphertext !== 'string') {
+      return {
+        valid: false,
+        data: null,
+        error: 'File backup terenkripsi tidak valid: salt atau ciphertext rusak',
+      };
+    }
+    return {
+      valid: false,
+      data: null,
+      error: 'File backup terenkripsi dengan password.',
+      encrypted: true,
+      salt: parsed.salt,
     };
   }
 
@@ -134,6 +195,59 @@ export function validateImport(jsonString: string): {
   }
 
   return { valid: true, data: parsed, error: null };
+}
+
+/**
+ * Decrypt an encrypted backup envelope with the given password and validate its contents.
+ * If the backup is already unencrypted, validates directly.
+ * @param {string} jsonString
+ * @param {string} [password]
+ * @returns {Promise<{ valid: boolean; data: DatabaseExport | null; error: string | null }>}
+ */
+export async function decryptAndValidateImport(
+  jsonString: string,
+  password?: string
+): Promise<{
+  valid: boolean;
+  data: DatabaseExport | null;
+  error: string | null;
+}> {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch {
+    return {
+      valid: false,
+      data: null,
+      error: 'File tidak dapat dibaca: format JSON tidak valid',
+    };
+  }
+
+  // If encrypted, require password and decrypt
+  if (parsed && typeof parsed === 'object' && parsed.encrypted === true) {
+    if (!password || password.trim().length === 0) {
+      return {
+        valid: false,
+        data: null,
+        error: 'Password dibutuhkan untuk membuka backup terenkripsi',
+      };
+    }
+
+    try {
+      const key = await deriveKey(password.trim(), parsed.salt);
+      const decryptedJson = await decryptData(parsed.ciphertext, key);
+      return validateImport(decryptedJson);
+    } catch {
+      return {
+        valid: false,
+        data: null,
+        error: 'Password salah atau data enkripsi rusak',
+      };
+    }
+  }
+
+  // Unencrypted backup
+  return validateImport(jsonString);
 }
 
 function isSameTransaction(tx1: any, tx2: any): boolean {
@@ -632,7 +746,47 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   const importAuditLogs = Array.isArray((importData as any).audit_log)
     ? (importData as any).audit_log
     : [];
-  const auditLogsToAdd = importAuditLogs.filter((al: any) => al.id && !existingAuditLogIds.has(al.id));
+  const auditLogsToAdd = importAuditLogs.filter(
+    (al: any) => al.id && !existingAuditLogIds.has(al.id)
+  );
+
+  // W5-01: Scan customers
+  const existingCustomers = await db.customers.toArray();
+  const existingCustomerIds = new Set(existingCustomers.map((c: any) => c.id));
+  const importCustomers = Array.isArray((importData as any).customers)
+    ? (importData as any).customers
+    : [];
+  const customersToAdd = importCustomers.filter((c: any) => c.id && !existingCustomerIds.has(c.id));
+
+  // W5-01: Scan credit_ledger
+  const existingCreditLedger = await db.credit_ledger.toArray();
+  const existingCreditLedgerIds = new Set(existingCreditLedger.map((cl: any) => cl.id));
+  const importCreditLedger = Array.isArray((importData as any).credit_ledger)
+    ? (importData as any).credit_ledger
+    : [];
+  const creditLedgersToAdd = importCreditLedger.filter(
+    (cl: any) => cl.id && !existingCreditLedgerIds.has(cl.id)
+  );
+
+  // W5-01: Scan credit_payments
+  const existingCreditPayments = await db.credit_payments.toArray();
+  const existingCreditPaymentIds = new Set(existingCreditPayments.map((cp: any) => cp.id));
+  const importCreditPayments = Array.isArray((importData as any).credit_payments)
+    ? (importData as any).credit_payments
+    : [];
+  const creditPaymentsToAdd = importCreditPayments.filter(
+    (cp: any) => cp.id && !existingCreditPaymentIds.has(cp.id)
+  );
+
+  // W5-01: Scan price_history
+  const existingPriceHistory = await db.price_history.toArray();
+  const existingPriceHistoryIds = new Set(existingPriceHistory.map((ph: any) => ph.id));
+  const importPriceHistory = Array.isArray((importData as any).price_history)
+    ? (importData as any).price_history
+    : [];
+  const priceHistoriesToAdd = importPriceHistory.filter(
+    (ph: any) => ph.id && !existingPriceHistoryIds.has(ph.id)
+  );
 
   const hasCategoryChanges = categoriesToAdd.length > 0 || subCategoriesChanged;
   const categoriesRecordToPut = hasCategoryChanges
@@ -667,6 +821,10 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   const skippedExpenses = importExpenses.length - expensesToAdd.length;
   const skippedArchiveTransactions =
     importArchiveTransactions.length - archiveTransactionsToAdd.length;
+  const skippedCustomers = importCustomers.length - customersToAdd.length;
+  const skippedCreditLedger = importCreditLedger.length - creditLedgersToAdd.length;
+  const skippedCreditPayments = importCreditPayments.length - creditPaymentsToAdd.length;
+  const skippedPriceHistory = importPriceHistory.length - priceHistoriesToAdd.length;
 
   const skipped =
     skippedTransactions +
@@ -675,7 +833,11 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     skippedInventory +
     skippedExpenses +
     skippedArchiveTransactions +
-    skippedStockMovements;
+    skippedStockMovements +
+    skippedCustomers +
+    skippedCreditLedger +
+    skippedCreditPayments +
+    skippedPriceHistory;
 
   return {
     __isMergeResult: true,
@@ -686,6 +848,10 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     newExpenses: expensesToAdd.length,
     newArchiveTransactions: archiveTransactionsToAdd.length,
     newStockMovements: stockMovementsToAdd.length,
+    newCustomers: customersToAdd.length,
+    newCreditLedger: creditLedgersToAdd.length,
+    newCreditPayments: creditPaymentsToAdd.length,
+    newPriceHistory: priceHistoriesToAdd.length,
     skipped,
     orphanTransactions,
     transactionsToAdd,
@@ -696,6 +862,10 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     archiveTransactionsToAdd,
     stockMovementsToAdd,
     auditLogsToAdd,
+    customersToAdd,
+    creditLedgersToAdd,
+    creditPaymentsToAdd,
+    priceHistoriesToAdd,
     categoriesRecordToPut,
   };
 }
@@ -735,6 +905,10 @@ export async function applyMerge(
         db.archive_transactions,
         db.stock_movements,
         db.audit_log,
+        db.customers,
+        db.credit_ledger,
+        db.credit_payments,
+        db.price_history,
         db.meta,
       ],
       async () => {
@@ -756,6 +930,19 @@ export async function applyMerge(
         // Bug #3: restore audit_log from backup
         if (mergeResult.auditLogsToAdd && mergeResult.auditLogsToAdd.length > 0) {
           await db.audit_log.bulkAdd(mergeResult.auditLogsToAdd);
+        }
+        // W5-01: restore customers, credit ledger, payments, and price history
+        if (mergeResult.customersToAdd && mergeResult.customersToAdd.length > 0) {
+          await db.customers.bulkAdd(mergeResult.customersToAdd);
+        }
+        if (mergeResult.creditLedgersToAdd && mergeResult.creditLedgersToAdd.length > 0) {
+          await db.credit_ledger.bulkAdd(mergeResult.creditLedgersToAdd);
+        }
+        if (mergeResult.creditPaymentsToAdd && mergeResult.creditPaymentsToAdd.length > 0) {
+          await db.credit_payments.bulkAdd(mergeResult.creditPaymentsToAdd);
+        }
+        if (mergeResult.priceHistoriesToAdd && mergeResult.priceHistoriesToAdd.length > 0) {
+          await db.price_history.bulkAdd(mergeResult.priceHistoriesToAdd);
         }
         if (mergeResult.categoriesRecordToPut) {
           await db.categories.put(mergeResult.categoriesRecordToPut);

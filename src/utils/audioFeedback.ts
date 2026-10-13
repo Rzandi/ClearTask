@@ -18,57 +18,59 @@ function getAudioContext(): AudioContext {
 }
 
 /**
- * Play a short beep tone (POS scanner style).
- * @param frequency — tone frequency in Hz (default 1800 for a crisp beep)
- * @param duration — length in seconds (default 0.08)
- * @param volume — gain 0..1 (default 0.15)
+ * Play a warm, high-frequency harmonic chime (Square/Apple Pay style).
+ * Dual-sine harmonic chime (1200Hz + 1600Hz) for rounded, crisp acoustic feedback.
  */
-export function playBeepSound(
-  frequency = 1800,
-  duration = 0.08,
-  volume = 0.15,
-): void {
+export function playBeepSound(_frequency = 1200, duration = 0.065, volume = 0.12): void {
   try {
     const ctx = getAudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const now = ctx.currentTime;
 
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+    [1200, 1600].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
-    // Quick fade-out to avoid click artifacts
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+      const toneVolume = idx === 0 ? volume : volume * 0.6;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(toneVolume, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    });
   } catch {
     // Silently ignore if Web Audio API is unavailable
   }
 }
 
 /**
- * Play a "success / checkout complete" double-beep.
+ * Play a satisfying ascending harmonic chord when checkout finishes.
  */
 export function playCheckoutSound(): void {
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
 
-    // Two ascending tones
+    // Ascending major chord (C6: 1046Hz, E6: 1318Hz, G6: 1568Hz, C7: 2093Hz)
     [
-      { freq: 1400, start: 0, dur: 0.07 },
-      { freq: 2200, start: 0.1, dur: 0.12 },
+      { freq: 1046, start: 0, dur: 0.07 },
+      { freq: 1318, start: 0.06, dur: 0.07 },
+      { freq: 1568, start: 0.12, dur: 0.08 },
+      { freq: 2093, start: 0.18, dur: 0.18 },
     ].forEach(({ freq, start, dur }) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now + start);
-      gain.gain.setValueAtTime(0.12, now + start);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+      gain.gain.setValueAtTime(0.0001, now + start);
+      gain.gain.linearRampToValueAtTime(0.12, now + start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(now + start);
@@ -80,24 +82,29 @@ export function playCheckoutSound(): void {
 }
 
 /**
- * Play a soft "error" tone.
+ * Play a soft non-jarring low tone for errors/warnings.
  */
 export function playErrorSound(): void {
   try {
     const ctx = getAudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const now = ctx.currentTime;
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(300, ctx.currentTime);
+    [260, 220].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.09);
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.0001, now + idx * 0.09);
+      gain.gain.linearRampToValueAtTime(0.08, now + idx * 0.09 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.09 + 0.08);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.09);
+      osc.stop(now + idx * 0.09 + 0.08);
+    });
   } catch {
     // Silently ignore
   }

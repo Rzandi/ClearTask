@@ -39,10 +39,7 @@ export function useCommandPalette({
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   // Fetch inventory items for product search (table is 'inventory', soft-delete via deletedAt)
-  const products = useLiveQuery(
-    () => db.inventory.filter((p) => !p.deletedAt).toArray(),
-    []
-  ) ?? [];
+  const products = useLiveQuery(() => db.inventory.filter((p) => !p.deletedAt).toArray(), []) ?? [];
 
   // Navigation commands
   const navigationCommands: Command[] = useMemo(
@@ -96,12 +93,12 @@ export function useCommandPalette({
       },
       {
         id: 'nav-riwayat',
-        label: 'Riwayat Sesi',
+        label: 'Riwayat Sesi (Laporan)',
         category: 'navigation',
         keywords: ['riwayat', 'sesi', 'history', 'session'],
         icon: '📋',
         action: () => {
-          onNavigate('riwayat-sesi');
+          onNavigate('laporan');
           setIsOpen(false);
         },
       },
@@ -244,7 +241,12 @@ export function useCommandPalette({
     };
 
     filteredCommands.forEach((cmd) => {
-      groups[cmd.category].push(cmd);
+      const group = groups[cmd.category];
+      if (group) {
+        group.push(cmd);
+      } else {
+        groups[cmd.category] = [cmd];
+      }
     });
 
     return groups;
@@ -257,14 +259,10 @@ export function useCommandPalette({
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev < filteredCommands.length - 1 ? prev + 1 : 0
-        );
+        setSelectedIndex((prev) => (prev < filteredCommands.length - 1 ? prev + 1 : 0));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredCommands.length - 1
-        );
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : filteredCommands.length - 1));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (filteredCommands[selectedIndex]) {

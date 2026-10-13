@@ -26,6 +26,7 @@ import HotkeyModal from './components/HotkeyModal';
 import SetupWizardModal from './components/SetupWizardModal';
 import CommandPalette from './components/CommandPalette';
 import { useCommandPalette } from './hooks/useCommandPalette';
+import { useDailyOverdueCheck } from './hooks/useDailyOverdueCheck';
 
 // Lazy-loaded modals with Chunk Retry Handler (Item 23)
 const SettingsModal = lazyWithRetry(() => import('./components/SettingsModal'));
@@ -42,6 +43,9 @@ const CreditManagement = lazyWithRetry(() => import('./components/credit/CreditM
 export default function App() {
   const { settings, updateSettings } = useSettings();
 
+  // W4-02 Phase 4: Run daily check for overdue credit ledgers
+  useDailyOverdueCheck();
+
   // Sync missing categories on startup to repair old/new preset mismatches
   useEffect(() => {
     syncMissingCategories().catch((err) => {
@@ -49,7 +53,7 @@ export default function App() {
     });
   }, []);
 
-  const VALID_TABS = ['input', 'keluaran', 'database', 'riwayat-sesi', 'trash', 'laporan', 'hutang-piutang'];
+  const VALID_TABS = ['input', 'keluaran', 'database', 'trash', 'laporan', 'hutang-piutang'];
 
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
@@ -155,7 +159,9 @@ export default function App() {
         execOrConfirmFKey(inInput, 'Pindah ke Laporan (F4)', () => handleTabChange('laporan'));
       } else if (e.key === 'F5') {
         e.preventDefault();
-        execOrConfirmFKey(inInput, 'Pindah ke Hutang-Piutang (F5)', () => handleTabChange('hutang-piutang'));
+        execOrConfirmFKey(inInput, 'Pindah ke Hutang-Piutang (F5)', () =>
+          handleTabChange('hutang-piutang')
+        );
       } else if (e.key === SHORTCUTS.FULLSCREEN.key) {
         e.preventDefault();
         execOrConfirmFKey(inInput, 'Toggle Fullscreen (F8)', () => {
@@ -373,12 +379,6 @@ export default function App() {
             <InputKeluaran activeSession={activeSession} />
           ) : activeTab === 'database' ? (
             <TabDatabase />
-          ) : activeTab === 'riwayat-sesi' ? (
-            /* 19.5 Pass allSessions and getSessionTransactions */
-            <RiwayatSesi
-              allSessions={allSessions}
-              getSessionTransactions={getSessionTransactionsAsync}
-            />
           ) : activeTab === 'trash' ? (
             <TrashManager />
           ) : activeTab === 'hutang-piutang' ? (
@@ -396,6 +396,8 @@ export default function App() {
               setSortOrder={setSortOrder}
               onUpdate={updateTransaction as any}
               onDelete={deleteTransaction}
+              allSessions={allSessions}
+              getSessionTransactions={getSessionTransactionsAsync}
             />
           )}
         </Suspense>

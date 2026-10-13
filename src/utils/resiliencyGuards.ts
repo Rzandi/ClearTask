@@ -5,6 +5,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { lazy, type ComponentType } from 'react';
+import type { SyncMessagePayload } from '../types/index';
 
 // ── 1. Lazy-Loaded Chunk Retry (Item 23) ──────────────────────
 /**
@@ -140,7 +141,7 @@ export type SyncMessageType = 'CART_UPDATED' | 'TRANSACTION_ADDED' | 'SESSION_CH
 
 export interface SyncMessage {
   type: SyncMessageType;
-  payload?: any;
+  payload?: SyncMessagePayload;
   senderId: string;
 }
 
@@ -171,7 +172,7 @@ export function initMultiTabSync(onMessage: (msg: SyncMessage) => void): () => v
   }
 }
 
-export function broadcastTabMessage(type: SyncMessageType, payload?: any) {
+export function broadcastTabMessage(type: SyncMessageType, payload?: SyncMessagePayload) {
   if (syncChannel) {
     try {
       syncChannel.postMessage({

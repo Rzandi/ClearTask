@@ -35,3 +35,9 @@ coverage/
 # Android / TWA build artifacts
 # NEVER commit keystore, APK, or AAB files — they contain signing keys
 android-build/
+
+# Agent temp logs & outputs
+.agents/*.txt
+*.txt-out
+tsc-output.txt
+build-error.txt

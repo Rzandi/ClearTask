@@ -29,6 +29,7 @@ function getCapturedDownload() {
 import {
   exportDatabase,
   validateImport,
+  decryptAndValidateImport,
   calculateMerge,
   applyMerge,
   archiveOldTransactions,
@@ -659,5 +660,196 @@ describe('Property 1: Round-Trip Export-Import', () => {
       ),
       { numRuns: 10 }
     );
+  });
+
+  describe('W5-01: Encrypted Backup & Full Table Completeness', () => {
+    beforeEach(async () => {
+      await db.customers.clear();
+      await db.credit_ledger.clear();
+      await db.credit_payments.clear();
+      await db.price_history.clear();
+    });
+
+    it('exports customers, credit ledger, and price history in unencrypted backup', async () => {
+      capturedBlob = null;
+      capturedFilename = null;
+      await setupDexie({
+        cleartask_transactions: [],
+        cleartask_sessions: [],
+      });
+
+      // Seed customer, credit ledger, and price history
+      await db.customers.add({
+        id: 'cust-1',
+        nama: 'Budi Santoso',
+        totalHutang: 50000,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      await db.credit_ledger.add({
+        id: 'ledger-1',
+        customerId: 'cust-1',
+        transactionId: 'trx-1',
+        jumlahKredit: 50000,
+        sisaHutang: 50000,
+        tanggalTransaksi: '2026-10-13',
+        status: 'belum_lunas',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      await db.price_history.add({
+        id: 'ph-1',
+        inventoryId: 'inv-1',
+        oldHargaJual: 10000,
+        newHargaJual: 12000,
+        oldHargaModal: 8000,
+        newHargaModal: 9000,
+        changedAt: new Date().toISOString(),
+        changedBy: 'Admin',
+      });
+
+      await exportDatabase();
+
+      const [blob, filename] = getCapturedDownload();
+      expect(filename).toMatch(/ClearTask_DB_.*\.json$/);
+      const text = await blob.text();
+      const parsed = JSON.parse(text);
+
+      expect(parsed.schemaVersion).toBe(15);
+      expect(parsed.customers).toHaveLength(1);
+      expect(parsed.customers[0].nama).toBe('Budi Santoso');
+      expect(parsed.credit_ledger).toHaveLength(1);
+      expect(parsed.credit_ledger[0].jumlahKredit).toBe(50000);
+      expect(parsed.price_history).toHaveLength(1);
+      expect(parsed.price_history[0].newHargaJual).toBe(12000);
+    });
+
+    it('exports password encrypted backup envelope and prevents plaintext leakage', async () => {
+      capturedBlob = null;
+      capturedFilename = null;
+      await setupDexie({ cleartask_transactions: [], cleartask_sessions: [] });
+
+      await exportDatabase({ password: 'SecretPassword123' });
+
+      const [blob, filename] = getCapturedDownload();
+      expect(filename).toMatch(/ClearTask_DB_.*\.encrypted\.json$/);
+      const text = await blob.text();
+      const parsed = JSON.parse(text);
+
+      expect(parsed.encrypted).toBe(true);
+      expect(typeof parsed.salt).toBe('string');
+      expect(typeof parsed.ciphertext).toBe('string');
+      // Plaintext arrays should not exist on encrypted envelope root
+      expect(parsed.transactions).toBeUndefined();
+      expect(parsed.customers).toBeUndefined();
+    });
+
+    it('validateImport detects encrypted backup and returns encrypted flag', async () => {
+      capturedBlob = null;
+      await setupDexie({ cleartask_transactions: [], cleartask_sessions: [] });
+      await exportDatabase({ password: 'MyPassword' });
+
+      const [blob] = getCapturedDownload();
+      const text = await blob.text();
+
+      const result = validateImport(text);
+      expect(result.valid).toBe(false);
+      expect(result.encrypted).toBe(true);
+      expect(typeof result.salt).toBe('string');
+      expect(result.error).toContain('terenkripsi');
+    });
+
+    it('decryptAndValidateImport successfully decrypts with correct password', async () => {
+      capturedBlob = null;
+      await setupDexie({ cleartask_transactions: [], cleartask_sessions: [] });
+      await db.customers.add({
+        id: 'cust-secure',
+        nama: 'Dewi Rahma',
+        totalHutang: 75000,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      await exportDatabase({ password: 'ValidPassword456!' });
+
+      const [blob] = getCapturedDownload();
+      const text = await blob.text();
+
+      const result = await decryptAndValidateImport(text, 'ValidPassword456!');
+      expect(result.valid).toBe(true);
+      expect(result.data).toBeDefined();
+      expect(result.data.customers).toHaveLength(1);
+      expect(result.data.customers[0].nama).toBe('Dewi Rahma');
+    });
+
+    it('decryptAndValidateImport rejects incorrect password', async () => {
+      capturedBlob = null;
+      await setupDexie({ cleartask_transactions: [], cleartask_sessions: [] });
+      await exportDatabase({ password: 'RealPassword' });
+
+      const [blob] = getCapturedDownload();
+      const text = await blob.text();
+
+      const result = await decryptAndValidateImport(text, 'WrongPassword');
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('Password salah');
+    });
+
+    it('merges customer debt and price history into existing database', async () => {
+      await db.customers.clear();
+      await db.credit_ledger.clear();
+
+      const mockExport = {
+        version: '2.0',
+        schemaVersion: 15,
+        exportedAt: new Date().toISOString(),
+        transactions: [],
+        sessions: [],
+        categories: { categories: [] },
+        inventory: [],
+        customers: [
+          {
+            id: 'c-import',
+            nama: 'Pelanggan Baru',
+            totalHutang: 25000,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+        credit_ledger: [
+          {
+            id: 'l-import',
+            customerId: 'c-import',
+            transactionId: 't-import',
+            jumlahKredit: 25000,
+            sisaHutang: 25000,
+            tanggalTransaksi: '2026-10-13',
+            status: 'belum_lunas',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+        metadata: {
+          totalTransactions: 0,
+          totalSessions: 0,
+          totalInventory: 0,
+          totalExpenses: 0,
+          totalArchiveTransactions: 0,
+          deviceInfo: '',
+        },
+      };
+
+      const mergeResult = await calculateMerge(mockExport);
+      expect(mergeResult.newCustomers).toBe(1);
+      expect(mergeResult.newCreditLedger).toBe(1);
+
+      const apply = await applyMerge(mergeResult);
+      expect(apply.success).toBe(true);
+
+      const storedCust = await db.customers.get('c-import');
+      expect(storedCust?.nama).toBe('Pelanggan Baru');
+      const storedLedger = await db.credit_ledger.get('l-import');
+      expect(storedLedger?.jumlahKredit).toBe(25000);
+    });
   });
 });

@@ -1,7 +1,7 @@
 {
   "name": "cleartask",
   "private": true,
-  "version": "3.7.0",
+  "version": "3.8.0",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -21,7 +21,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
+      "eslint --fix --quiet",
       "prettier --write"
     ],
     "*.{css,md,json}": [

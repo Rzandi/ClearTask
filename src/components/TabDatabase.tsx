@@ -9,6 +9,7 @@ import { formatRupiah, formatDate } from '../utils/formatters';
 import {
   exportDatabase,
   validateImport,
+  decryptAndValidateImport,
   calculateMerge,
   applyMerge,
   archiveOldTransactions,
@@ -122,6 +123,24 @@ export default function TabDatabase() {
     }
   }
 
+  // W5-01: Encrypted export handler with password protection
+  async function handleExportEncrypted() {
+    const password = window.prompt(
+      'Masukkan password untuk mengamankan file backup (minimal 4 karakter):'
+    );
+    if (!password) return;
+    if (password.trim().length < 4) {
+      showToast('Password minimal 4 karakter!', 'warning');
+      return;
+    }
+    try {
+      await exportDatabase({ password: password.trim() });
+      showToast('Database terenkripsi berhasil diekspor!', 'success');
+    } catch {
+      showToast('Gagal mengekspor database terenkripsi.', 'error');
+    }
+  }
+
   // ── Import handler ────────────────────────────────────────
   function handleImportClick() {
     if (fileInputRef.current) {
@@ -167,6 +186,29 @@ export default function TabDatabase() {
       if (!event.target?.result) return;
       const jsonString = event.target.result as string;
       const result = validateImport(jsonString);
+
+      // W5-01: Encrypted backup detection
+      if (result.encrypted) {
+        const password = window.prompt(
+          'File backup ini dilindungi dengan password enkripsi.\nMasukkan password untuk membuka:'
+        );
+        if (!password) {
+          showToast('Import dibatalkan: password diperlukan', 'warning');
+          return;
+        }
+
+        const decryptResult = await decryptAndValidateImport(jsonString, password);
+        if (!decryptResult.valid || !decryptResult.data) {
+          showToast(decryptResult.error || 'Password salah atau file rusak', 'error');
+          return;
+        }
+
+        const merge = await calculateMerge(decryptResult.data);
+        setImportData(decryptResult.data);
+        setMergeResult(merge);
+        setIsModalOpen(true);
+        return;
+      }
 
       if (!result.valid || !result.data) {
         showToast(result.error || 'Import gagal', 'error');
@@ -348,6 +390,29 @@ export default function TabDatabase() {
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
               Export Database
+            </button>
+
+            <button
+              type="button"
+              data-testid="btn-export-encrypted-database"
+              onClick={handleExportEncrypted}
+              title="Ekspor backup dengan proteksi password enkripsi AES-GCM"
+              className="flex items-center gap-2 px-4 py-2.5 bg-bg-surface border border-emerald-500/40 text-emerald-400 font-semibold text-sm rounded-xl hover:bg-emerald-500/10 active:scale-[0.97] transition-all duration-200 cursor-pointer"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              Export Terenkripsi 🔒
             </button>
 
             <button

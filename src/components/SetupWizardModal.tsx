@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useToast } from '../hooks/useToast';
 
 async function compressQrisImage(file: File, maxSize = 400, quality = 0.7): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -35,6 +36,7 @@ export interface SetupWizardModalProps {
 
 export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalProps) {
   const { settings, saveSettings } = useSettings();
+  const { showToast } = useToast();
   const [step, setStep] = useState(1);
 
   const handleBack = useCallback(() => {
@@ -99,7 +101,7 @@ export default function SetupWizardModal({ isOpen, onClose }: SetupWizardModalPr
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 10_000_000) {
-        alert('Ukuran gambar terlalu besar (max 10MB)');
+        showToast('Ukuran gambar terlalu besar (max 10MB)', 'error');
         return;
       }
       compressQrisImage(file).then((compressed) => {

@@ -8,6 +8,7 @@ import Modal from './ui/Modal';
 import Button from './ui/Button';
 import { getPriceHistory, exportPriceHistory } from '../utils/priceHistoryHelper';
 import type { PriceHistoryEntry } from '../types/index';
+import { useToast } from '../hooks/useToast';
 
 export interface PriceHistoryModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const PriceHistoryModal = memo(function PriceHistoryModal({
   inventoryId,
   itemName,
 }: PriceHistoryModalProps) {
+  const { showToast } = useToast();
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -44,7 +46,7 @@ const PriceHistoryModal = memo(function PriceHistoryModal({
     try {
       await exportPriceHistory(inventoryId);
     } catch (err: any) {
-      alert(err.message || 'Gagal export CSV');
+      showToast(err.message || 'Gagal export CSV', 'error');
     } finally {
       setExporting(false);
     }

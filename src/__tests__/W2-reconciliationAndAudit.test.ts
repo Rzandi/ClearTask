@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateSessionStats } from '../utils/sessionStats';
 import { transactionService } from '../services/transactionService';
 import { auditService } from '../services/auditService';
+import type { Transaction, Expense } from '../types/index';
 import db from '../services/db';
 import 'fake-indexeddb/auto';
 
@@ -34,7 +35,7 @@ describe('W2-02: Kas Tunai di Closing Report', () => {
   };
 
   it('menghitung kas tunai bersih = tunai masuk - kembalian - pengeluaran tunai', () => {
-    const transactions: any[] = [
+    const transactions = [
       {
         id: 1,
         transactionId: 'TRX-001',
@@ -60,9 +61,9 @@ describe('W2-02: Kas Tunai di Closing Report', () => {
         metode: 'QRIS', // Non-cash, should NOT affect kas tunai
         sessionId: 'ses-1',
       },
-    ];
+    ] as Transaction[];
 
-    const expenses: any[] = [
+    const expenses = [
       {
         id: 'exp-1',
         namaKeluaran: 'Beli Es Batu',
@@ -71,7 +72,7 @@ describe('W2-02: Kas Tunai di Closing Report', () => {
         sessionId: 'ses-1',
         tanggal: '2026-10-04',
       },
-    ];
+    ] as unknown as Expense[];
 
     const stats = calculateSessionStats(session, transactions, expenses);
 

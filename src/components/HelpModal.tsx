@@ -51,7 +51,9 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-text-primary">Bantuan &amp; Panduan</h2>
-                <p className="text-xs text-text-muted">Dokumentasi fitur dan shortcut tombol cepat</p>
+                <p className="text-xs text-text-muted">
+                  Dokumentasi fitur dan shortcut tombol cepat
+                </p>
               </div>
             </div>
             <button
@@ -102,9 +104,13 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
               }`}
             >
               <span>⌨️ Shortcut Keys</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                activeTab === 'shortcuts' ? 'bg-black/20 text-text-inverse' : 'bg-primary/20 text-primary'
-              }`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  activeTab === 'shortcuts'
+                    ? 'bg-black/20 text-text-inverse'
+                    : 'bg-primary/20 text-primary'
+                }`}
+              >
                 F1 / ?
               </span>
             </button>
@@ -132,7 +138,9 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                     </svg>
                   </div>
-                  <h3 className="text-sm font-semibold text-text-primary">Transaksi &amp; Kategori</h3>
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Transaksi &amp; Kategori
+                  </h3>
                 </div>
                 <div className="pl-9 space-y-1.5">
                   <p className="text-xs text-text-secondary leading-relaxed mb-1">
@@ -142,22 +150,23 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                     <li className="flex items-start gap-2 text-xs text-text-secondary">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Input Data:</strong> Isi form di halaman Input Penjualan atau klik produk dari Katalog Cepat. Total akan terhitung otomatis.
+                        <strong>Input Data:</strong> Isi form di halaman Input Penjualan atau klik
+                        produk dari Katalog Cepat. Total akan terhitung otomatis.
                       </span>
                     </li>
                     <li className="flex items-start gap-2 text-xs text-text-secondary">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Kategori Baru:</strong> Jika kategori yang diinginkan tidak ada, pilih
-                        opsi <span className="text-primary font-medium">"Lainnya..."</span> pada
-                        dropdown untuk menambahkannya secara permanen.
+                        <strong>Kategori Baru:</strong> Jika kategori yang diinginkan tidak ada,
+                        pilih opsi <span className="text-primary font-medium">"Lainnya..."</span>{' '}
+                        pada dropdown untuk menambahkannya secara permanen.
                       </span>
                     </li>
                     <li className="flex items-start gap-2 text-xs text-text-secondary">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Edit &amp; Hapus:</strong> Transaksi yang sudah tersimpan dapat diubah atau
-                        dihapus melalui tabel Riwayat untuk mencegah salah ketik.
+                        <strong>Edit &amp; Hapus:</strong> Transaksi yang sudah tersimpan dapat
+                        diubah atau dihapus melalui tabel Riwayat untuk mencegah salah ketik.
                       </span>
                     </li>
                   </ul>
@@ -185,7 +194,9 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                     </svg>
                   </div>
-                  <h3 className="text-sm font-semibold text-text-primary">Fitur Cepat Kasir (Retail QOL)</h3>
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Fitur Cepat Kasir (Retail QOL)
+                  </h3>
                 </div>
                 <div className="pl-9 space-y-2">
                   <p className="text-xs text-text-secondary leading-relaxed">
@@ -195,31 +206,61 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Tombol Uang Pas &amp; Pecahan Tunai:</strong> Di panel pembayaran kasir, klik tombol <span className="text-primary font-medium">"Uang Pas"</span> atau pecahan cepat (Rp 10rb, 20rb, 50rb, 100rb) untuk input kilat tanpa mengetik.
+                        <strong>Input Kilat Syntax Inline:</strong> Ketik format cepat di kolom
+                        barang seperti{' '}
+                        <span className="font-mono text-primary font-medium">indomie 3x 3500</span>{' '}
+                        lalu tekan Tab/Enter untuk langsung mengisi nama, qty, dan harga secara
+                        otomatis.
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Pecahan Uang Kembalian (Cash Breakdown):</strong> Sistem otomatis menampilkan rekomendasi lembar uang kembalian pecahan Rupiah (contoh: 1x Rp 20.000, 1x Rp 5.000).
+                        <strong>Pilihan Pembayaran Hutang / Piutang:</strong> Kasir dapat memilih
+                        metode pembayaran <span className="text-amber-400 font-medium">Hutang</span>
+                        , memilih nama pelanggan, dan saldo hutang otomatis tercatat rapi ke buku
+                        besar piutang.
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Simpan Antrean (Pending Orders):</strong> Jika ada pelanggan yang ingin mengambil barang tambahan, simpan keranjang sementara dan layani pelanggan berikutnya tanpa kehilangan data transaksi.
+                        <strong>Tombol Uang Pas &amp; Pecahan Tunai:</strong> Di panel pembayaran
+                        kasir, klik tombol{' '}
+                        <span className="text-primary font-medium">"Uang Pas"</span> atau pecahan
+                        cepat (Rp 10rb, 20rb, 50rb, 100rb) untuk input kilat tanpa mengetik.
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Biaya Kantong Plastik:</strong> Opsi toggle kantong plastik (+Rp 500 atau sesuai pengaturan) yang otomatis menambah item dan memperbarui total struk belanja.
+                        <strong>Pecahan Uang Kembalian (Cash Breakdown):</strong> Sistem otomatis
+                        menampilkan rekomendasi lembar uang kembalian pecahan Rupiah (contoh: 1x Rp
+                        20.000, 1x Rp 5.000).
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Cetak Ulang Struk (Thermal Receipt):</strong> Di tabel riwayat transaksi, klik ikon dokumen struk untuk mencetak ulang tanda terima ke printer kasir 58mm/80mm kapan saja.
+                        <strong>Simpan Antrean (Pending Orders):</strong> Jika ada pelanggan yang
+                        ingin mengambil barang tambahan, simpan keranjang sementara dan layani
+                        pelanggan berikutnya tanpa kehilangan data transaksi.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                      <span>
+                        <strong>Biaya Kantong Plastik:</strong> Opsi toggle kantong plastik (+Rp 500
+                        atau sesuai pengaturan) yang otomatis menambah item dan memperbarui total
+                        struk belanja.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                      <span>
+                        <strong>Cetak Ulang Struk (Thermal Receipt):</strong> Di tabel riwayat
+                        transaksi, klik ikon dokumen struk untuk mencetak ulang tanda terima ke
+                        printer kasir 58mm/80mm kapan saja.
                       </span>
                     </li>
                   </ul>
@@ -246,7 +287,9 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                       <polyline points="12 6 12 12 16 14" />
                     </svg>
                   </div>
-                  <h3 className="text-sm font-semibold text-text-primary">Manajemen Sesi / Shift</h3>
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Manajemen Sesi / Shift
+                  </h3>
                 </div>
                 <div className="pl-9 space-y-2">
                   <p className="text-xs text-text-secondary leading-relaxed">
@@ -254,18 +297,22 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                   </p>
                   <div className="space-y-1.5">
                     <div>
-                      <p className="text-xs font-medium text-text-secondary mb-0.5">Membuka Sesi:</p>
+                      <p className="text-xs font-medium text-text-secondary mb-0.5">
+                        Membuka Sesi:
+                      </p>
                       <p className="text-xs text-text-muted">
-                        Klik <span className="text-primary font-medium">Buka Sesi</span> di banner atas
-                        sebelum mulai menginput transaksi. Masukkan nama shift (contoh: "Shift Pagi -
-                        Budi").
+                        Klik <span className="text-primary font-medium">Buka Sesi</span> di banner
+                        atas sebelum mulai menginput transaksi. Masukkan nama shift (contoh: "Shift
+                        Pagi - Budi").
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-text-secondary mb-0.5">Menutup Sesi:</p>
+                      <p className="text-xs font-medium text-text-secondary mb-0.5">
+                        Menutup Sesi:
+                      </p>
                       <p className="text-xs text-text-muted">
-                        Klik <span className="text-accent-red font-medium">Tutup Sesi</span> saat shift
-                        berakhir untuk mencetak laporan performa shift tersebut.
+                        Klik <span className="text-accent-red font-medium">Tutup Sesi</span> saat
+                        shift berakhir untuk mencetak laporan performa shift tersebut.
                       </p>
                     </div>
                   </div>
@@ -306,7 +353,8 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Filter Cepat Tanggal:</strong> Gunakan preset Hari Ini, Kemarin, 7 Hari Terakhir, atau Mingguan untuk filter instan.
+                        <strong>Filter Cepat Tanggal:</strong> Gunakan preset Hari Ini, Kemarin, 7
+                        Hari Terakhir, atau Mingguan untuk filter instan.
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
@@ -353,7 +401,9 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                       <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
                     </svg>
                   </div>
-                  <h3 className="text-sm font-semibold text-text-primary">Backup &amp; Migrasi Database</h3>
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Backup &amp; Migrasi Database
+                  </h3>
                 </div>
                 <div className="pl-9 space-y-2">
                   <p className="text-xs text-text-secondary leading-relaxed">
@@ -385,7 +435,8 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                         Tempat Sampah (Trash Manager):
                       </p>
                       <p className="text-xs text-text-muted">
-                        Item transaksi atau inventaris yang tidak sengaja terhapus dapat dipulihkan kembali melalui menu Trash Manager.
+                        Item transaksi atau inventaris yang tidak sengaja terhapus dapat dipulihkan
+                        kembali melalui menu Trash Manager.
                       </p>
                     </div>
                   </div>
@@ -424,19 +475,90 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Tambah Barang:</strong> Daftarkan nama, kategori, sub-kategori, harga modal, harga jual, harga grosir, satuan, dan jumlah stok.
+                        <strong>Tambah Barang:</strong> Daftarkan nama, kategori, sub-kategori,
+                        harga modal, harga jual, harga grosir, satuan, dan jumlah stok.
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Multi-UOM / Unpack Dus:</strong> Mendukung stok dalam satuan Dus/Karton dengan tombol Unpack kilat untuk mengonversinya ke satuan eceran (Pcs).
+                        <strong>Multi-UOM / Unpack Dus:</strong> Mendukung stok dalam satuan
+                        Dus/Karton dengan tombol Unpack kilat untuk mengonversinya ke satuan eceran
+                        (Pcs).
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-0.5 shrink-0">•</span>
                       <span>
-                        <strong>Peringatan Stok Rendah:</strong> Barang dengan sisa stok ≤ 5 unit otomatis ditandai dengan label merah agar segera di-restock.
+                        <strong>Peringatan Stok Rendah:</strong> Barang dengan sisa stok ≤ 5 unit
+                        otomatis ditandai dengan label merah agar segera di-restock.
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </section>
+
+              <div className="border-t border-border-subtle" />
+
+              {/* Seksi 5.5: Manajemen Hutang-Piutang & Riwayat Harga */}
+              <section>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </div>
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Hutang-Piutang &amp; Riwayat Harga
+                  </h3>
+                </div>
+                <div className="pl-9 space-y-2">
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    Pengelolaan piutang pelanggan dan pelacakan audit harga toko:
+                  </p>
+                  <ul className="space-y-1.5 text-xs text-text-secondary">
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                      <span>
+                        <strong>Buku Besar Piutang (F5):</strong> Akses tab Hutang-Piutang untuk
+                        melihat total tagihan per pelanggan, histori pinjaman belanja, dan status
+                        pembayaran (Lunas, Sebagian, Belum Bayar).
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                      <span>
+                        <strong>Pembayaran FIFO &amp; WhatsApp Reminder:</strong> Catat pembayaran
+                        cicilan pelanggan secara otomatis memotong nota tertua (FIFO), serta kirim
+                        rincian nota tagihan langsung ke WhatsApp pelanggan dengan 1 klik.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                      <span>
+                        <strong>Laporan Aging &amp; Peringatan Jatuh Tempo:</strong> Pantau
+                        distribusi umur piutang (Lancar, 1-30 hari, 31-60 hari, &gt;60 hari) dan
+                        ekspor laporan analisis ke file CSV.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                      <span>
+                        <strong>Audit Riwayat Perubahan Harga:</strong> Di Master Barang, klik ikon
+                        riwayat pada produk untuk melacak histori kenaikan/penurunan harga jual
+                        &amp; modal beserta identitas pengubah dan tanggal perubahan.
                       </span>
                     </li>
                   </ul>
@@ -473,7 +595,9 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                       Instalasi Aplikasi:
                     </p>
                     <p className="text-xs text-text-muted">
-                      Klik tombol <span className="text-primary font-medium">⬇ Install</span> di pojok kanan atas atau gunakan opsi "Add to Home Screen" di browser Anda. Aplikasi dapat dibuka langsung dari layar utama tanpa kuota internet.
+                      Klik tombol <span className="text-primary font-medium">⬇ Install</span> di
+                      pojok kanan atas atau gunakan opsi "Add to Home Screen" di browser Anda.
+                      Aplikasi dapat dibuka langsung dari layar utama tanpa kuota internet.
                     </p>
                   </div>
                   <div>
@@ -481,7 +605,8 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                       Pembaruan Otomatis Aman (Safe PWA Update):
                     </p>
                     <p className="text-xs text-text-muted">
-                      Jika tersedia versi baru, aplikasi akan menampilkan banner konfirmasi tanpa me-reload paksa saat kasir sedang memproses transaksi.
+                      Jika tersedia versi baru, aplikasi akan menampilkan banner konfirmasi tanpa
+                      me-reload paksa saat kasir sedang memproses transaksi.
                     </p>
                   </div>
                 </div>
@@ -517,7 +642,9 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
                       🔒 100% Lokal di Perangkat Anda
                     </p>
                     <p className="text-xs text-text-muted leading-relaxed">
-                      Semua data tersimpan di IndexedDB browser perangkat Anda tanpa dikirim ke cloud server pihak ketiga. Lakukan export backup secara berkala untuk menjaga keamanan data bisnis Anda.
+                      Semua data tersimpan di IndexedDB browser perangkat Anda tanpa dikirim ke
+                      cloud server pihak ketiga. Lakukan export backup secara berkala untuk menjaga
+                      keamanan data bisnis Anda.
                     </p>
                   </div>
                 </div>
@@ -527,9 +654,12 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
             /* TAB: SHORTCUT KEYS CHEAT SHEET */
             <div className="space-y-4 animate-fade-in">
               <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-                <p className="text-xs font-semibold text-primary">⚡ Akselerasi Kasir dengan Keyboard</p>
+                <p className="text-xs font-semibold text-primary">
+                  ⚡ Akselerasi Kasir dengan Keyboard
+                </p>
                 <p className="text-[11px] text-text-muted mt-0.5">
-                  Gunakan tombol fungsi dan kombinasi shortcut di bawah untuk mengoperasikan kasir tanpa mouse:
+                  Gunakan tombol fungsi dan kombinasi shortcut di bawah untuk mengoperasikan kasir
+                  tanpa mouse:
                 </p>
               </div>
 
@@ -551,9 +681,27 @@ export default function HelpModal({ isOpen, onClose }: HelpModalProps) {
 
               <div className="p-3 rounded-xl bg-bg-elevated border border-border-subtle text-[11px] text-text-muted space-y-1">
                 <p className="font-semibold text-text-secondary">💡 Tips Kasir Cepat:</p>
-                <p>• Tekan <kbd className="px-1 text-[10px] font-mono text-primary bg-bg-surface border rounded">Ctrl + K</kbd> untuk mencari menu dan aksi kapan saja.</p>
-                <p>• Tekan <kbd className="px-1 text-[10px] font-mono text-primary bg-bg-surface border rounded">Ctrl + Enter</kbd> pada keranjang belanja untuk langsung checkout pesanan.</p>
-                <p>• Tekan <kbd className="px-1 text-[10px] font-mono text-primary bg-bg-surface border rounded">Alt + O</kbd> jika berjualan di luar ruangan untuk mengaktifkan High Contrast Outdoor Mode.</p>
+                <p>
+                  • Tekan{' '}
+                  <kbd className="px-1 text-[10px] font-mono text-primary bg-bg-surface border rounded">
+                    Ctrl + K
+                  </kbd>{' '}
+                  untuk mencari menu dan aksi kapan saja.
+                </p>
+                <p>
+                  • Tekan{' '}
+                  <kbd className="px-1 text-[10px] font-mono text-primary bg-bg-surface border rounded">
+                    Ctrl + Enter
+                  </kbd>{' '}
+                  pada keranjang belanja untuk langsung checkout pesanan.
+                </p>
+                <p>
+                  • Tekan{' '}
+                  <kbd className="px-1 text-[10px] font-mono text-primary bg-bg-surface border rounded">
+                    Alt + O
+                  </kbd>{' '}
+                  jika berjualan di luar ruangan untuk mengaktifkan High Contrast Outdoor Mode.
+                </p>
               </div>
             </div>
           )}

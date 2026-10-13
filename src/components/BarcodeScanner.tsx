@@ -42,7 +42,7 @@ export default function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScann
               device.label.toLowerCase().includes('back') ||
               device.label.toLowerCase().includes('rear')
           );
-          setSelectedDeviceId(backCamera?.deviceId || videoDevices[0].deviceId);
+          setSelectedDeviceId(backCamera?.deviceId || videoDevices[0]?.deviceId || '');
         } else {
           setError('Tidak ada kamera yang tersedia');
         }
@@ -85,7 +85,9 @@ export default function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScann
           }
 
           // Play success sound
-          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuJ0/HQfS4HG2m98OScTAoOUqXh7qxeFws5ktXv0H0sCiV6yO/ajUEIDlyy5+qnVBEJQprZ8L9pIAQngtTvy3krBSF2xu7ZjT4IDFGj4OyvYBgLN4/U79F+LQggdcju2oxABw5cp+XqplMQCECY2O+/aCADJX/T78p5KgUieMXu2ow+Bw1PouDtr2AYCzaO0+/RfS0HH3TH7tqMQAcOW6fk6qZTEAg+ltfu/v8=');
+          const audio = new Audio(
+            'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuJ0/HQfS4HG2m98OScTAoOUqXh7qxeFws5ktXv0H0sCiV6yO/ajUEIDlyy5+qnVBEJQprZ8L9pIAQngtTvy3krBSF2xu7ZjT4IDFGj4OyvYBgLN4/U79F+LQggdcju2oxABw5cp+XqplMQCECY2O+/aCADJX/T78p5KgUieMXu2ow+Bw1PouDtr2AYCzaO0+/RfS0HH3TH7tqMQAcOW6fk6qZTEAg+ltfu/v8='
+          );
           audio.play().catch(() => {});
 
           // Call onScan callback
@@ -174,13 +176,7 @@ export default function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScann
 
       {/* Video Preview */}
       <div className="relative w-full h-full flex items-center justify-center">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          autoPlay
-          playsInline
-          muted
-        />
+        <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
 
         {/* Scanning Frame Overlay */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

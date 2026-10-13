@@ -18,14 +18,12 @@ export default function Button({
     'inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variants = {
-    primary:
-      'bg-primary text-text-inverse hover:bg-primary-hover active:scale-[0.97] active:shadow-inner shadow-[0_0_20px_rgba(0,240,255,0.2)] hover:shadow-[0_0_30px_rgba(0,240,255,0.35)]',
+    primary: 'bg-primary text-text-inverse hover:bg-primary-hover active:scale-[0.97] shadow-sm',
     danger:
-      'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 active:scale-[0.97] active:shadow-inner',
+      'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 active:scale-[0.97]',
     outline:
-      'border border-border-default text-text-secondary hover:text-text-primary hover:bg-white/[0.04] active:scale-[0.97] neo-flat active:neo-pressed',
-    ghost:
-      'text-text-muted hover:text-text-primary hover:bg-white/[0.06] active:scale-[0.97] active:shadow-inner',
+      'border border-border-default bg-bg-surface/50 text-text-secondary hover:text-text-primary hover:bg-bg-elevated/60 hover:border-border-strong active:scale-[0.97]',
+    ghost: 'text-text-muted hover:text-text-primary hover:bg-white/[0.06] active:scale-[0.97]',
   };
 
   const sizes = {

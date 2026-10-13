@@ -5,6 +5,8 @@
    ═══════════════════════════════════════════════════════════ */
 
 import db from './db';
+import { auditService } from './auditService';
+import { allocatePaymentFIFO, isLedgerOverdue } from '../utils/creditHelper';
 import type { Customer, CreditLedger, CreditPayment } from '../types';
 
 // ── Helpers ────────────────────────────────────────────────
@@ -25,19 +27,20 @@ function toLocalDateString(): string {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60000;
   const localDate = new Date(now.getTime() - offset);
-  return localDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  return localDate.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
 // ── Customer CRUD ──────────────────────────────────────────
 
 export async function createCustomer(data: {
   nama: string;
-  telepon?: string;
-  alamat?: string;
-  catatan?: string;
+  telepon?: string | undefined;
+  alamat?: string | undefined;
+  catatan?: string | undefined;
+  createdBy?: string | undefined;
 }): Promise<Customer> {
   const now = new Date().toISOString();
-  
+
   const customer: Customer = {
     id: generateUUID(),
     nama: data.nama.trim(),
@@ -52,20 +55,29 @@ export async function createCustomer(data: {
   };
 
   await db.customers.add(customer);
+
+  await auditService.logCustomerCreated({
+    customerId: customer.id,
+    nama: customer.nama,
+    telepon: customer.telepon,
+    kasir: data.createdBy || 'Kasir',
+  });
+
   return customer;
 }
 
 export async function updateCustomer(
   customerId: string,
   updates: {
-    nama?: string;
-    telepon?: string;
-    alamat?: string;
-    catatan?: string;
+    nama?: string | undefined;
+    telepon?: string | undefined;
+    alamat?: string | undefined;
+    catatan?: string | undefined;
+    updatedBy?: string | undefined;
   }
 ): Promise<void> {
   const now = new Date().toISOString();
-  
+
   const updateData: Partial<Customer> = {
     updatedAt: now,
   };
@@ -84,14 +96,27 @@ export async function updateCustomer(
   }
 
   await db.customers.update(customerId, updateData);
+
+  await auditService.logCustomerUpdated({
+    customerId,
+    changes: updates,
+    kasir: updates.updatedBy || 'Kasir',
+  });
 }
 
-export async function deleteCustomer(customerId: string): Promise<void> {
+export async function deleteCustomer(customerId: string, deletedBy?: string): Promise<void> {
   // Soft delete only
+  const customer = await db.customers.get(customerId);
   const now = new Date().toISOString();
   await db.customers.update(customerId, {
     deletedAt: now,
     updatedAt: now,
+  });
+
+  await auditService.logCustomerDeactivated({
+    customerId,
+    customerName: customer?.nama || 'Unknown',
+    kasir: deletedBy || 'Kasir',
   });
 }
 
@@ -106,21 +131,19 @@ export async function getCustomerById(customerId: string): Promise<Customer | un
 
 export async function getAllCustomers(): Promise<Customer[]> {
   // Return only non-deleted customers
-  return await db.customers
-    .filter((c) => !c.deletedAt)
-    .sortBy('nama');
+  return await db.customers.filter((c) => !c.deletedAt).sortBy('nama');
 }
 
 export async function searchCustomers(query: string): Promise<Customer[]> {
   const normalizedQuery = query.toLowerCase().trim();
-  
+
   return await db.customers
     .filter((c) => {
       if (c.deletedAt) return false;
-      
+
       const matchesNama = c.nama.toLowerCase().includes(normalizedQuery);
       const matchesTelepon = c.telepon?.toLowerCase().includes(normalizedQuery);
-      
+
       return matchesNama || matchesTelepon;
     })
     .sortBy('nama');
@@ -132,6 +155,7 @@ export async function createCreditLedger(data: {
   customerId: string;
   transactionId: string;
   jumlahKredit: number;
+  tanggalTransaksi?: string;
   tanggalJatuhTempo?: string;
   catatan?: string;
 }): Promise<CreditLedger> {
@@ -144,7 +168,7 @@ export async function createCreditLedger(data: {
     transactionId: data.transactionId,
     jumlahKredit: data.jumlahKredit,
     sisaHutang: data.jumlahKredit, // Initially unpaid
-    tanggalTransaksi: today,
+    tanggalTransaksi: data.tanggalTransaksi || today,
     tanggalJatuhTempo: data.tanggalJatuhTempo,
     status: 'belum_lunas',
     catatan: data.catatan?.trim(),
@@ -154,10 +178,19 @@ export async function createCreditLedger(data: {
     syncStatus: 'local',
   };
 
-  await db.credit_ledger.add(ledger);
-
-  // Update customer totalHutang
-  await recalculateCustomerDebt(data.customerId);
+  await db.transaction('rw', [db.credit_ledger, db.customers], async () => {
+    await db.credit_ledger.add(ledger);
+    const ledgers = await db.credit_ledger
+      .where('customerId')
+      .equals(data.customerId)
+      .filter((l: CreditLedger) => !l.deletedAt && l.id !== ledger.id)
+      .toArray();
+    const otherDebt = ledgers.reduce((sum: number, l: CreditLedger) => sum + l.sisaHutang, 0);
+    await db.customers.update(data.customerId, {
+      totalHutang: otherDebt + ledger.sisaHutang,
+      updatedAt: now,
+    });
+  });
 
   return ledger;
 }
@@ -190,70 +223,102 @@ export async function createPayment(data: {
   ledgerId: string;
   jumlahBayar: number;
   metodePembayaran: string;
-  catatan?: string;
+  catatan?: string | undefined;
   createdBy: string;
 }): Promise<CreditPayment> {
   const now = new Date().toISOString();
   const today = toLocalDateString();
 
-  // Get ledger
-  const ledger = await getCreditLedgerById(data.ledgerId);
-  if (!ledger) {
-    throw new Error(`Ledger not found: ${data.ledgerId}`);
-  }
-
   // Validate payment amount
   if (data.jumlahBayar <= 0) {
     throw new Error('Jumlah bayar harus > 0');
   }
-  if (data.jumlahBayar > ledger.sisaHutang) {
-    throw new Error(`Jumlah bayar (${data.jumlahBayar}) melebihi sisa hutang (${ledger.sisaHutang})`);
-  }
 
-  // Create payment record
-  const payment: CreditPayment = {
-    id: generateUUID(),
-    ledgerId: data.ledgerId,
-    customerId: ledger.customerId,
-    jumlahBayar: data.jumlahBayar,
-    tanggalBayar: today,
-    metodePembayaran: data.metodePembayaran,
-    catatan: data.catatan?.trim(),
-    createdAt: now,
-    createdBy: data.createdBy,
-    syncStatus: 'local',
-  };
+  let paymentResult: CreditPayment;
+  let customerName = 'Unknown';
+  let ledgerCustomerId = '';
 
-  await db.credit_payments.add(payment);
+  await db.transaction('rw', [db.credit_payments, db.credit_ledger, db.customers], async () => {
+    // Get ledger
+    const ledger = await db.credit_ledger.get(data.ledgerId);
+    if (!ledger || ledger.deletedAt) {
+      throw new Error(`Ledger not found: ${data.ledgerId}`);
+    }
 
-  // Update ledger sisaHutang
-  const newSisaHutang = ledger.sisaHutang - data.jumlahBayar;
-  const newStatus = newSisaHutang === 0 ? 'lunas' : 'belum_lunas';
+    if (data.jumlahBayar > ledger.sisaHutang) {
+      throw new Error(
+        `Jumlah bayar (${data.jumlahBayar}) melebihi sisa hutang (${ledger.sisaHutang})`
+      );
+    }
 
-  await db.credit_ledger.update(data.ledgerId, {
-    sisaHutang: newSisaHutang,
-    status: newStatus,
-    updatedAt: now,
+    ledgerCustomerId = ledger.customerId;
+    const customer = await db.customers.get(ledger.customerId);
+    if (customer) {
+      customerName = customer.nama;
+    }
+
+    // Create payment record
+    const payment: CreditPayment = {
+      id: generateUUID(),
+      ledgerId: data.ledgerId,
+      customerId: ledger.customerId,
+      jumlahBayar: data.jumlahBayar,
+      tanggalBayar: today,
+      metodePembayaran: data.metodePembayaran,
+      catatan: data.catatan?.trim(),
+      createdAt: now,
+      createdBy: data.createdBy,
+      syncStatus: 'local',
+    };
+
+    await db.credit_payments.add(payment);
+
+    // Update ledger sisaHutang
+    const newSisaHutang = ledger.sisaHutang - data.jumlahBayar;
+    const newStatus = newSisaHutang === 0 ? 'lunas' : 'belum_lunas';
+
+    await db.credit_ledger.update(data.ledgerId, {
+      sisaHutang: newSisaHutang,
+      status: newStatus,
+      updatedAt: now,
+    });
+
+    // Update customer totalHutang
+    const ledgers = await db.credit_ledger
+      .where('customerId')
+      .equals(ledger.customerId)
+      .filter((l: CreditLedger) => !l.deletedAt && l.id !== data.ledgerId)
+      .toArray();
+
+    const otherDebt = ledgers.reduce((sum: number, l: CreditLedger) => sum + l.sisaHutang, 0);
+    await db.customers.update(ledger.customerId, {
+      totalHutang: otherDebt + newSisaHutang,
+      updatedAt: now,
+    });
+
+    paymentResult = payment;
   });
 
-  // Update customer totalHutang
-  await recalculateCustomerDebt(ledger.customerId);
+  // Log audit outside transaction
+  await auditService.logCreditPaymentRecorded({
+    paymentId: paymentResult!.id,
+    ledgerId: data.ledgerId,
+    customerId: ledgerCustomerId,
+    customerName,
+    jumlahBayar: data.jumlahBayar,
+    metodePembayaran: data.metodePembayaran,
+    kasir: data.createdBy,
+  });
 
-  return payment;
+  return paymentResult!;
 }
 
 export async function getLedgerPayments(ledgerId: string): Promise<CreditPayment[]> {
-  return await db.credit_payments
-    .where('ledgerId')
-    .equals(ledgerId)
-    .sortBy('tanggalBayar');
+  return await db.credit_payments.where('ledgerId').equals(ledgerId).sortBy('tanggalBayar');
 }
 
 export async function getCustomerPayments(customerId: string): Promise<CreditPayment[]> {
-  return await db.credit_payments
-    .where('customerId')
-    .equals(customerId)
-    .sortBy('tanggalBayar');
+  return await db.credit_payments.where('customerId').equals(customerId).sortBy('tanggalBayar');
 }
 
 // ── Aggregations & Reports ─────────────────────────────────
@@ -281,7 +346,7 @@ export interface CustomerWithDebt extends Customer {
 
 export async function getCustomersWithDebt(): Promise<CustomerWithDebt[]> {
   const customers = await getAllCustomers();
-  
+
   const customersWithDebt: CustomerWithDebt[] = [];
 
   for (const customer of customers) {
@@ -316,9 +381,7 @@ export async function getDebtSummary(): Promise<DebtSummary> {
   const allCustomers = await getAllCustomers();
   const customersWithDebt = allCustomers.filter((c) => c.totalHutang > 0);
 
-  const allLedgers = await db.credit_ledger
-    .filter((ledger) => !ledger.deletedAt)
-    .toArray();
+  const allLedgers = await db.credit_ledger.filter((ledger) => !ledger.deletedAt).toArray();
 
   const unpaidLedgers = allLedgers.filter((ledger) => ledger.status === 'belum_lunas');
 
@@ -330,5 +393,147 @@ export async function getDebtSummary(): Promise<DebtSummary> {
     totalOutstanding,
     totalLedgers: allLedgers.length,
     unpaidLedgers: unpaidLedgers.length,
+  };
+}
+
+// ── Multi-Transaction / FIFO Payment (Phase 4) ────────────
+
+export async function payCustomerDebtFIFO(data: {
+  customerId: string;
+  jumlahBayar: number;
+  metodePembayaran: string;
+  catatan?: string | undefined;
+  createdBy: string;
+}): Promise<{
+  payments: CreditPayment[];
+  totalAllocated: number;
+  remainingPayment: number;
+}> {
+  if (data.jumlahBayar <= 0) {
+    throw new Error('Jumlah bayar harus > 0');
+  }
+
+  const today = toLocalDateString();
+  const now = new Date().toISOString();
+
+  const createdPayments: CreditPayment[] = [];
+  let customerName = 'Unknown';
+  let totalAllocated = 0;
+  let remainingPayment = 0;
+
+  await db.transaction('rw', [db.credit_payments, db.credit_ledger, db.customers], async () => {
+    const customer = await db.customers.get(data.customerId);
+    if (!customer || customer.deletedAt) {
+      throw new Error(`Pelanggan tidak ditemukan: ${data.customerId}`);
+    }
+    customerName = customer.nama;
+
+    const unpaidLedgers = await db.credit_ledger
+      .where('customerId')
+      .equals(data.customerId)
+      .filter((l: CreditLedger) => !l.deletedAt && l.status === 'belum_lunas' && l.sisaHutang > 0)
+      .toArray();
+
+    if (unpaidLedgers.length === 0) {
+      throw new Error('Pelanggan tidak memiliki hutang yang belum lunas');
+    }
+
+    const result = allocatePaymentFIFO(unpaidLedgers, data.jumlahBayar);
+    totalAllocated = result.totalAllocated;
+    remainingPayment = result.remainingPayment;
+
+    for (const alloc of result.allocations) {
+      const payment: CreditPayment = {
+        id: generateUUID(),
+        ledgerId: alloc.ledgerId,
+        customerId: data.customerId,
+        jumlahBayar: alloc.allocatedAmount,
+        tanggalBayar: today,
+        metodePembayaran: data.metodePembayaran,
+        catatan: data.catatan?.trim() || undefined,
+        createdAt: now,
+        createdBy: data.createdBy,
+        syncStatus: 'local',
+      };
+
+      await db.credit_payments.add(payment);
+
+      await db.credit_ledger.update(alloc.ledgerId, {
+        sisaHutang: alloc.newSisaHutang,
+        status: alloc.newStatus,
+        updatedAt: now,
+      });
+
+      createdPayments.push(payment);
+    }
+
+    // Update customer totalHutang
+    const allRemainingLedgers = await db.credit_ledger
+      .where('customerId')
+      .equals(data.customerId)
+      .filter((l: CreditLedger) => !l.deletedAt)
+      .toArray();
+
+    const newTotalDebt = allRemainingLedgers.reduce(
+      (sum: number, l: CreditLedger) => sum + l.sisaHutang,
+      0
+    );
+
+    await db.customers.update(data.customerId, {
+      totalHutang: newTotalDebt,
+      updatedAt: now,
+    });
+  });
+
+  // Log audit outside transaction
+  for (const p of createdPayments) {
+    await auditService.logCreditPaymentRecorded({
+      paymentId: p.id,
+      ledgerId: p.ledgerId,
+      customerId: data.customerId,
+      customerName,
+      jumlahBayar: p.jumlahBayar,
+      metodePembayaran: p.metodePembayaran,
+      kasir: data.createdBy,
+    });
+  }
+
+  return {
+    payments: createdPayments,
+    totalAllocated,
+    remainingPayment,
+  };
+}
+
+export async function getOverdueLedgers(
+  customerId?: string,
+  referenceDate?: string
+): Promise<CreditLedger[]> {
+  const query = customerId
+    ? db.credit_ledger.where('customerId').equals(customerId)
+    : db.credit_ledger.toCollection();
+
+  const ledgers = await query
+    .filter((l: CreditLedger) => !l.deletedAt && isLedgerOverdue(l, referenceDate))
+    .sortBy('tanggalJatuhTempo');
+
+  return ledgers;
+}
+
+export interface OverdueSummary {
+  overdueCount: number;
+  totalOverdueAmount: number;
+  affectedCustomersCount: number;
+}
+
+export async function getOverdueSummary(referenceDate?: string): Promise<OverdueSummary> {
+  const overdueLedgers = await getOverdueLedgers(undefined, referenceDate);
+  const customerIds = new Set(overdueLedgers.map((l) => l.customerId));
+  const totalOverdueAmount = overdueLedgers.reduce((sum, l) => sum + l.sisaHutang, 0);
+
+  return {
+    overdueCount: overdueLedgers.length,
+    totalOverdueAmount,
+    affectedCustomersCount: customerIds.size,
   };
 }

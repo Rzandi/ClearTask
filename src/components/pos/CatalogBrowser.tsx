@@ -14,7 +14,7 @@ interface CatalogItemProps {
   kategori: string;
   subKategori?: string;
   harga: number;
-  hargaModal?: number;
+  hargaModal?: number | undefined;
   quantity: number;
   searchQuery?: string;
   onAddToCart: (item: any) => void;

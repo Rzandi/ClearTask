@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">ClearTask v3.7.0</h1>
+  <h1 align="center">ClearTask v3.8.0</h1>
   <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Sektor Retail, Minimarket & High-Resiliency POS.</strong></p>
 </p>
 
@@ -9,46 +9,36 @@
 
 ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk kasir, toko kelontong, minimarket, dan UMKM. Semua data tersimpan **100% lokal** di perangkat pengguna menggunakan IndexedDB — tidak ada server, tidak ada akun wajib, tidak ada biaya langganan, dan dapat bekerja secara penuh tanpa jaringan internet.
 
-### Fitur Utama ClearTask v3.7.0
+### Fitur Utama ClearTask v3.8.0
 
-- 📊 **Fondasi Data & Ledger Stok (Stock Movements & Product Identity - W1)**:
-  - **Tabel Append-Only `stock_movements` (Dexie v12)**: Setiap pergerakan stok (penjualan, void, restore, edit pesanan, unpack dus, penyesuaian manual) tercatat dalam ledger permanen.
-  - **Atomic `transactionService`**: Menyatukan seluruh alur checkout, pembatalan, pemulihan, dan edit ke dalam satu transaksi database (`db.transaction`) atomik.
-  - **Identitas Produk & Snapshot Transaksi**: Transaksi merekam `inventoryId`, `namaSnapshot`, dan `hargaModalSnapshot` sehingga histori laporan tidak terdistorsi jika data katalog berubah.
-  - **Sesi Kasir Immutable & Closing Snapshot**: Penutupan sesi menyimpan snapshot total omset, metode pembayaran, dan kas bersih. Transaksi paska-tutup ditandai `postCloseAdjusted`.
-  - **Deduplikasi Kanonikal & Proteksi Kategori**: Normalisasi spasi dan huruf kecil pada nama barang, serta penolakan penghapusan kategori yang masih dipakai di inventaris aktif.
-  - **Invarian Stok & Deteksi Drift**: Test suite matematis invarian stok (`quantity = saldo awal + sum(delta)`) dan utilitas `stockDriftCheck` untuk audit inventaris.
+- 🤝 **Sistem Manajemen Hutang & Piutang Pelanggan (W4-02 — Phase 1–5)**:
+  - **Buku Besar Piutang (`credit_ledger` & `credit_payments`)**: Pelacakan saldo hutang per pelanggan dengan status `unpaid`, `partial`, dan `paid` yang terhubung langsung ke transaksi penjualan.
+  - **Pelunasan Otomatis Multi-Transaksi (FIFO)**: Modal pembayaran pintar yang mengalokasikan cicilan/pembayaran secara otomatis ke nota hutang tertua dengan pratinjau alokasi langsung.
+  - **Notifikasi Jatuh Tempo & Pengingat WhatsApp**: Tag keterlambatan (`⚠️ Lewat X hari`), alert ringkasan hutang menunggak harian via toast, dan tombol 1-klik untuk generate pesan tagihan WhatsApp format rapi.
+  - **Laporan & Distribusi Umur Piutang (Aging Report)**: Grafik distribusi 4 tier umur piutang (Lancar, 1-30 hari, 31-60 hari, >60 hari), tabel Top 5 Debitur dengan rasio risiko, dan fitur ekspor data ke CSV.
+  - **Ringkasan Kredit di Closing Report Shift**: Perhitungan transaksi kredit dan rincian hutang pelanggan baru langsung tertera pada laporan penutupan kasir.
 
-- 💰 **Integritas Uang, Rekonsiliasi Kas & Audit Log (W2)**:
-  - **Parser Desimal Indonesia (`parseIDNumber`)**: Penanganan terpadu format angka Indonesia (koma sebagai desimal `"0,57"`, titik sebagai ribuan `"12.000"`).
-  - **Kas Tunai Bersih Sesi**: Perhitungan kas real (penjualan tunai - kembalian - pengeluaran operasional tunai) pada laporan penutupan shift.
-  - **Rekonsiliasi Kas Fisik Pra-Tutup**: Validasi kas fisik di laci sebelum sesi ditutup, dengan peringatan selisih toleransi Rp 50.000 dan kewajiban input alasan.
-  - **Undo Checkout Kilat (15 Detik)**: Tombol pembatalan instan di layar struk untuk mengembalikan stok ke inventaris dan memulihkan isi keranjang kasir.
-  - **Tabel `audit_log` (Dexie v13)**: Riwayat audit append-only yang merekam aksi void, edit, dan restore lengkap beserta identitas kasir, waktu, dan alasan wajib.
-  - **Immutabilitas Kasir**: Nama kasir penginput terkunci dan tidak dapat ditimpa saat transaksi diedit.
-  - **Parser CSV RFC 4180**: Parser import CSV tahan kutipan ganda dan koma dalam nilai.
+- 📈 **Audit Perubahan Harga Barang (Price History — W4-03)**:
+  - **Tabel `price_history` (Dexie v15)**: Setiap perubahan harga jual, modal, maupun grosir otomatis mencatat nilai lama, nilai baru, timestamp, dan identitas pengubah.
+  - **Modal Riwayat Harga (`PriceHistoryModal.tsx`)**: Grafik tren & tabel linimasa histori harga per produk lengkap dengan ekspor CSV.
 
-- ⚡ **QOL, Konsistensi UI & Hardware (W3)**:
-  - **Promise-Based `useConfirm` Dialog**: Menggantikan seluruh `window.confirm` browser dengan modal konfirmasi bertema yang konsisten.
-  - **Notifikasi Toast Non-Blocking**: Notifikasi melayang elegan menggantikan seluruh pemanggilan `alert()` native.
-  - **Notifikasi Stok Menipis Dinamis**: Membaca batas `minStock` spesifik per produk, bukan batas statis seragam.
-  - **Auto-Reconnect Printer Bluetooth**: Penyimpanan perangkat printer terakhir dan koneksi ulang otomatis.
-  - **Format Struk Thermal 80mm & 58mm**: Pilihan layout cetak struk lebar 80mm dan standar 58mm langsung di modal struk kasir.
-  - **Highlight Pencarian (`<HighlightText>`)**: Penyorotan visual kata kunci pencarian pada katalog barang dan tabel riwayat transaksi.
-  - **Cash Drawer Kick Command**: Perintah ESC/POS kick drawer otomatis pada transaksi tunai.
-  - **Mobile Split Cart**: Tata letak mobile ergonomis dengan list barang dan sticky checkout button.
-  - **Periodic Backup Reminder**: Peringatan otomatis jika database belum diexport selama lebih dari 7 hari.
+- ⚡ **Input Cepat Syntax Inline Kasir (`ManualItemForm.tsx`)**:
+  - Dukungan pengetikan cepat di form kasir seperti `indomie 3x 3500` atau `kopi 2x` dengan deteksi live preview otomatis dan auto-fill saat tekan Enter/Tab.
 
-- 🛡️ **Data Integrity & Mobile Resilience Engine (v3.6.0 Baseline)**:
-  - **Negative Stock & Warning Attachment**: Pelacakan stok akurat tanpa silent-clamping nol.
-  - **O(1) Inventory Lookup Optimization**: Optimasi checkout berkecepatan tinggi menggunakan map lookup.
-  - **Hardware Back Button Handler (Android PWA)**: Integrasi tombol Back fisik Android untuk menutup modal bertingkat.
-  - **Multi-UOM Konversi Stok (Dus → Pcs Auto Unpack)**: Manajemen stok kemasan grosir dengan aksi 1-klik _⚡ Unpack Dus_.
-  - **Harga Grosir (Tiered Pricing Engine)**: Skema diskon kuantitas bertingkat otomatis.
+- 🛡️ **Integritas Uang, Audit Log & Ledger Stok (W1 & W2 Baseline)**:
+  - **Append-Only `stock_movements` & `audit_log` (Dexie v12 & v13)**: Jejak mutasi stok dan audit transaksi finansial (void, edit, restore, permanent purge) tersimpan permanen.
+  - **Atomic Transaction Services (`transactionService.ts` & `customerService.ts`)**: Eksekusi ACID aman bebas race conditions.
+  - **Rekonsiliasi Kas Fisik Pra-Tutup**: Validasi uang laci kasir dengan batas toleransi selisih Rp 50.000 dan kewajiban input alasan.
+  - **Undo Checkout Kilat (15 Detik)**: Pembatalan instan transaksi di layar struk dengan pemulihan otomatis stok dan keranjang.
 
-- 🛠️ **Strict Typing & Robust Codebase**:
-  - 100% Type-Safe (`tsc --noEmit` 0 error) di seluruh komponen, hooks, utilities, dan modal.
-  - 56 test suites (494 unit, integration, dan property tests) lulus 100%.
+- 🎨 **Modernisasi Arsitektur POS & Akselerasi UI (W3)**:
+  - **Komponen Modular POS (`src/components/pos/`)**: Pemecahan form manual, katalog produk, keranjang belanja, panel checkout, dan cek stok.
+  - **Command Palette Terintegrasi (`Ctrl+K`)**: Navigasi cepat antar modul, pencarian produk, dan eksekusi checkout.
+  - **Format Struk Thermal 80mm & 58mm**: Pilihan format struk fleksibel dengan ESC/POS cash drawer kick command.
+
+- 🛠️ **Pembersihan Tipe TypeScript & Kualitas Kode (W4-05)**:
+  - 100% Type-Safe (`tsc --noEmit` 0 error) dengan eliminasi tipe `any` yang tidak perlu pada entitas inti, audit log, services, dan komponen.
+  - 64 test suites (648 unit, integration, dan property tests) lulus 100%.
 
 ---
 
@@ -58,7 +48,7 @@ ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk 
 | ---------- | --------------------------------------------------- |
 | Framework  | React 19 + Vite 8                                   |
 | Styling    | Vanilla CSS + CSS Variables + Tailwind CSS v4       |
-| Database   | IndexedDB via Dexie.js v4 (Schema v13)              |
+| Database   | IndexedDB via Dexie.js v4 (Schema v15)              |
 | Resiliency | BroadcastChannel API + Storage Estimate + Web Audio |
 | Enkripsi   | Web Crypto API (AES-GCM 256 + PBKDF2)               |
 | Export     | ExcelJS (lazy-loaded) + CSV RFC 4180                |
@@ -73,26 +63,29 @@ ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk 
 ```
 src/
 ├── components/         # UI components (Atomic & Feature Driven)
+│   ├── credit/         # Modul Hutang-Piutang (CustomerList, Detail, Aging Report, PaymentModal)
+│   ├── pos/            # Sub-komponen kasir modular (CartItemList, CatalogBrowser, CheckoutSection, ManualItemForm)
 │   ├── ui/             # Base atoms: Button, Input, Card, Modal, Badge
 │   ├── InputPenjualan.tsx   # POS Kasir, Quick Cash, Wholesale, Hero Change
 │   ├── InventoryManager.tsx # Master Barang, Quick Adjust, Multi-UOM, Supplier Restock
 │   ├── InventoryModal.tsx   # Form Barang, Wholesale & Pack Stock settings
+│   ├── PriceHistoryModal.tsx # Linimasa & audit histori perubahan harga
 │   ├── HotkeyModal.tsx      # Contextual Hotkey Sheet Overlay (?)
 │   ├── SetupWizardModal.tsx # 3-Step First-Time Onboarding Wizard
 │   ├── TrashManager.tsx     # Soft Delete & Data Restoration
-│   └── StrukModal.tsx       # Receipt printing, Thermal 58mm & WA Share
-├── contexts/           # React contexts (Settings, Theme)
-├── hooks/              # Custom hooks
-│   ├── useTransactions.ts     # Wrapper — composes sub-hooks
-│   ├── useTransactionData.ts  # Atomic Dexie transactions & Device Prefix IDs
-│   ├── useInventory.ts        # Master barang CRUD
-│   └── useSession.ts          # Sesi/shift kasir
-├── services/           # External & Database services
-│   ├── db.ts                  # Dexie schema v11 & blocked handlers
-│   └── databaseManager.ts     # Export/import/merge database
+│   └── StrukModal.tsx       # Receipt printing, Thermal 58mm/80mm & WA Share
+├── contexts/           # React contexts (Settings, Theme, Inventory)
+├── hooks/              # Custom hooks (useTransactions, useInventory, useDailyOverdueCheck, useSession, dll)
+├── services/           # Service layer & database
+│   ├── db.ts                  # Dexie schema v15 & blocked handlers
+│   ├── transactionService.ts  # Atomic checkout, void, restore, unpack
+│   ├── customerService.ts     # Customer CRUD, FIFO payment, credit queries
+│   ├── auditService.ts        # Append-only audit logging
+│   └── databaseManager.ts     # Export/import/merge database & crypto
 ├── utils/              # Resiliency & pure utilities
-│   ├── audioFeedback.ts       # Web Audio API & Haptic vibration
-│   ├── inlineSyntaxParser.ts  # Inline POS command parser & Cash breakdown
+│   ├── creditHelper.ts        # Overdue check, FIFO allocator, WhatsApp text generator
+│   ├── creditReportHelper.ts  # Aging buckets calculator & CSV exporter
+│   ├── inlineSyntaxParser.ts  # Inline syntax parser
 │   └── resiliencyGuards.ts    # lazyWithRetry, Storage estimate, Multi-tab sync
 └── __tests__/          # Vitest unit & integration test suite
 ```

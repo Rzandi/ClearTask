@@ -89,12 +89,13 @@ describe('SettingsModal', () => {
     expect(screen.getByLabelText('Nama Aplikasi')).toBeInTheDocument();
     expect(screen.getByLabelText('Slogan / Deskripsi Pendek')).toBeInTheDocument();
 
-    // 5 swatch accent color
-    expect(screen.getByRole('button', { name: 'Cyan Neon' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Hijau Neon' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Pink Neon' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ungu' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Oranye' })).toBeInTheDocument();
+    // Swatch accent color presets
+    expect(screen.getByRole('button', { name: 'Cobalt Pro (Default)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Emerald Merchant' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Amber Warm' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Iris Modern' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cyber Cyan' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Monochrome' })).toBeInTheDocument();
   });
 
   // ── Test 2: Klik Simpan ────────────────────────────────────────────────────
@@ -153,25 +154,25 @@ describe('SettingsModal', () => {
   it('klik swatch accent color memanggil updateSettings secara real-time', () => {
     renderModal();
 
-    // Klik swatch Pink Neon
-    fireEvent.click(screen.getByRole('button', { name: 'Pink Neon' }));
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#ff3366' });
+    // Klik preset Emerald Merchant
+    fireEvent.click(screen.getByRole('button', { name: 'Emerald Merchant' }));
+    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#10b981' });
 
-    // Klik swatch Ungu
-    fireEvent.click(screen.getByRole('button', { name: 'Ungu' }));
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#bc8cff' });
+    // Klik preset Amber Warm
+    fireEvent.click(screen.getByRole('button', { name: 'Amber Warm' }));
+    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#f59e0b' });
 
-    // Klik swatch Oranye
-    fireEvent.click(screen.getByRole('button', { name: 'Oranye' }));
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#f0b429' });
+    // Klik preset Iris Modern
+    fireEvent.click(screen.getByRole('button', { name: 'Iris Modern' }));
+    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#8b5cf6' });
 
-    // Klik swatch Hijau Neon
-    fireEvent.click(screen.getByRole('button', { name: 'Hijau Neon' }));
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#00ff88' });
+    // Klik preset Cyber Cyan
+    fireEvent.click(screen.getByRole('button', { name: 'Cyber Cyan' }));
+    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#06b6d4' });
 
-    // Klik swatch Cyan Neon
-    fireEvent.click(screen.getByRole('button', { name: 'Cyan Neon' }));
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#00f0ff' });
+    // Klik preset Cobalt Pro
+    fireEvent.click(screen.getByRole('button', { name: 'Cobalt Pro (Default)' }));
+    expect(mockUpdateSettings).toHaveBeenCalledWith({ accentColor: '#2563eb' });
 
     // saveSettings tidak dipanggil (hanya real-time update)
     expect(mockSaveSettings).not.toHaveBeenCalled();

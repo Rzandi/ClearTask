@@ -18,11 +18,11 @@ describe('customerService', () => {
   beforeEach(async () => {
     // Reset IndexedDB before each test
     await Dexie.delete('ClearTaskDB');
-    
+
     // Import fresh instance
     const dbModule = await import('../services/db');
     db = dbModule.default;
-    
+
     // Wait for db to open
     await db.open();
   });
@@ -128,8 +128,8 @@ describe('customerService', () => {
       const customers = await customerService.getAllCustomers();
 
       expect(customers).toHaveLength(2);
-      expect(customers[0].nama).toBe('Alpha');
-      expect(customers[1].nama).toBe('Zebra');
+      expect(customers[0]?.nama).toBe('Alpha');
+      expect(customers[1]?.nama).toBe('Zebra');
     });
   });
 
@@ -148,19 +148,19 @@ describe('customerService', () => {
     it('should search by name', async () => {
       const results = await customerService.searchCustomers('berkah');
       expect(results).toHaveLength(1);
-      expect(results[0].nama).toBe('Toko Berkah Jaya');
+      expect(results[0]?.nama).toBe('Toko Berkah Jaya');
     });
 
     it('should search by phone', async () => {
       const results = await customerService.searchCustomers('0876');
       expect(results).toHaveLength(1);
-      expect(results[0].nama).toBe('Warung Maju');
+      expect(results[0]?.nama).toBe('Warung Maju');
     });
 
     it('should be case-insensitive', async () => {
       const results = await customerService.searchCustomers('MAJU');
       expect(results).toHaveLength(1);
-      expect(results[0].nama).toBe('Warung Maju');
+      expect(results[0]?.nama).toBe('Warung Maju');
     });
 
     it('should return empty for no match', async () => {
@@ -262,7 +262,7 @@ describe('customerService', () => {
       const unpaidLedgers = await customerService.getAllUnpaidLedgers();
 
       expect(unpaidLedgers).toHaveLength(1);
-      expect(unpaidLedgers[0].id).toBe(ledger2.id);
+      expect(unpaidLedgers[0]?.id).toBe(ledger2.id);
     });
   });
 
@@ -428,11 +428,11 @@ describe('customerService', () => {
       const customersWithDebt = await customerService.getCustomersWithDebt();
 
       expect(customersWithDebt).toHaveLength(2);
-      expect(customersWithDebt[0].nama).toBe('High Debt');
-      expect(customersWithDebt[0].totalHutang).toBe(50000);
-      expect(customersWithDebt[0].unpaidCount).toBe(1);
-      expect(customersWithDebt[1].nama).toBe('Low Debt');
-      expect(customersWithDebt[1].totalHutang).toBe(10000);
+      expect(customersWithDebt[0]?.nama).toBe('High Debt');
+      expect(customersWithDebt[0]?.totalHutang).toBe(50000);
+      expect(customersWithDebt[0]?.unpaidCount).toBe(1);
+      expect(customersWithDebt[1]?.nama).toBe('Low Debt');
+      expect(customersWithDebt[1]?.totalHutang).toBe(10000);
     });
 
     it('should track oldest debt date', async () => {
@@ -453,8 +453,8 @@ describe('customerService', () => {
 
       const customersWithDebt = await customerService.getCustomersWithDebt();
 
-      expect(customersWithDebt[0].oldestDebtDate).toBeDefined();
-      expect(customersWithDebt[0].unpaidCount).toBe(2);
+      expect(customersWithDebt[0]?.oldestDebtDate).toBeDefined();
+      expect(customersWithDebt[0]?.unpaidCount).toBe(2);
     });
   });
 
@@ -544,6 +544,185 @@ describe('customerService', () => {
 
       const updatedCustomer = await customerService.getCustomerById(customer.id);
       expect(updatedCustomer?.totalHutang).toBe(0);
+    });
+  });
+
+  // ── Audit Logging Integration Tests ─────────────────────────
+  describe('Audit Logging Integration', () => {
+    it('records audit log on createCustomer', async () => {
+      const customer = await customerService.createCustomer({
+        nama: 'Audit Customer',
+        telepon: '08123456789',
+        createdBy: 'Kasir Super',
+      });
+
+      const auditLogs = await db.audit_log.toArray();
+      const match = auditLogs.find(
+        (l) => l.action === 'customer_created' && l.entityId === customer.id
+      );
+      expect(match).toBeDefined();
+      expect(match?.actor).toBe('Kasir Super');
+      expect(match?.details?.nama).toBe('Audit Customer');
+    });
+
+    it('records audit log on updateCustomer', async () => {
+      const customer = await customerService.createCustomer({ nama: 'Old Name' });
+      await customerService.updateCustomer(customer.id, {
+        nama: 'New Name',
+        updatedBy: 'Kasir Editor',
+      });
+
+      const auditLogs = await db.audit_log.toArray();
+      const match = auditLogs.find(
+        (l) => l.action === 'customer_updated' && l.entityId === customer.id
+      );
+      expect(match).toBeDefined();
+      expect(match?.actor).toBe('Kasir Editor');
+      expect(match?.details?.changes?.nama).toBe('New Name');
+    });
+
+    it('records audit log on deleteCustomer', async () => {
+      const customer = await customerService.createCustomer({ nama: 'To Delete' });
+      await customerService.deleteCustomer(customer.id, 'Kasir Deleter');
+
+      const auditLogs = await db.audit_log.toArray();
+      const match = auditLogs.find(
+        (l) => l.action === 'customer_deactivated' && l.entityId === customer.id
+      );
+      expect(match).toBeDefined();
+      expect(match?.actor).toBe('Kasir Deleter');
+      expect(match?.details?.customerName).toBe('To Delete');
+    });
+
+    it('records audit log on createPayment and queries via getLogsForCustomer', async () => {
+      const { auditService } = await import('../services/auditService');
+      const customer = await customerService.createCustomer({ nama: 'Paying Customer' });
+      const ledger = await customerService.createCreditLedger({
+        customerId: customer.id,
+        transactionId: 'TRX-PAY-1',
+        jumlahKredit: 100000,
+      });
+
+      const payment = await customerService.createPayment({
+        ledgerId: ledger.id,
+        jumlahBayar: 40000,
+        metodePembayaran: 'tunai',
+        catatan: 'Cicilan 1',
+        createdBy: 'Kasir Kas',
+      });
+
+      const auditLogs = await db.audit_log.toArray();
+      const paymentLog = auditLogs.find(
+        (l) => l.action === 'credit_payment_recorded' && l.entityId === payment.id
+      );
+      expect(paymentLog).toBeDefined();
+      expect(paymentLog?.actor).toBe('Kasir Kas');
+      expect(paymentLog?.details?.jumlahBayar).toBe(40000);
+
+      // Verify getLogsForCustomer retrieves customer creation AND payment logs
+      const customerLogs = await auditService.getLogsForCustomer(customer.id);
+      expect(customerLogs.length).toBeGreaterThanOrEqual(2);
+      const actions = customerLogs.map((l) => l.action);
+      expect(actions).toContain('customer_created');
+      expect(actions).toContain('credit_payment_recorded');
+    });
+  });
+
+  // ── W4-02 Phase 4: FIFO & Overdue Tracking Tests ───────────────
+
+  describe('payCustomerDebtFIFO', () => {
+    it('allocates payment across multiple ledgers oldest-first and updates totalHutang atomically', async () => {
+      const customer = await customerService.createCustomer({ nama: 'Customer FIFO' });
+
+      // Create ledger 1 (oldest)
+      const l1 = await customerService.createCreditLedger({
+        customerId: customer.id,
+        transactionId: 'TX-FIFO-1',
+        jumlahKredit: 40000,
+        tanggalTransaksi: '2026-10-01',
+      });
+
+      // Create ledger 2 (newer)
+      const l2 = await customerService.createCreditLedger({
+        customerId: customer.id,
+        transactionId: 'TX-FIFO-2',
+        jumlahKredit: 60000,
+        tanggalTransaksi: '2026-10-05',
+      });
+
+      expect((await customerService.getCustomerById(customer.id))?.totalHutang).toBe(100000);
+
+      // Pay 70,000 via FIFO: should pay l1 (40k, lunas) and l2 (30k, sisa 30k)
+      const result = await customerService.payCustomerDebtFIFO({
+        customerId: customer.id,
+        jumlahBayar: 70000,
+        metodePembayaran: 'transfer',
+        catatan: 'Pelunasan bertahap',
+        createdBy: 'Kasir FIFO',
+      });
+
+      expect(result.totalAllocated).toBe(70000);
+      expect(result.remainingPayment).toBe(0);
+      expect(result.payments).toHaveLength(2);
+
+      // Verify l1 is fully paid
+      const updatedL1 = await customerService.getCreditLedgerById(l1.id);
+      expect(updatedL1?.sisaHutang).toBe(0);
+      expect(updatedL1?.status).toBe('lunas');
+
+      // Verify l2 is partially paid
+      const updatedL2 = await customerService.getCreditLedgerById(l2.id);
+      expect(updatedL2?.sisaHutang).toBe(30000);
+      expect(updatedL2?.status).toBe('belum_lunas');
+
+      // Verify customer total debt is now 30,000
+      const updatedCust = await customerService.getCustomerById(customer.id);
+      expect(updatedCust?.totalHutang).toBe(30000);
+    });
+
+    it('throws error if customer has no unpaid ledgers', async () => {
+      const customer = await customerService.createCustomer({ nama: 'Customer No Debt' });
+      await expect(
+        customerService.payCustomerDebtFIFO({
+          customerId: customer.id,
+          jumlahBayar: 50000,
+          metodePembayaran: 'tunai',
+          createdBy: 'Kasir',
+        })
+      ).rejects.toThrow('Pelanggan tidak memiliki hutang yang belum lunas');
+    });
+  });
+
+  describe('getOverdueLedgers & getOverdueSummary', () => {
+    it('filters overdue ledgers based on due date and reference date', async () => {
+      const customer = await customerService.createCustomer({ nama: 'Overdue Customer' });
+
+      // Overdue ledger (due 2026-10-05)
+      await customerService.createCreditLedger({
+        customerId: customer.id,
+        transactionId: 'TX-DUE-1',
+        jumlahKredit: 50000,
+        tanggalTransaksi: '2026-10-01',
+        tanggalJatuhTempo: '2026-10-05',
+      });
+
+      // Current ledger (due 2026-10-20)
+      await customerService.createCreditLedger({
+        customerId: customer.id,
+        transactionId: 'TX-DUE-2',
+        jumlahKredit: 30000,
+        tanggalTransaksi: '2026-10-10',
+        tanggalJatuhTempo: '2026-10-20',
+      });
+
+      const overdueLedgers = await customerService.getOverdueLedgers(customer.id, '2026-10-10');
+      expect(overdueLedgers).toHaveLength(1);
+      expect(overdueLedgers[0]?.transactionId).toBe('TX-DUE-1');
+
+      const summary = await customerService.getOverdueSummary('2026-10-10');
+      expect(summary.overdueCount).toBeGreaterThanOrEqual(1);
+      expect(summary.totalOverdueAmount).toBeGreaterThanOrEqual(50000);
+      expect(summary.affectedCustomersCount).toBeGreaterThanOrEqual(1);
     });
   });
 });

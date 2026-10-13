@@ -1,9 +1,10 @@
 /* ═══════════════════════════════════════════════════════════
    CheckoutSection — ClearTask (W3-12 Component Decomposition)
    Payment method selector, quick cash buttons, change display & checkout CTA
+   W4-04: Transaction-level discount
    ═══════════════════════════════════════════════════════════ */
 
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import FieldGroup from '../ui/FieldGroup';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -32,6 +33,14 @@ export interface CheckoutSectionProps {
   cartLength: number;
   onCheckout: () => void;
   settings?: AppSettings;
+  // W4-04: Transaction discount
+  diskonTransaksiEnabled: boolean;
+  diskonTransaksiTipe: 'persen' | 'nominal';
+  diskonTransaksiNilai: number;
+  totalDiskonTransaksi: number;
+  totalSemuaDiskon: number;
+  onToggleDiskonTransaksi: () => void;
+  onSetDiskonTransaksi: (tipe: 'persen' | 'nominal', nilai: number) => void;
 }
 
 export default memo(function CheckoutSection({
@@ -54,7 +63,19 @@ export default memo(function CheckoutSection({
   cartLength,
   onCheckout,
   settings,
+  // W4-04
+  diskonTransaksiEnabled,
+  diskonTransaksiTipe,
+  diskonTransaksiNilai,
+  totalDiskonTransaksi,
+  totalSemuaDiskon,
+  onToggleDiskonTransaksi,
+  onSetDiskonTransaksi,
 }: CheckoutSectionProps) {
+  const [diskonInput, setDiskonInput] = useState(
+    diskonTransaksiNilai > 0 ? String(diskonTransaksiNilai) : ''
+  );
+
   return (
     <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-bg-surface/50 rounded-b-2xl">
       {/* Sub Total row */}
@@ -64,6 +85,72 @@ export default memo(function CheckoutSection({
           Rp {subTotal.toLocaleString('id-ID')}
         </span>
       </div>
+
+      {/* W4-04: Transaction Discount */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-text-secondary">🏷️ Diskon Transaksi</span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={diskonTransaksiEnabled}
+            aria-label="Toggle diskon transaksi"
+            onClick={onToggleDiskonTransaksi}
+            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none cursor-pointer ${diskonTransaksiEnabled ? 'bg-amber-500' : 'bg-white/10'}`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform ${diskonTransaksiEnabled ? 'translate-x-4' : 'translate-x-0'}`}
+            />
+          </button>
+        </div>
+
+        {diskonTransaksiEnabled && (
+          <div className="flex items-center gap-2 p-2.5 bg-amber-500/5 border border-amber-500/15 rounded-xl">
+            <select
+              value={diskonTransaksiTipe}
+              onChange={(e) => {
+                const newTipe = e.target.value as 'persen' | 'nominal';
+                onSetDiskonTransaksi(newTipe, Number(diskonInput) || 0);
+              }}
+              className="text-xs bg-bg-elevated text-text-secondary border border-border-subtle rounded-lg px-2 py-1.5 cursor-pointer"
+              aria-label="Tipe diskon transaksi"
+            >
+              <option value="persen">%</option>
+              <option value="nominal">Rp</option>
+            </select>
+            <input
+              type="number"
+              min="0"
+              max={diskonTransaksiTipe === 'persen' ? 100 : undefined}
+              value={diskonInput}
+              onChange={(e) => {
+                setDiskonInput(e.target.value);
+                onSetDiskonTransaksi(diskonTransaksiTipe, Number(e.target.value) || 0);
+              }}
+              placeholder="0"
+              className="flex-1 text-sm bg-bg-input text-text-primary border border-border-subtle rounded-lg px-3 py-1.5 text-center focus:border-amber-400 focus:outline-none transition-colors"
+              aria-label="Nilai diskon transaksi"
+            />
+            {totalDiskonTransaksi > 0 && (
+              <span className="text-xs font-semibold text-amber-400 whitespace-nowrap tabular-nums">
+                -Rp {totalDiskonTransaksi.toLocaleString('id-ID')}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Total Savings Summary */}
+      {totalSemuaDiskon > 0 && (
+        <div className="flex justify-between items-center py-1.5 px-3 rounded-xl bg-green-500/10 border border-green-500/20">
+          <span className="text-[11px] font-medium text-green-400">💰 Total Hemat</span>
+          <span className="text-xs font-bold text-green-400 tabular-nums">
+            -Rp {totalSemuaDiskon.toLocaleString('id-ID')}
+          </span>
+        </div>
+      )}
 
       {/* Plastik bag toggle */}
       {settings?.plasticBagEnabled !== false && (
@@ -79,6 +166,7 @@ export default memo(function CheckoutSection({
             type="button"
             role="switch"
             aria-checked={plasticBagEnabled}
+            aria-label="Toggle kantong plastik"
             onClick={() => setPlasticBagEnabled((v) => !v)}
             className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${plasticBagEnabled ? 'bg-primary' : 'bg-white/10'}`}
           >
@@ -94,7 +182,7 @@ export default memo(function CheckoutSection({
         <span className="text-sm font-semibold text-text-muted">
           {plasticBagCharge > 0 ? 'Total (+ Plastik)' : 'Total'}
         </span>
-        <span className="text-xl font-black text-primary">
+        <span className="text-xl font-black text-primary tabular-nums">
           Rp {grandTotal.toLocaleString('id-ID')}
         </span>
       </div>
@@ -103,6 +191,7 @@ export default memo(function CheckoutSection({
         <div className="mb-0">
           <FieldGroup label="Metode Pembayaran">
             <select
+              id="metode-pembayaran"
               aria-label="Metode Pembayaran"
               value={metode}
               onChange={(e) => setMetode(e.target.value)}
@@ -121,19 +210,21 @@ export default memo(function CheckoutSection({
           <div className="space-y-3">
             <div className="flex gap-4">
               <div className="flex-1">
-                <FieldGroup label="Uang Diterima">
+                <FieldGroup label="Uang Diterima" htmlFor="uang-diterima">
                   <Input
+                    id="uang-diterima"
                     type="number"
                     value={uangDiterima}
                     onChange={(e) => setUangDiterima(e.target.value)}
                     placeholder="0"
+                    aria-describedby={formError ? 'checkout-error' : undefined}
                   />
                 </FieldGroup>
               </div>
               <div className="flex-1">
                 <FieldGroup label="Kembalian">
                   <div
-                    className={`p-[11px] rounded-xl text-sm font-semibold border flex items-center ${kembalian > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-bg-elevated border-border-default text-text-secondary'}`}
+                    className={`p-[11px] rounded-xl text-sm font-semibold border flex items-center tabular-nums ${kembalian > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-bg-elevated border-border-default text-text-secondary'}`}
                   >
                     Rp {kembalian.toLocaleString('id-ID')}
                   </div>
@@ -149,11 +240,13 @@ export default memo(function CheckoutSection({
                     ? 'bg-primary/10 border-primary/40 text-primary'
                     : 'bg-red-500/10 border-red-500/30 text-red-400'
                 }`}
+                role="status"
+                aria-live="polite"
               >
                 <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
                   {received >= grandTotal ? 'Uang Kembalian' : 'Uang Kurang'}
                 </p>
-                <p className="text-3xl sm:text-[40px] font-black leading-tight mt-1">
+                <p className="text-3xl sm:text-[40px] font-black leading-tight mt-1 tabular-nums">
                   Rp {Math.abs(kembalian).toLocaleString('id-ID')}
                 </p>
               </div>
@@ -165,6 +258,7 @@ export default memo(function CheckoutSection({
                 type="button"
                 onClick={() => setUangDiterima(grandTotal.toString())}
                 className="flex-1 min-w-[60px] py-2 text-[11px] font-bold rounded-lg border border-green-500/30 text-green-400 bg-green-500/10 hover:bg-green-500/20 transition-all cursor-pointer"
+                aria-label={`Uang Pas Rp ${grandTotal.toLocaleString('id-ID')}`}
               >
                 Uang Pas
               </button>
@@ -174,6 +268,7 @@ export default memo(function CheckoutSection({
                   type="button"
                   onClick={() => setUangDiterima(nominal.toString())}
                   className="flex-1 min-w-[50px] py-2 text-[11px] font-semibold rounded-lg border border-border-default text-text-secondary bg-bg-elevated hover:text-primary hover:border-primary/40 hover:bg-primary/10 transition-all cursor-pointer"
+                  aria-label={`Rp ${nominal.toLocaleString('id-ID')}`}
                 >
                   {nominal >= 1000 ? `${nominal / 1000}k` : nominal}
                 </button>
@@ -199,8 +294,9 @@ export default memo(function CheckoutSection({
           </div>
         )}
 
-        <FieldGroup label="Catatan (Opsional)">
+        <FieldGroup label="Catatan (Opsional)" htmlFor="catatan-checkout">
           <Input
+            id="catatan-checkout"
             type="text"
             value={catatan}
             onChange={(e) => setCatatan(e.target.value)}
@@ -210,7 +306,12 @@ export default memo(function CheckoutSection({
       </div>
 
       {formError && (
-        <p className="text-xs text-red-400 font-medium text-center bg-red-400/10 py-2 rounded-lg">
+        <p
+          id="checkout-error"
+          className="text-xs text-red-400 font-medium text-center bg-red-400/10 py-2 rounded-lg"
+          role="alert"
+          aria-live="assertive"
+        >
           {formError}
         </p>
       )}

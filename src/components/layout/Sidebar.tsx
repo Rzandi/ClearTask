@@ -26,8 +26,7 @@ export default function Sidebar({
     { id: 'input', label: 'Input Penjualan', icon: InputIcon },
     { id: 'keluaran', label: 'Input Keluaran', icon: KeluaranIcon },
     { id: 'hutang-piutang', label: 'Hutang-Piutang', icon: CreditIcon },
-    { id: 'laporan', label: 'Riwayat Laporan', icon: LaporanIcon },
-    { id: 'riwayat-sesi', label: 'Riwayat Sesi', icon: SessionHistoryIcon },
+    { id: 'laporan', label: 'Laporan & Sesi', icon: LaporanIcon },
     { id: 'database', label: 'Database', icon: DatabaseIcon },
   ];
 

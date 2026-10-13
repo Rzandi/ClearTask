@@ -3,6 +3,7 @@
    Koordinator tipis: semua rendering didelegasikan ke komponen
    di pos/. File ini hanya memegang state, business logic, dan
    event handlers — tidak ada JSX UI besar di sini.
+   W4-04: Per-item & per-transaction discount support
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useMemo, useCallback, useEffect, memo } from 'react';
@@ -104,9 +105,30 @@ export default memo(function InputPenjualan({
   const plasticBagCharge =
     settings?.plasticBagEnabled !== false && plasticBagEnabled ? plasticBagPrice : 0;
 
+  // ── W4-04: Transaction discount state ─────────────────────
+  const [diskonTransaksiEnabled, setDiskonTransaksiEnabled] = useState(false);
+  const [diskonTransaksiTipe, setDiskonTransaksiTipe] = useState<'persen' | 'nominal'>('persen');
+  const [diskonTransaksiNilai, setDiskonTransaksiNilai] = useState(0);
+
   // ── Derived totals ────────────────────────────────────────
   const subTotal = cart.reduce((sum, item) => sum + item.total, 0);
-  const grandTotal = subTotal + plasticBagCharge;
+
+  // W4-04: Total item-level discounts
+  const totalDiskonItem = cart.reduce((sum, item) => sum + (item.totalDiskon || 0), 0);
+
+  // W4-04: Transaction-level discount computation
+  const totalDiskonTransaksi = useMemo(() => {
+    if (!diskonTransaksiEnabled || diskonTransaksiNilai <= 0) return 0;
+    if (diskonTransaksiTipe === 'persen') {
+      const clamped = Math.min(Math.max(diskonTransaksiNilai, 0), 100);
+      return Math.round(subTotal * (clamped / 100));
+    }
+    return Math.round(Math.min(diskonTransaksiNilai, subTotal));
+  }, [diskonTransaksiEnabled, diskonTransaksiTipe, diskonTransaksiNilai, subTotal]);
+
+  const totalSemuaDiskon = totalDiskonItem + totalDiskonTransaksi;
+  const subTotalSetelahDiskon = subTotal - totalDiskonTransaksi;
+  const grandTotal = Math.max(0, subTotalSetelahDiskon + plasticBagCharge);
   const received = parseNumeric(uangDiterima);
   const kembalian = received > grandTotal ? received - grandTotal : 0;
 
@@ -158,9 +180,7 @@ export default memo(function InputPenjualan({
 
       // Add product to cart (similar to catalog browser behavior)
       setCart((prev) => {
-        const existing = prev.find(
-          (item) => item.inventoryId === product.id && !item.isManual
-        );
+        const existing = prev.find((item) => item.inventoryId === product.id && !item.isManual);
         if (existing) {
           // Increment qty
           return prev.map((item) =>
@@ -210,9 +230,10 @@ export default memo(function InputPenjualan({
   useEffect(() => {
     const cleanup = initMultiTabSync((msg) => {
       if (msg.type === 'CART_UPDATED' && Array.isArray(msg.payload)) {
+        const payload = msg.payload;
         setCart((currentCart) => {
-          if (msg.payload.length === 0 && currentCart.length > 0) return currentCart;
-          return msg.payload;
+          if (payload.length === 0 && currentCart.length > 0) return currentCart;
+          return payload;
         });
       }
     });
@@ -330,6 +351,15 @@ export default memo(function InputPenjualan({
         prev.map((i) => {
           if (i.id !== id) return i;
           const pricing = resolveItemPricing(i, newQty);
+          // W4-04: Recalculate discount with new qty
+          const totalSebelumDiskon = newQty * pricing.hargaSatuan;
+          const diskonPersen = i.diskonPersen || 0;
+          const diskonNominal = i.diskonNominal || 0;
+          let totalDiskon = 0;
+          if (diskonPersen > 0)
+            totalDiskon += Math.round(totalSebelumDiskon * (diskonPersen / 100));
+          if (diskonNominal > 0) totalDiskon += Math.round(diskonNominal);
+          totalDiskon = Math.min(totalDiskon, totalSebelumDiskon);
           return {
             ...i,
             qty: newQty,
@@ -337,13 +367,40 @@ export default memo(function InputPenjualan({
             hargaSatuan: pricing.hargaSatuan,
             hargaModal: pricing.hargaModal,
             isWholesale: pricing.isWholesale,
-            total: pricing.total,
+            totalSebelumDiskon: totalDiskon > 0 ? totalSebelumDiskon : undefined,
+            totalDiskon: totalDiskon > 0 ? totalDiskon : undefined,
+            total: totalDiskon > 0 ? totalSebelumDiskon - totalDiskon : pricing.total,
           };
         })
       );
     },
     [resolveItemPricing]
   );
+
+  // ── W4-04: Update discount for a cart item ────────────────
+  const updateCartDiskon = useCallback((id: any, tipe: 'persen' | 'nominal', nilai: number) => {
+    setCart((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i;
+        const bruto = i.qty * i.hargaSatuan;
+        const diskonPersen = tipe === 'persen' ? nilai : 0;
+        const diskonNominal = tipe === 'nominal' ? nilai : 0;
+        let totalDiskon = 0;
+        if (diskonPersen > 0)
+          totalDiskon += Math.round(bruto * (Math.min(diskonPersen, 100) / 100));
+        if (diskonNominal > 0) totalDiskon += Math.round(diskonNominal);
+        totalDiskon = Math.min(totalDiskon, bruto);
+        return {
+          ...i,
+          diskonPersen: diskonPersen > 0 ? diskonPersen : undefined,
+          diskonNominal: diskonNominal > 0 ? diskonNominal : undefined,
+          totalSebelumDiskon: totalDiskon > 0 ? bruto : undefined,
+          totalDiskon: totalDiskon > 0 ? totalDiskon : undefined,
+          total: totalDiskon > 0 ? bruto - totalDiskon : bruto,
+        };
+      })
+    );
+  }, []);
 
   // ── Remove from cart ──────────────────────────────────────
   const removeFromCart = useCallback((id: any) => {
@@ -458,12 +515,18 @@ export default memo(function InputPenjualan({
       items: finalItems,
       total: grandTotal,
       metode: isCreditSale ? 'Kredit' : metode, // Override metode if credit
-      uangDiterima: isCreditSale ? 0 : (metode === 'Tunai' ? received : grandTotal),
-      kembalian: isCreditSale ? 0 : (metode === 'Tunai' ? kembalian : 0),
+      uangDiterima: isCreditSale ? 0 : metode === 'Tunai' ? received : grandTotal,
+      kembalian: isCreditSale ? 0 : metode === 'Tunai' ? kembalian : 0,
       catatan,
       kasir: kasirName,
       sessionId: activeSession?.id ?? null,
       customerId: isCreditSale ? customerId : undefined, // W4-02: Store customer ID
+      // W4-04: Discount snapshot
+      diskonTransaksi:
+        diskonTransaksiEnabled && diskonTransaksiNilai > 0
+          ? { tipe: diskonTransaksiTipe, nilai: diskonTransaksiNilai }
+          : undefined,
+      totalDiskon: totalSemuaDiskon > 0 ? totalSemuaDiskon : undefined,
     };
 
     const savedTx = await onSubmit(orderData);
@@ -524,11 +587,16 @@ export default memo(function InputPenjualan({
     setUndoOrder(finalOrder);
     setUndoDeadline(Date.now() + 15000);
     setShowStruk(true);
+    if (settings?.soundEnabled !== false) feedbackCheckout();
     setShowMobileCart(false);
     setShowQrisModal(false);
 
     setCart([]);
     setPlasticBagEnabled(false);
+    // W4-04: Reset discount state
+    setDiskonTransaksiEnabled(false);
+    setDiskonTransaksiTipe('persen');
+    setDiskonTransaksiNilai(0);
     try {
       localStorage.removeItem('cleartask_draft_cart');
     } catch {}
@@ -560,9 +628,9 @@ export default memo(function InputPenjualan({
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         const isDialogOpen = Boolean(
           showPendingModal ||
-            showQrisModal ||
-            showStruk ||
-            document.querySelector('[role="dialog"], [aria-modal="true"]')
+          showQrisModal ||
+          showStruk ||
+          document.querySelector('[role="dialog"], [aria-modal="true"]')
         );
         if (cart.length > 0 && !isDialogOpen) {
           e.preventDefault();
@@ -579,12 +647,19 @@ export default memo(function InputPenjualan({
   // ═══════════════════════════════════════════════════════════
   return (
     <div className="animate-slide-up flex flex-col lg:flex-row gap-6 h-auto">
-
       {/* ── KIRI: Katalog / Input Manual ── */}
       <div className="flex-1 glass-card flex flex-col min-h-[500px]">
-        <div className="flex border-b border-border-default">
+        <div
+          className="flex border-b border-border-default"
+          role="tablist"
+          aria-label="Mode input barang"
+        >
           <button
             type="button"
+            role="tab"
+            id="tab-katalog"
+            aria-selected={activeTab === 'katalog'}
+            aria-controls="panel-katalog"
             className={`flex-1 py-4 text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'katalog' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text-primary'}`}
             onClick={() => setActiveTab('katalog')}
           >
@@ -592,6 +667,10 @@ export default memo(function InputPenjualan({
           </button>
           <button
             type="button"
+            role="tab"
+            id="tab-manual"
+            aria-selected={activeTab === 'manual'}
+            aria-controls="panel-manual"
             className={`flex-1 py-4 text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'manual' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text-primary'}`}
             onClick={() => setActiveTab('manual')}
           >
@@ -599,7 +678,12 @@ export default memo(function InputPenjualan({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 pb-24 lg:pb-5">
+        <div
+          className="flex-1 overflow-y-auto p-5 pb-24 lg:pb-5"
+          role="tabpanel"
+          id={activeTab === 'katalog' ? 'panel-katalog' : 'panel-manual'}
+          aria-labelledby={activeTab === 'katalog' ? 'tab-katalog' : 'tab-manual'}
+        >
           {activeTab === 'katalog' ? (
             <CatalogBrowser
               inventory={inventory}
@@ -627,21 +711,31 @@ export default memo(function InputPenjualan({
       {/* ── Mobile Cart Backdrop ── */}
       {showMobileCart && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[55] animate-fade-in"
           onClick={() => setShowMobileCart(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* ── Floating Mobile Cart Button ── */}
       {!showMobileCart && cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-sm animate-slide-up">
+        <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-sm animate-slide-up">
           <Button
             variant="primary"
-            className="w-full rounded-full px-6 py-4 shadow-glow flex items-center justify-between"
+            className="w-full rounded-full px-6 py-4 shadow-lg flex items-center justify-between"
             onClick={() => setShowMobileCart(true)}
+            aria-label={`Buka keranjang, ${cart.length} item, Rp ${grandTotal.toLocaleString('id-ID')}`}
           >
             <span className="flex items-center gap-2 font-semibold">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
               </svg>
               {cart.length} Item
@@ -651,14 +745,35 @@ export default memo(function InputPenjualan({
         </div>
       )}
 
-      {/* ── KANAN: Keranjang & Pembayaran / Cek Stok ── */}
+      {/* ── KANAN: Keranjang & Pembayaran / Cek Stok (Mobile Bottom Sheet / Desktop Sticky) ── */}
       <div
-        className={`fixed inset-y-0 right-0 z-[60] w-full max-w-md bg-bg-surface flex flex-col h-full transform transition-all duration-300 ${showMobileCart ? 'translate-x-0 shadow-2xl opacity-100 visible' : 'translate-x-full opacity-0 invisible'} lg:relative lg:z-auto lg:translate-x-0 lg:opacity-100 lg:visible lg:w-[420px] lg:h-auto lg:min-h-[500px] lg:glass-card`}
+        className={`fixed inset-x-0 bottom-0 z-[60] w-full max-h-[88vh] rounded-t-3xl border-t border-border-default bg-bg-surface flex flex-col shadow-2xl transition-transform duration-300 ease-out overflow-hidden ${
+          showMobileCart
+            ? 'translate-y-0 opacity-100 visible'
+            : 'translate-y-full opacity-0 invisible pointer-events-none'
+        } lg:relative lg:inset-auto lg:bottom-auto lg:z-auto lg:translate-y-0 lg:opacity-100 lg:visible lg:pointer-events-auto lg:w-[420px] lg:max-h-[calc(100vh-2.5rem)] lg:rounded-2xl lg:sticky lg:top-4 lg:self-start lg:glass-card`}
       >
+        {/* Mobile Drag Handle Pill */}
+        <div
+          className="lg:hidden flex items-center justify-center pt-3 pb-1 cursor-pointer shrink-0"
+          onClick={() => setShowMobileCart(false)}
+          aria-label="Tutup keranjang"
+        >
+          <div className="w-12 h-1.5 rounded-full bg-border-strong hover:bg-text-muted transition-colors" />
+        </div>
+
         {/* Tab header */}
-        <div className="flex border-b border-border-default bg-bg-surface/30 shrink-0">
+        <div
+          className="flex border-b border-border-default bg-bg-surface/30 shrink-0"
+          role="tablist"
+          aria-label="Panel kanan"
+        >
           <button
             type="button"
+            role="tab"
+            id="tab-cart"
+            aria-selected={rightPaneTab === 'cart'}
+            aria-controls="panel-cart"
             className={`flex-1 py-4 text-sm font-semibold transition-colors cursor-pointer ${rightPaneTab === 'cart' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text-primary'}`}
             onClick={() => setRightPaneTab('cart')}
           >
@@ -666,6 +781,10 @@ export default memo(function InputPenjualan({
           </button>
           <button
             type="button"
+            role="tab"
+            id="tab-stock"
+            aria-selected={rightPaneTab === 'stock'}
+            aria-controls="panel-stock"
             className={`flex-1 py-4 text-sm font-semibold transition-colors cursor-pointer ${rightPaneTab === 'stock' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text-primary'}`}
             onClick={() => setRightPaneTab('stock')}
           >
@@ -674,22 +793,38 @@ export default memo(function InputPenjualan({
           <button
             className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full bg-bg-elevated text-text-secondary cursor-pointer self-center mr-3"
             onClick={() => setShowMobileCart(false)}
+            aria-label="Tutup keranjang"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         {rightPaneTab === 'stock' ? (
-          <StockCheckPanel
-            inventory={inventory}
-            allCategories={allCategories}
-            onAddToCart={addToCart}
-            onEditManual={handleEditManual}
-          />
+          <div role="tabpanel" id="panel-stock" aria-labelledby="tab-stock">
+            <StockCheckPanel
+              inventory={inventory}
+              allCategories={allCategories}
+              onAddToCart={addToCart}
+              onEditManual={handleEditManual}
+            />
+          </div>
         ) : (
-          <>
+          <div
+            role="tabpanel"
+            id="panel-cart"
+            aria-labelledby="tab-cart"
+            className="flex flex-col flex-1 overflow-y-auto"
+          >
             {/* ── QOL 1.2: Pending Order buttons ── */}
             <div className="flex items-center gap-2 px-5 pt-3 pb-1 shrink-0">
               <button
@@ -733,7 +868,9 @@ export default memo(function InputPenjualan({
                       className="p-3 bg-bg-elevated rounded-xl border border-border-subtle flex items-center justify-between gap-2"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-text-primary truncate">{order.label}</p>
+                        <p className="text-xs font-medium text-text-primary truncate">
+                          {order.label}
+                        </p>
                         <p className="text-[10px] text-text-muted mt-0.5">
                           {order.cart.length} item • {order.metode}
                         </p>
@@ -771,6 +908,7 @@ export default memo(function InputPenjualan({
               subTotal={subTotal}
               onUpdateQty={updateCartQty}
               onRemoveItem={removeFromCart}
+              onUpdateDiskon={updateCartDiskon}
             />
 
             {/* ── KOTAK B: Payment / Checkout ── */}
@@ -794,14 +932,32 @@ export default memo(function InputPenjualan({
               cartLength={cart.length}
               onCheckout={handleCheckout}
               settings={settings}
+              // W4-04: Transaction discount
+              diskonTransaksiEnabled={diskonTransaksiEnabled}
+              diskonTransaksiTipe={diskonTransaksiTipe}
+              diskonTransaksiNilai={diskonTransaksiNilai}
+              totalDiskonTransaksi={totalDiskonTransaksi}
+              totalSemuaDiskon={totalSemuaDiskon}
+              onToggleDiskonTransaksi={() => {
+                setDiskonTransaksiEnabled((v) => !v);
+                if (diskonTransaksiEnabled) {
+                  setDiskonTransaksiNilai(0);
+                }
+              }}
+              onSetDiskonTransaksi={(tipe, nilai) => {
+                setDiskonTransaksiTipe(tipe);
+                setDiskonTransaksiNilai(nilai);
+              }}
             />
-          </>
+          </div>
         )}
       </div>
 
       {/* ── Floating Undo Checkout Notification (W2-04) ── */}
       {undoOrder && undoDeadline && Date.now() <= undoDeadline && (
         <div
+          role="status"
+          aria-live="polite"
           className="fixed right-4 lg:right-6 z-[95] bg-bg-surface/95 border border-primary/40 shadow-glow rounded-xl p-3 flex items-center gap-3 backdrop-blur-md animate-slide-up
             bottom-24 lg:bottom-6"
         >
@@ -845,28 +1001,53 @@ export default memo(function InputPenjualan({
 
       {/* ── QRIS Modal ── */}
       {showQrisModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pembayaran QRIS"
+        >
           <div className="glass-card w-full max-w-sm p-6 text-center space-y-4 animate-slide-up bg-bg-surface border border-primary/30 shadow-2xl">
             <div className="flex items-center justify-between border-b border-border-default pb-3">
               <span className="text-sm font-bold text-text-primary">📱 Pembayaran QRIS</span>
-              <button onClick={() => setShowQrisModal(false)} className="text-text-muted hover:text-text-primary text-xs">
+              <button
+                onClick={() => setShowQrisModal(false)}
+                className="text-text-muted hover:text-text-primary text-xs"
+                aria-label="Tutup QRIS"
+              >
                 ✕
               </button>
             </div>
             <div>
-              <p className="text-xs text-text-muted mb-1">{settings?.tokoName || 'ClearTask Store'}</p>
-              <p className="text-2xl font-extrabold text-primary">Rp {grandTotal.toLocaleString('id-ID')}</p>
+              <p className="text-xs text-text-muted mb-1">
+                {settings?.tokoName || 'ClearTask Store'}
+              </p>
+              <p className="text-2xl font-extrabold text-primary">
+                Rp {grandTotal.toLocaleString('id-ID')}
+              </p>
             </div>
             <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-gray-200 shadow-inner my-2">
               {settings?.qrisImageUrl ? (
-                <img src={settings.qrisImageUrl} alt="QRIS Toko" className="w-48 h-48 object-contain" />
+                <img
+                  src={settings.qrisImageUrl}
+                  alt="QRIS Toko"
+                  className="w-48 h-48 object-contain"
+                />
               ) : (
                 <div className="w-44 h-44 bg-gray-100 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-2">
-                  <svg className="w-16 h-16 text-gray-400 mb-2" viewBox="0 0 24 24" fill="currentColor">
+                  <svg
+                    className="w-16 h-16 text-gray-400 mb-2"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
                     <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-3 0h2v3h-2v-3zm3 3h3v5h-3v-5zm-3 2h2v3h-2v-3zm-3-2h2v5h-2v-5z" />
                   </svg>
-                  <span className="text-[10px] text-gray-500 font-bold text-center">QRIS STATIS TOKO</span>
-                  <span className="text-[9px] text-gray-400 text-center">Scan via BCA / GoPay / OVO / Dana / LinkAja</span>
+                  <span className="text-[10px] text-gray-500 font-bold text-center">
+                    QRIS STATIS TOKO
+                  </span>
+                  <span className="text-[9px] text-gray-400 text-center">
+                    Scan via BCA / GoPay / OVO / Dana / LinkAja
+                  </span>
                 </div>
               )}
               {settings?.qrisNsm && (
@@ -877,10 +1058,18 @@ export default memo(function InputPenjualan({
               Minta pelanggan melakukan scan QR di atas, lalu klik Konfirmasi setelah dana masuk.
             </p>
             <div className="flex gap-2 pt-2">
-              <Button onClick={() => setShowQrisModal(false)} variant="outline" className="flex-1 text-xs py-2.5">
+              <Button
+                onClick={() => setShowQrisModal(false)}
+                variant="outline"
+                className="flex-1 text-xs py-2.5"
+              >
                 Batal
               </Button>
-              <Button onClick={executeCheckout} variant="primary" className="flex-1 text-xs py-2.5 shadow-glow">
+              <Button
+                onClick={executeCheckout}
+                variant="primary"
+                className="flex-1 text-xs py-2.5 shadow-glow"
+              >
                 ✓ Konfirmasi Lunas
               </Button>
             </div>

@@ -5,6 +5,64 @@ Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachange
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-10-13
+
+Versi 3.8.0 menghadirkan modul ekspansi bisnis baru **Sistem Manajemen Hutang & Piutang Pelanggan (W4-02)**, pelacakan **Riwayat Perubahan Harga Barang (W4-03)**, input cepat **Syntax Inline Kasir**, resolusi temuan audit manual v3.7.0 (W4-Bug-01 s/d W4-Bug-06), serta pembersihan menyeluruh **Type Safety TypeScript (W4-05)**.
+
+### 🤝 Added & Enhanced (Hutang-Piutang Pelanggan — W4-02)
+
+- **Buku Besar & Data Piutang (`CreditManagement.tsx`)**:
+  - Skema database Dexie v14 dengan tabel `customers`, `credit_ledger`, dan `credit_payments`.
+  - Pelacakan saldo hutang per pelanggan, daftar riwayat nota hutang, dan status tagihan (`unpaid`, `partial`, `paid`).
+  - Shortcut navigasi keyboard `F5` langsung menuju tab Hutang-Piutang.
+- **Pembayaran Multi-Nota FIFO (`PaymentModal.tsx`)**:
+  - Alur pelunasan pintar yang secara otomatis mendistribusikan uang pembayaran pelanggan ke nota tertua terlebih dahulu (FIFO).
+  - Pratinjau langsung alokasi pembayaran per nota belanja sebelum transaksi disimpan ke basis data.
+- **Notifikasi Jatuh Tempo & Reminder WhatsApp**:
+  - Deteksi otomatis jatuh tempo hutang dengan label peringatan visual (`⚠️ Lewat X hari`).
+  - Peringatan ringkasan hutang menunggak harian via toast notifikasi saat aplikasi dibuka (`useDailyOverdueCheck.ts`).
+  - Tombol 1-klik untuk generate pesan penagihan terformat rapi langsung ke WhatsApp pelanggan.
+- **Laporan & Analisis Umur Piutang (`CreditAgingReport.tsx`)**:
+  - Visualisasi 4 tier distribusi umur piutang: Lancar, 1–30 hari, 31–60 hari, dan >60 hari.
+  - Kartu metrik KPI (Total Piutang, Piutang Menunggak, Rasio Risiko).
+  - Tabel Top 5 Debitur dengan rasio piutang dan tombol aksi cepat.
+  - Fitur ekspor CSV khusus laporan data hutang pelanggan dan laporan aging piutang.
+- **Integrasi POS Kasir & Closing Report**:
+  - Pilihan metode pembayaran `Hutang` di formulir kasir kasir dengan pencatatan otomatis ke buku besar kredit.
+  - Ringkasan total transaksi hutang dan daftar pelanggan baru di laporan penutupan shift (`ClosingReportModal.tsx`).
+
+### 📈 Added (Riwayat & Audit Harga Barang — W4-03)
+
+- **Tabel `price_history` (Dexie v15)**:
+  - Pencatatan otomatis setiap ada perubahan harga jual, modal, atau grosir barang lengkap dengan nilai sebelum, nilai sesudah, timestamp, dan kasir/pengubah.
+- **Modal Riwayat Harga (`PriceHistoryModal.tsx`)**:
+  - Visualisasi tren riwayat harga dan linimasa perubahan per item di Master Barang.
+  - Fitur ekspor riwayat perubahan harga ke file CSV.
+
+### ⚡ Added & Fixed (POS Kasir & Audit Temuan v3.7.0)
+
+- **Input Cepat Syntax Inline (`ManualItemForm.tsx`)**:
+  - Pengetikan kilat seperti `indomie 3x 3500` di kolom nama barang otomatis mendeteksi kuantitas dan harga satuan saat tekan Tab/Enter.
+- **Perbaikan Margin Keuangan (`b4f3923` / W4-Bug-01)**:
+  - Mengubah `hargaModalSnapshot: 0` menjadi `null` pada auto-detect barang baru agar tidak menghasilkan margin 100% palsu di laporan laba rugi.
+- **Proteksi Relasi Stok Edit Transaksi (`50e374d` / W4-Bug-02)**:
+  - Menyetel `inventoryId` ke `null` saat nama barang diedit menjadi barang yang berbeda untuk mencegah korupsi mutasi stok.
+- **Akurasi Counter Badge Sesi (`53079f3` / W4-Bug-03)**:
+  - Memastikan counter transaksi di `RiwayatSesi` mengabaikan transaksi void dan menyertakan transaksi yang diarsipkan.
+- **Metrik Hari Pertama Toko (`c5efc1f` / W4-Bug-04)**:
+  - Memperhitungkan tabel `archive_transactions` saat mengevaluasi status `isFirstDay`.
+- **Validasi & Kompresi Unggah QRIS (`21f848a` / W4-Bug-05)**:
+  - Batas ukuran file 10MB dan kompresi kanvas otomatis sebelum gambar QRIS disimpan ke IndexedDB.
+
+### 🛠️ Refactored & Hardened (Type Safety — W4-05)
+
+- **Strict Type Checking (0 Error `tsc --noEmit`)**:
+  - Mengeliminasi tipe `any` tidak berizin pada `src/types/index.ts`, `transactionService.ts`, `customerService.ts`, `auditService.ts`, dan modul konteks.
+  - Penataan interface `ExportSettings`, `InventoryItemInput`, dan `SyncMessagePayload`.
+- **Kerapian PWA & Service Worker**:
+  - Bump versi cache Service Worker ke `v3.8.0`.
+  - Sinkronisasi versi package dan dokumentasi internal.
+
 ## [3.7.0] - 2026-10-05
 
 Versi 3.7.0 adalah pembaruan besar yang menuntaskan seluruh fondasi **Data Integrity Hardening, Stock Ledger, Cash Reconciliation, & UI Consistency (Workstream W0, W1, W2, dan W3)**. Pembaruan ini memastikan setiap transaksi keuangan dan pergerakan stok memiliki jejak audit (_audit trail_) yang tidak dapat diubah diam-diam, menyatukan operasi database ke service atomik, serta menghadirkan kenyamanan operasional kasir sehari-hari.

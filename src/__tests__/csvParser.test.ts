@@ -40,7 +40,7 @@ SKU-1,"Item A, Super",10000
 SKU-2,Item B,20000`;
     const rows = parseCSV(csv);
     expect(rows.length).toBe(3);
-    expect(rows[1][1]).toBe('Item A, Super');
-    expect(rows[2][1]).toBe('Item B');
+    expect(rows[1]?.[1]).toBe('Item A, Super');
+    expect(rows[2]?.[1]).toBe('Item B');
   });
 });

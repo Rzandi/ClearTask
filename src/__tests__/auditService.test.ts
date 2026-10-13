@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
+import type { AuditLogEntry } from '../types/index';
 
 // ── Helpers ─────────────────────────────────────────────────
 // Re-import modules fresh before every test so a db.close() in one test
@@ -244,9 +245,30 @@ describe('auditService', () => {
       const { db, auditService } = await freshModules();
 
       await db.audit_log.bulkAdd([
-        { id: 'a', timestamp: '2026-10-01T10:00:00.000Z', action: 'create', entity: 'transaction', entityId: '1', actor: 'K' },
-        { id: 'b', timestamp: '2026-10-01T12:00:00.000Z', action: 'create', entity: 'transaction', entityId: '2', actor: 'K' },
-        { id: 'c', timestamp: '2026-10-01T11:00:00.000Z', action: 'create', entity: 'transaction', entityId: '3', actor: 'K' },
+        {
+          id: 'a',
+          timestamp: '2026-10-01T10:00:00.000Z',
+          action: 'create',
+          entity: 'transaction',
+          entityId: '1',
+          actor: 'K',
+        },
+        {
+          id: 'b',
+          timestamp: '2026-10-01T12:00:00.000Z',
+          action: 'create',
+          entity: 'transaction',
+          entityId: '2',
+          actor: 'K',
+        },
+        {
+          id: 'c',
+          timestamp: '2026-10-01T11:00:00.000Z',
+          action: 'create',
+          entity: 'transaction',
+          entityId: '3',
+          actor: 'K',
+        },
       ]);
 
       const logs = await auditService.getRecentLogs(10);
@@ -259,7 +281,12 @@ describe('auditService', () => {
       const { auditService } = await freshModules();
 
       for (let i = 0; i < 5; i++) {
-        await auditService.log({ action: 'create', entity: 'transaction', entityId: String(i), actor: 'K' });
+        await auditService.log({
+          action: 'create',
+          entity: 'transaction',
+          entityId: String(i),
+          actor: 'K',
+        });
       }
       const logs = await auditService.getRecentLogs(3);
       expect(logs).toHaveLength(3);
@@ -268,9 +295,24 @@ describe('auditService', () => {
     it('filters by entity type when provided', async () => {
       const { auditService } = await freshModules();
 
-      await auditService.log({ action: 'create',                entity: 'transaction',   entityId: '1', actor: 'K' });
-      await auditService.log({ action: 'customer_created',      entity: 'customer',      entityId: '2', actor: 'K' });
-      await auditService.log({ action: 'credit_ledger_created', entity: 'credit_ledger', entityId: '3', actor: 'K' });
+      await auditService.log({
+        action: 'create',
+        entity: 'transaction',
+        entityId: '1',
+        actor: 'K',
+      });
+      await auditService.log({
+        action: 'customer_created',
+        entity: 'customer',
+        entityId: '2',
+        actor: 'K',
+      });
+      await auditService.log({
+        action: 'credit_ledger_created',
+        entity: 'credit_ledger',
+        entityId: '3',
+        actor: 'K',
+      });
 
       const txLogs = await auditService.getRecentLogs(10, 'transaction');
       expect(txLogs).toHaveLength(1);
@@ -291,9 +333,24 @@ describe('auditService', () => {
     it('returns only logs matching entity + entityId', async () => {
       const { auditService } = await freshModules();
 
-      await auditService.log({ action: 'credit_transaction_created', entity: 'transaction',   entityId: 'tx-1', actor: 'K' });
-      await auditService.log({ action: 'create',                     entity: 'transaction',   entityId: 'tx-2', actor: 'K' }); // different id
-      await auditService.log({ action: 'credit_ledger_created',      entity: 'credit_ledger', entityId: 'tx-1', actor: 'K' }); // different entity
+      await auditService.log({
+        action: 'credit_transaction_created',
+        entity: 'transaction',
+        entityId: 'tx-1',
+        actor: 'K',
+      });
+      await auditService.log({
+        action: 'create',
+        entity: 'transaction',
+        entityId: 'tx-2',
+        actor: 'K',
+      }); // different id
+      await auditService.log({
+        action: 'credit_ledger_created',
+        entity: 'credit_ledger',
+        entityId: 'tx-1',
+        actor: 'K',
+      }); // different entity
 
       const trail = await auditService.getEntityAuditTrail('transaction', 'tx-1');
       expect(trail).toHaveLength(1);
@@ -313,9 +370,24 @@ describe('auditService', () => {
     it('returns only logs with the specified action', async () => {
       const { auditService } = await freshModules();
 
-      await auditService.log({ action: 'credit_transaction_created', entity: 'transaction', entityId: '1', actor: 'K' });
-      await auditService.log({ action: 'credit_transaction_created', entity: 'transaction', entityId: '2', actor: 'K' });
-      await auditService.log({ action: 'session_closed_with_credit', entity: 'session',     entityId: 's1', actor: 'K' });
+      await auditService.log({
+        action: 'credit_transaction_created',
+        entity: 'transaction',
+        entityId: '1',
+        actor: 'K',
+      });
+      await auditService.log({
+        action: 'credit_transaction_created',
+        entity: 'transaction',
+        entityId: '2',
+        actor: 'K',
+      });
+      await auditService.log({
+        action: 'session_closed_with_credit',
+        entity: 'session',
+        entityId: 's1',
+        actor: 'K',
+      });
 
       const creditLogs = await auditService.getLogsByAction('credit_transaction_created');
       expect(creditLogs).toHaveLength(2);
@@ -336,7 +408,12 @@ describe('auditService', () => {
     it('returns a CSV string with header row', async () => {
       const { auditService } = await freshModules();
 
-      await auditService.log({ action: 'create', entity: 'transaction', entityId: '1', actor: 'Admin' });
+      await auditService.log({
+        action: 'create',
+        entity: 'transaction',
+        entityId: '1',
+        actor: 'Admin',
+      });
 
       const csv = await auditService.exportToCSV();
       expect(typeof csv).toBe('string');
@@ -393,12 +470,18 @@ describe('auditService', () => {
         {
           id: 'old-1',
           timestamp: '2024-01-01T00:00:00.000Z', // > 365 days ago from Oct 2026
-          action: 'create', entity: 'transaction', entityId: '1', actor: 'K',
+          action: 'create',
+          entity: 'transaction',
+          entityId: '1',
+          actor: 'K',
         },
         {
           id: 'recent-1',
           timestamp: new Date().toISOString(),
-          action: 'create', entity: 'transaction', entityId: '2', actor: 'K',
+          action: 'create',
+          entity: 'transaction',
+          entityId: '2',
+          actor: 'K',
         },
       ]);
 
@@ -412,7 +495,12 @@ describe('auditService', () => {
     it('returns 0 when no logs exceed the retention period', async () => {
       const { auditService } = await freshModules();
 
-      await auditService.log({ action: 'create', entity: 'transaction', entityId: '1', actor: 'K' });
+      await auditService.log({
+        action: 'create',
+        entity: 'transaction',
+        entityId: '1',
+        actor: 'K',
+      });
 
       const deleted = await auditService.cleanOldLogs(365);
       expect(deleted).toBe(0);
@@ -435,11 +523,16 @@ describe('auditService', () => {
       const N = 20;
 
       for (let i = 0; i < N; i++) {
-        await auditService.log({ action: 'create', entity: 'transaction', entityId: String(i), actor: 'K' });
+        await auditService.log({
+          action: 'create',
+          entity: 'transaction',
+          entityId: String(i),
+          actor: 'K',
+        });
       }
 
       const all = await db.audit_log.toArray();
-      const ids = all.map((e: any) => e.id);
+      const ids = all.map((e: AuditLogEntry) => e.id);
       expect(new Set(ids).size).toBe(N);
     });
   });

@@ -15,12 +15,7 @@ interface Props {
   onSuccess?: (customer: Customer) => void;
 }
 
-export default function CustomerFormModal({
-  isOpen,
-  onClose,
-  customer,
-  onSuccess,
-}: Props) {
+export default function CustomerFormModal({ isOpen, onClose, customer, onSuccess }: Props) {
   const isEditMode = !!customer;
 
   const [formData, setFormData] = useState({
@@ -53,12 +48,10 @@ export default function CustomerFormModal({
     setErrors({});
   }, [customer, isOpen]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    
+
     // Clear error when user types
     if (errors[name]) {
       setErrors((prev) => {
@@ -135,34 +128,46 @@ export default function CustomerFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-bg-surface border-t sm:border border-border-default rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-slide-up sm:animate-scale-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Mobile Drag Handle Pill */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1 cursor-pointer" onClick={onClose}>
+          <div className="w-12 h-1.5 rounded-full bg-border-strong" />
+        </div>
+
         {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between">
-          <h3 className="text-lg font-bold">
+        <div className="p-4 sm:p-5 border-b border-border-default flex items-center justify-between">
+          <h3 className="text-base font-bold text-text-primary">
             {isEditMode ? 'Edit Pelanggan' : 'Tambah Pelanggan'}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
             disabled={saving}
+            aria-label="Tutup"
           >
             ✕
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
           {errors.submit && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {errors.submit}
             </div>
           )}
 
           {/* Nama */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">
-              Nama Pelanggan <span className="text-red-500">*</span>
+          <div>
+            <label className="block text-xs font-semibold text-text-secondary mb-1">
+              Nama Pelanggan <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -170,22 +175,18 @@ export default function CustomerFormModal({
               value={formData.nama}
               onChange={handleChange}
               placeholder="Contoh: Toko Berkah Jaya"
-              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 ${
-                errors.nama
-                  ? 'border-red-300 focus:ring-red-500'
-                  : 'focus:ring-blue-500'
+              className={`w-full px-3.5 py-2.5 bg-bg-input border rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors text-sm ${
+                errors.nama ? 'border-red-500/60' : 'border-border-default'
               }`}
               disabled={saving}
               autoFocus
             />
-            {errors.nama && (
-              <div className="mt-1 text-sm text-red-600">{errors.nama}</div>
-            )}
+            {errors.nama && <div className="mt-1 text-xs text-red-400">{errors.nama}</div>}
           </div>
 
           {/* Telepon */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">
+          <div>
+            <label className="block text-xs font-semibold text-text-secondary mb-1">
               Nomor Telepon
             </label>
             <input
@@ -194,56 +195,51 @@ export default function CustomerFormModal({
               value={formData.telepon}
               onChange={handleChange}
               placeholder="Contoh: 081234567890"
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3.5 py-2.5 bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors text-sm"
               disabled={saving}
             />
           </div>
 
           {/* Alamat */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Alamat</label>
+          <div>
+            <label className="block text-xs font-semibold text-text-secondary mb-1">Alamat</label>
             <textarea
               name="alamat"
               value={formData.alamat}
               onChange={handleChange}
               placeholder="Contoh: Jl. Merdeka No. 123, Jakarta"
               rows={2}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3.5 py-2.5 bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors text-sm resize-none"
               disabled={saving}
             />
           </div>
 
           {/* Catatan */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-1">Catatan</label>
+          <div>
+            <label className="block text-xs font-semibold text-text-secondary mb-1">Catatan</label>
             <textarea
               name="catatan"
               value={formData.catatan}
               onChange={handleChange}
               placeholder="Catatan tambahan (opsional)"
               rows={2}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3.5 py-2.5 bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors text-sm resize-none"
               disabled={saving}
             />
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2">
+          <div className="flex gap-2.5 pt-2">
             <Button
               type="button"
               onClick={onClose}
-              variant="secondary"
+              variant="outline"
               className="flex-1"
               disabled={saving}
             >
               Batal
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              className="flex-1"
-              disabled={saving}
-            >
+            <Button type="submit" variant="primary" className="flex-1" disabled={saving}>
               {saving ? 'Menyimpan...' : isEditMode ? 'Simpan' : 'Tambah'}
             </Button>
           </div>

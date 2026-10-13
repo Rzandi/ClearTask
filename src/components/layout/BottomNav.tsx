@@ -13,7 +13,6 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
     { id: 'keluaran', label: 'Keluaran', icon: KeluaranIcon },
     { id: 'hutang-piutang', label: 'Hutang', icon: CreditIcon },
     { id: 'laporan', label: 'Laporan', icon: LaporanIcon },
-    { id: 'riwayat-sesi', label: 'Sesi', icon: SesiIcon },
     { id: 'database', label: 'Database', icon: DatabaseIcon },
   ];
 
@@ -21,7 +20,7 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border-default">
       {/* Safe area padding for notch/home indicator devices */}
       <div
-        className="flex items-center h-16 overflow-x-auto scrollbar-none"
+        className="grid grid-cols-5 items-center h-16"
         role="tablist"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
@@ -34,12 +33,12 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               role="tab"
               aria-selected={isActive}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-2xl transition-all duration-200 cursor-pointer flex-shrink-0 ${
+              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-2xl transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? 'bg-primary/12 text-primary shadow-[inset_0_-3px_0_0_#00ffa3]'
+                  ? 'bg-primary/12 text-primary shadow-[inset_0_-2px_0_0_currentColor]'
                   : 'text-text-muted hover:text-text-secondary'
               }`}
-              style={{ minWidth: '20%', padding: '8px 0' }}
+              style={{ padding: '8px 0' }}
             >
               <tab.icon active={isActive} />
               <span
@@ -62,7 +61,7 @@ function InputIcon({ active }: { active: boolean }) {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? '#00ffa3' : '#8b949e'}
+      stroke={active ? 'currentColor' : '#8b949e'}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -80,7 +79,7 @@ function LaporanIcon({ active }: { active: boolean }) {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? '#00ffa3' : '#8b949e'}
+      stroke={active ? 'currentColor' : '#8b949e'}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -100,7 +99,7 @@ function DatabaseIcon({ active }: { active: boolean }) {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? '#00ffa3' : '#8b949e'}
+      stroke={active ? 'currentColor' : '#8b949e'}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -112,24 +111,6 @@ function DatabaseIcon({ active }: { active: boolean }) {
   );
 }
 
-function SesiIcon({ active }: { active: boolean }) {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={active ? '#00ffa3' : '#8b949e'}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-
 function KeluaranIcon({ active }: { active: boolean }) {
   return (
     <svg
@@ -137,7 +118,7 @@ function KeluaranIcon({ active }: { active: boolean }) {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? '#00ffa3' : '#8b949e'}
+      stroke={active ? 'currentColor' : '#8b949e'}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -156,7 +137,7 @@ function CreditIcon({ active }: { active: boolean }) {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? '#00ffa3' : '#8b949e'}
+      stroke={active ? 'currentColor' : '#8b949e'}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"

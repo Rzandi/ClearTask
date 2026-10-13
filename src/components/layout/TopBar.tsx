@@ -73,7 +73,7 @@ export default function TopBar({
   }, []);
 
   return (
-    <header className="flex items-center justify-between gap-4 mb-6 lg:mb-8">
+    <header className="flex items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-6 lg:mb-8">
       {/* Left: Title (mobile shows ClearTask branding) */}
       <div className="flex items-center gap-3">
         {/* Mobile logo */}
@@ -93,14 +93,14 @@ export default function TopBar({
           </svg>
         </div>
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-text-primary tracking-tight">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary tracking-tight truncate max-w-[140px] sm:max-w-none">
             {title}
           </h1>
         </div>
       </div>
 
       {/* Right: Search + Settings */}
-      <div className="flex items-center gap-1 sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         {/* Search */}
         <div className="relative hidden sm:block">
           <svg
@@ -168,18 +168,17 @@ export default function TopBar({
             aria-label="Command Palette (Ctrl+K)"
             onClick={onCommandPaletteOpen}
             title="Tekan Ctrl+K untuk membuka"
-            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl neo-flat hover:neo-pressed transition-all cursor-pointer group"
+            className="hidden sm:flex w-9 h-9 sm:w-11 sm:h-11 items-center justify-center rounded-xl bg-bg-surface/80 border border-border-default hover:bg-bg-elevated hover:border-border-strong text-text-muted hover:text-primary active:scale-[0.96] transition-all cursor-pointer group"
           >
             <svg
               width="18"
               height="18"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#8b949e"
+              stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="group-hover:stroke-primary transition-colors"
             >
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.35-4.35" />
@@ -191,14 +190,14 @@ export default function TopBar({
         <button
           aria-label="Bantuan"
           onClick={onHelpOpen}
-          className="lg:hidden w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer"
+          className="lg:hidden w-8 h-8 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl bg-bg-surface/80 border border-border-default hover:bg-bg-elevated hover:border-border-strong text-text-muted hover:text-text-primary active:scale-[0.96] transition-all cursor-pointer"
         >
           <svg
             width="18"
             height="18"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#8b949e"
+            stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -213,14 +212,14 @@ export default function TopBar({
         <button
           aria-label="Pengaturan"
           onClick={onSettingsOpen}
-          className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer"
+          className="w-8 h-8 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl bg-bg-surface/80 border border-border-default hover:bg-bg-elevated hover:border-border-strong text-text-muted hover:text-text-primary active:scale-[0.96] transition-all cursor-pointer"
         >
           <svg
             width="18"
             height="18"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#8b949e"
+            stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -235,14 +234,14 @@ export default function TopBar({
           <button
             aria-label="Notifikasi"
             onClick={onNotifOpen}
-            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl neo-flat active:neo-pressed transition-all cursor-pointer relative"
+            className="w-8 h-8 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl bg-bg-surface/80 border border-border-default hover:bg-bg-elevated hover:border-border-strong text-text-muted hover:text-text-primary active:scale-[0.96] transition-all cursor-pointer relative"
           >
             <svg
               width="18"
               height="18"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#8b949e"
+              stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"

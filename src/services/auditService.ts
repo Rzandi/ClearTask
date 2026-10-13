@@ -186,7 +186,7 @@ export const auditService = {
   async logCustomerCreated(params: {
     customerId: string;
     nama: string;
-    telepon?: string;
+    telepon?: string | null | undefined;
     kasir: string;
   }): Promise<void> {
     await auditService.log({
@@ -240,7 +240,10 @@ export const auditService = {
   /**
    * Return the most recent N audit logs, optionally filtered by entity type.
    */
-  async getRecentLogs(limit: number = 50, entity?: AuditLogEntry['entity']): Promise<AuditLogEntry[]> {
+  async getRecentLogs(
+    limit: number = 50,
+    entity?: AuditLogEntry['entity']
+  ): Promise<AuditLogEntry[]> {
     try {
       const query = db.audit_log.orderBy('timestamp').reverse();
       if (entity) {
@@ -250,6 +253,25 @@ export const auditService = {
           .toArray()) as AuditLogEntry[];
       }
       return (await query.limit(limit).toArray()) as AuditLogEntry[];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Return all audit logs associated with a customer (profile, credit, payment).
+   */
+  async getLogsForCustomer(customerId: string, limit: number = 50): Promise<AuditLogEntry[]> {
+    try {
+      const allLogs = await db.audit_log.toArray();
+      const filtered = allLogs.filter((log: AuditLogEntry) => {
+        if (log.entity === 'customer' && log.entityId === customerId) return true;
+        if (log.details && (log.details as any).customerId === customerId) return true;
+        return false;
+      });
+      return filtered
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, limit);
     } catch {
       return [];
     }

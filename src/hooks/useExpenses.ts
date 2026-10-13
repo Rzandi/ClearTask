@@ -15,7 +15,7 @@ export interface ExpenseItem {
   namaKeluaran: string;
   jumlah: number;
   catatan?: string;
-  sessionId?: string;        // Bug #2: tie expense to active session
+  sessionId?: string; // Bug #2: tie expense to active session
   createdAt?: string;
   updatedAt?: string;
   syncStatus?: 'local' | 'synced';
@@ -25,19 +25,12 @@ export function useExpenses(limit: number = 1000) {
   const context = useContext(ExpensesContext);
 
   const fallbackExpenses =
-    useLiveQuery(
-      () => {
-        if (context) return null;
-        return limit > 0
-          ? db.expenses.orderBy('tanggal').reverse().limit(limit).toArray()
-          : db.expenses.orderBy('tanggal').reverse().toArray();
-      },
-      [Boolean(context), limit]
-    ) || [];
-
-  if (context) {
-    return context;
-  }
+    useLiveQuery(() => {
+      if (context) return [];
+      return limit > 0
+        ? db.expenses.orderBy('tanggal').reverse().limit(limit).toArray()
+        : db.expenses.orderBy('tanggal').reverse().toArray();
+    }, [Boolean(context), limit]) || [];
 
   const expenses = fallbackExpenses;
 
@@ -81,6 +74,10 @@ export function useExpenses(limit: number = 1000) {
     },
     []
   );
+
+  if (context) {
+    return context;
+  }
 
   return {
     expenses,

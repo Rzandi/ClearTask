@@ -58,6 +58,10 @@ export default defineConfig({
           if (id.includes('node_modules/exceljs')) {
             return 'vendor-export';
           }
+          // ZXing — heavy barcode scanner library, only loaded when scanner opened
+          if (id.includes('node_modules/@zxing')) {
+            return 'vendor-scanner';
+          }
           // Everything else in node_modules → vendor chunk
           if (id.includes('node_modules')) {
             return 'vendor';

@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { toTitleCase } from './formatters';
-import type { Session, Transaction } from '../types/index';
+import type { Session, Transaction, Expense } from '../types/index';
 
 // Re-export so existing imports from sessionStats.ts keep working
 export type { Session, Transaction } from '../types/index';
@@ -33,7 +33,7 @@ export interface ClosingReportStats {
   // W4-02 Phase 3C: Credit sales statistics
   totalPenjualanKredit: number;
   jumlahTransaksiKredit: number;
-  creditCustomers: Array<{ customerId: number; customerName: string; amount: number }>;
+  creditCustomers: Array<{ customerId: string; customerName: string; amount: number }>;
 }
 
 /**
@@ -45,7 +45,7 @@ export interface ClosingReportStats {
 export function calculateSessionStats(
   session: Session,
   transactions: Transaction[],
-  expenses: any[] = []
+  expenses: Expense[] = []
 ): ClosingReportStats {
   // Handle empty transactions case (7.2)
   if (!transactions || transactions.length === 0) {
@@ -193,13 +193,16 @@ export function calculateSessionStats(
   // W4-02 Phase 3C: Calculate credit sales statistics
   let totalPenjualanKredit = 0;
   let jumlahTransaksiKredit = 0;
-  const creditCustomerMap = new Map<string, { customerId: string; customerName: string; amount: number }>();
+  const creditCustomerMap = new Map<
+    string,
+    { customerId: string; customerName: string; amount: number }
+  >();
 
   activeTransactions.forEach((tx) => {
     if (tx.metode?.toLowerCase() === 'kredit' && tx.customerId) {
       jumlahTransaksiKredit += 1;
       totalPenjualanKredit += Number(tx.total) || 0;
-      
+
       // Aggregate by customer
       const existing = creditCustomerMap.get(tx.customerId);
       if (existing) {
@@ -214,7 +217,9 @@ export function calculateSessionStats(
     }
   });
 
-  const creditCustomers = Array.from(creditCustomerMap.values()).sort((a, b) => b.amount - a.amount);
+  const creditCustomers = Array.from(creditCustomerMap.values()).sort(
+    (a, b) => b.amount - a.amount
+  );
 
   return {
     session,

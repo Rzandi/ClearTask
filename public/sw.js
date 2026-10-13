@@ -3,7 +3,7 @@
    Cache-first for assets, Network-first for navigation
    ═══════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = 'v3.6.0';
+const CACHE_VERSION = 'v3.8.0';
 const STATIC_CACHE = `cleartask-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `cleartask-dynamic-${CACHE_VERSION}`;
 
@@ -22,7 +22,16 @@ self.addEventListener('install', (event) => {
       return cache.addAll(APP_SHELL);
     })
   );
-  self.skipWaiting();
+  // W5-04: Do not skipWaiting automatically to avoid unprompted page reloads.
+  // Wait for SKIP_WAITING message from user prompt in AppBootstrap/main.tsx.
+});
+
+// ─── Message (Controlled Update Flow) ─────────────────────
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[SW] Received SKIP_WAITING from client update prompt');
+    self.skipWaiting();
+  }
 });
 
 // ─── Activate ─────────────────────────────────────────────

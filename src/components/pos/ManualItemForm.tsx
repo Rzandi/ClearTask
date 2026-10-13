@@ -3,16 +3,17 @@
    Manual custom item entry form with real-time suggestion dropdown
    ═══════════════════════════════════════════════════════════ */
 
-import React, { useState, useMemo, memo, useEffect } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import FieldGroup from '../ui/FieldGroup';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import HighlightText from '../ui/HighlightText';
 import { parseIDNumber } from '../../utils/parseIDNumber';
-import { parseQty, isValidQty, getQtyStep } from '../../utils/qtyUtils';
+import { parseQty, isValidQty } from '../../utils/qtyUtils';
+import { parseInlineCommand, hasInlineSyntax } from '../../utils/inlineSyntaxParser';
 import { getAllCustomers } from '../../services/customerService';
-import type { InventoryItem, Customer } from '../../types/index';
+import type { InventoryItem } from '../../types/index';
 
 const parseNumeric = (val: any) => {
   if (val === undefined || val === null || val === '') return 0;
@@ -27,13 +28,15 @@ export interface ManualItemFormProps {
   setTanggal: (val: string) => void;
   onAddToCart: (item: any) => void;
   confirm: (options: any) => Promise<boolean>;
-  initialForm?: {
-    namaBarang?: string;
-    kategori?: string;
-    subKategori?: string;
-    qty?: string;
-    hargaSatuan?: string;
-  };
+  initialForm?:
+    | {
+        namaBarang?: string;
+        kategori?: string;
+        subKategori?: string;
+        qty?: string;
+        hargaSatuan?: string;
+      }
+    | undefined;
 }
 
 export default memo(function ManualItemForm({
@@ -60,10 +63,11 @@ export default memo(function ManualItemForm({
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Load customers from database (live query untuk real-time update)
-  const customers = useLiveQuery(async () => {
-    const allCustomers = await getAllCustomers();
-    return allCustomers.filter((c) => !c.deletedAt); // Only active customers
-  }, []) ?? [];
+  const customers =
+    useLiveQuery(async () => {
+      const allCustomers = await getAllCustomers();
+      return allCustomers.filter((c) => !c.deletedAt); // Only active customers
+    }, []) ?? [];
 
   // Suggestions for auto-complete based on typed name
   const suggestions = useMemo(() => {
@@ -83,6 +87,12 @@ export default memo(function ManualItemForm({
       ) || null
     );
   }, [form.namaBarang, inventory]);
+
+  // W4-Bug-06: Real-time inline syntax preview (e.g. "Susu 2x @15000")
+  const inlineParsed = useMemo(() => {
+    if (!form.namaBarang || !hasInlineSyntax(form.namaBarang)) return null;
+    return parseInlineCommand(form.namaBarang);
+  }, [form.namaBarang]);
 
   const handleManualChange = (field: string, value: any) => {
     setForm((prev) => {
@@ -116,12 +126,33 @@ export default memo(function ManualItemForm({
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const err: Record<string, string> = {};
-    if (!form.namaBarang.trim()) err.namaBarang = 'Nama barang wajib diisi';
-    
+
+    let targetNama = form.namaBarang.trim();
+    let q = parseQty(form.qty);
+    let h = parseNumeric(form.hargaSatuan);
+
+    // Apply inline parsed command if detected
+    if (inlineParsed) {
+      targetNama = inlineParsed.namaBarang;
+      q = inlineParsed.qty;
+      if (inlineParsed.hargaSatuan !== null) {
+        h = inlineParsed.hargaSatuan;
+      }
+    }
+
+    if (!targetNama) err.namaBarang = 'Nama barang wajib diisi';
+
+    // Auto-match inventory by target name
+    const matchedItem = inventory.find(
+      (invItem) => invItem.namaBarang?.toLowerCase().trim() === targetNama.toLowerCase()
+    );
+
+    // If price wasn't specified via inline syntax or form, lookup from catalog
+    if (h <= 0 && matchedItem?.harga) {
+      h = matchedItem.harga;
+    }
+
     // W4-01: Parse qty dengan parseQty (support desimal)
-    const q = parseQty(form.qty);
-    const h = parseNumeric(form.hargaSatuan);
-    
     if (!isValidQty(q)) err.qty = 'Qty harus > 0 (support desimal, misal 0,5)';
     if (h <= 0) err.hargaSatuan = 'Harga harus > 0';
 
@@ -135,9 +166,6 @@ export default memo(function ManualItemForm({
       return;
     }
 
-    const matchedItem = inventory.find(
-      (invItem) => invItem.namaBarang?.toLowerCase().trim() === form.namaBarang.trim().toLowerCase()
-    );
     const resolvedHargaModal = matchedItem ? matchedItem.hargaModal || 0 : 0;
 
     // W2-09: Validasi harga jual < modal -> konfirmasi peringatan
@@ -151,9 +179,9 @@ export default memo(function ManualItemForm({
     }
 
     onAddToCart({
-      namaBarang: form.namaBarang.trim(),
-      kategori: form.kategori,
-      subKategori: form.subKategori,
+      namaBarang: targetNama,
+      kategori: matchedItem?.kategori || form.kategori,
+      subKategori: matchedItem?.subKategori || form.subKategori,
       hargaSatuan: h,
       normalHargaSatuan: h,
       isCustomPrice: true,
@@ -163,10 +191,10 @@ export default memo(function ManualItemForm({
       customerId: form.customerId, // W4-02: Pass customer ID for credit
     });
 
-    setForm({ 
-      ...form, 
-      namaBarang: '', 
-      qty: '1', 
+    setForm({
+      ...form,
+      namaBarang: '',
+      qty: '1',
       hargaSatuan: '',
       // Keep metode & customerId (user might add multiple items for same customer)
     });
@@ -181,7 +209,13 @@ export default memo(function ManualItemForm({
       <FieldGroup label="Nama Barang">
         <div className="relative">
           <Input
+            id="manual-nama-barang"
             type="text"
+            aria-label="Nama barang"
+            aria-autocomplete="list"
+            aria-controls="manual-suggestions-list"
+            aria-expanded={showSuggestions && suggestions.length > 0}
+            aria-invalid={!!errors.namaBarang}
             value={form.namaBarang}
             onChange={(e) => {
               handleManualChange('namaBarang', e.target.value);
@@ -194,11 +228,18 @@ export default memo(function ManualItemForm({
             className={errors.namaBarang ? 'border-red-500' : ''}
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute left-0 right-0 mt-1 bg-bg-surface border border-border-default rounded-xl shadow-xl z-[60] max-h-40 overflow-y-auto divide-y divide-border-subtle">
+            <div
+              id="manual-suggestions-list"
+              role="listbox"
+              aria-label="Saran nama barang"
+              className="absolute left-0 right-0 mt-1 bg-bg-surface border border-border-default rounded-xl shadow-xl z-[60] max-h-40 overflow-y-auto divide-y divide-border-subtle"
+            >
               {suggestions.map((item) => (
                 <button
                   key={item.id}
                   type="button"
+                  role="option"
+                  aria-selected="false"
                   onMouseDown={() => handleSelectSuggestion(item)}
                   className="w-full text-left px-4 py-2.5 text-xs font-semibold text-text-primary hover:bg-white/[0.04] hover:text-primary transition-colors cursor-pointer"
                 >
@@ -212,15 +253,38 @@ export default memo(function ManualItemForm({
           )}
         </div>
         {errors.namaBarang && (
-          <span className="text-xs text-red-400 mt-1 block">{errors.namaBarang}</span>
+          <span role="alert" className="text-xs text-red-400 mt-1 block">
+            {errors.namaBarang}
+          </span>
+        )}
+        {inlineParsed && (
+          <span
+            role="status"
+            aria-live="polite"
+            className="text-xs text-primary mt-1 block font-mono bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20"
+          >
+            ⚡ Quick Syntax: <strong>{inlineParsed.namaBarang}</strong> ({inlineParsed.qty}x
+            {inlineParsed.hargaSatuan
+              ? ` @ Rp ${inlineParsed.hargaSatuan.toLocaleString('id-ID')}`
+              : ''}
+            )
+          </span>
         )}
         {matchedInventoryItem ? (
-          <span className="text-xs text-green-400 mt-1 block font-medium">
+          <span
+            role="status"
+            aria-live="polite"
+            className="text-xs text-green-400 mt-1 block font-medium"
+          >
             ✓ Terdaftar (Stok: {matchedInventoryItem.quantity || 0}, Jual: Rp{' '}
             {matchedInventoryItem.harga?.toLocaleString('id-ID')})
           </span>
-        ) : form.namaBarang.trim() ? (
-          <span className="text-xs text-primary mt-1 block font-medium animate-pulse">
+        ) : form.namaBarang.trim() && !inlineParsed ? (
+          <span
+            role="status"
+            aria-live="polite"
+            className="text-xs text-primary mt-1 block font-medium animate-pulse"
+          >
             ✨ Barang Baru Terdeteksi! (Stok: 0, Modal: 0)
           </span>
         ) : null}
@@ -229,28 +293,40 @@ export default memo(function ManualItemForm({
         <div className="flex-1">
           <FieldGroup label="Harga Satuan">
             <Input
+              id="manual-harga-satuan"
               type="number"
+              aria-label="Harga satuan"
+              aria-invalid={!!errors.hargaSatuan}
               value={form.hargaSatuan}
               onChange={(e) => handleManualChange('hargaSatuan', e.target.value)}
               placeholder="0"
               className={errors.hargaSatuan ? 'border-red-500' : ''}
             />
             {errors.hargaSatuan && (
-              <span className="text-xs text-red-400 mt-1 block">{errors.hargaSatuan}</span>
+              <span role="alert" className="text-xs text-red-400 mt-1 block">
+                {errors.hargaSatuan}
+              </span>
             )}
           </FieldGroup>
         </div>
         <div className="w-32">
           <FieldGroup label="Qty">
             <Input
+              id="manual-qty"
               type="text"
               inputMode="decimal"
+              aria-label="Jumlah kuantitas"
+              aria-invalid={!!errors.qty}
               value={form.qty}
               onChange={(e) => handleManualChange('qty', e.target.value)}
               placeholder="1 atau 0,5"
               className={errors.qty ? 'border-red-500' : ''}
             />
-            {errors.qty && <span className="text-xs text-red-400 mt-1 block">{errors.qty}</span>}
+            {errors.qty && (
+              <span role="alert" className="text-xs text-red-400 mt-1 block">
+                {errors.qty}
+              </span>
+            )}
             {!errors.qty && (
               <span className="text-[10px] text-text-muted mt-0.5 block">
                 Desimal: gunakan koma (,)
@@ -331,8 +407,8 @@ export default memo(function ManualItemForm({
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.nama}
-                  {customer.totalHutang > 0 
-                    ? ` (Hutang: Rp ${customer.totalHutang.toLocaleString('id-ID')})` 
+                  {customer.totalHutang > 0
+                    ? ` (Hutang: Rp ${customer.totalHutang.toLocaleString('id-ID')})`
                     : ' (Lunas)'}
                 </option>
               ))}

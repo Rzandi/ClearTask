@@ -6,9 +6,9 @@
 import { memo } from 'react';
 
 export interface HighlightTextProps {
-  text?: string | null;
-  query?: string | null;
-  className?: string;
+  text?: string | null | undefined;
+  query?: string | null | undefined;
+  className?: string | undefined;
 }
 
 export const HighlightText = memo(function HighlightText({

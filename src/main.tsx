@@ -29,7 +29,11 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { InventoryProvider } from './contexts/InventoryContext';
 import { ExpensesProvider } from './contexts/ExpensesContext';
 import { ToastProvider } from './hooks/useToast';
+import { initErrorTracker } from './services/errorTracker';
 import './index.css';
+
+// W5-03: Initialize production observability & error tracker
+initErrorTracker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -8,7 +8,7 @@ export interface ToastProps {
   message: string;
   type?: 'success' | 'error' | 'warning';
   onClose: () => void;
-  duration?: number;
+  duration?: number | undefined;
 }
 
 const Toast = memo(function Toast({

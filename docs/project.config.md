@@ -9,8 +9,8 @@
 
 ```
 Nama Project     : ClearTask
-Deskripsi Singkat: Task Management web application with local storage (IndexedDB via Dexie)
-Versi Saat Ini   : v3.4.0
+Deskripsi Singkat: Point-of-Sale (POS) & Retail Management web application with local storage (IndexedDB via Dexie)
+Versi Saat Ini   : v3.8.0
 Status           : [x] Planning  [x] In Progress  [x] Done  [ ] On Hold
 Jenis            : [ ] Baru  [x] Legacy (Strangler Fig Mode)
 ```

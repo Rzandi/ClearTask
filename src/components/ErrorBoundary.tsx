@@ -6,6 +6,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { Component } from 'react';
+import { captureException } from '../services/errorTracker';
 
 export interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -45,6 +46,8 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
     if (import.meta.env.DEV) {
       console.error('[ErrorBoundary] Uncaught error:', error, errorInfo);
     }
+    // W5-03: Record in observability error tracker
+    captureException(error, { componentStack: errorInfo?.componentStack });
     this.setState({ errorInfo });
   }
 

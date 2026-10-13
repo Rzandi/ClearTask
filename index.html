@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws:;"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' ws: blob: data:;"
     />
 
     <!-- SEO -->
@@ -14,6 +14,33 @@
       name="description"
       content="ClearTask membantu pemilik bisnis dan kasir mencatat transaksi harian, memantau penjualan real-time, dan mengekspor laporan ke Excel."
     />
+    <link rel="canonical" href="https://cleartask.app/" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ClearTask — Aplikasi Pencatatan Penjualan Digital" />
+    <meta
+      name="twitter:description"
+      content="ClearTask membantu pemilik bisnis dan kasir mencatat transaksi harian, memantau penjualan real-time, dan mengekspor laporan ke Excel."
+    />
+    <meta name="twitter:image" content="/assets/icons/manifest-icon-512.maskable.png" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "ClearTask",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "All",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "IDR"
+        },
+        "description": "Aplikasi pencatatan penjualan digital dan kasir POS offline-ready untuk UMKM."
+      }
+    </script>
 
     <!-- Favicons -->
     <link
@@ -44,11 +71,11 @@
     />
     <meta property="og:image" content="/assets/logo.png" />
 
-    <!-- Google Fonts: Outfit -->
+    <!-- Google Fonts: Inter (Data/Financial) & Outfit (Brand) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
   </head>
@@ -64,7 +91,7 @@
           align-items: center;
           justify-content: center;
           height: 100vh;
-          background: #0a0a0f;
+          background: #0c0e12;
           color: #a0a0b0;
           font-family: system-ui, sans-serif;
           gap: 1rem;
@@ -74,8 +101,8 @@
           style="
             width: 40px;
             height: 40px;
-            border: 3px solid rgba(0, 255, 163, 0.2);
-            border-top-color: #00ffa3;
+            border: 3px solid rgba(37, 99, 235, 0.2);
+            border-top-color: #2563eb;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
           "

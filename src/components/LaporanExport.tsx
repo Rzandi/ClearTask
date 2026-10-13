@@ -5,6 +5,7 @@ import { toLocalDateString, getTodayISO, formatRupiah } from '../utils/formatter
 import { useSettings } from '../contexts/SettingsContext';
 import { useExpenses } from '../hooks/useExpenses';
 import ReportingChart from './ReportingChart';
+import RiwayatSesi from './RiwayatSesi';
 
 import db from '../services/db';
 
@@ -20,6 +21,8 @@ export interface LaporanExportProps {
   setSortOrder: (val: string) => void;
   onUpdate: (id: string, data: any) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  allSessions?: any[];
+  getSessionTransactions?: (sessionId: string) => Promise<any[]>;
 }
 
 export default function LaporanExport({
@@ -34,6 +37,8 @@ export default function LaporanExport({
   setSortOrder,
   onUpdate,
   onDelete,
+  allSessions = [],
+  getSessionTransactions,
 }: LaporanExportProps) {
   const { settings } = useSettings();
   const { expenses } = useExpenses();
@@ -69,7 +74,15 @@ export default function LaporanExport({
       let cost = 0;
       if (tx.items && Array.isArray(tx.items)) {
         tx.items.forEach((item: any) => {
-          cost += (item.hargaModal || 0) * (item.qty || 1);
+          const modal =
+            item.hargaModalSnapshot !== null && item.hargaModalSnapshot !== undefined
+              ? item.hargaModalSnapshot
+              : item.hargaModal !== null && item.hargaModal !== undefined
+                ? item.hargaModal
+                : null;
+          if (modal !== null) {
+            cost += modal * (item.qty || 1);
+          }
         });
       }
       return sum + cost;
@@ -196,295 +209,336 @@ export default function LaporanExport({
     return `${filterDate.label} (${filterDate.start} s/d ${filterDate.end})`;
   }, [filterDate]);
 
+  // Sub-tab state: 'penjualan' or 'sesi'
+  const [subTab, setSubTab] = useState<'penjualan' | 'sesi'>('penjualan');
+
   return (
     <div className="space-y-6 animate-slide-up">
       {/* Page Header */}
       <div>
-        <h2 className="text-lg font-bold text-text-primary mb-1">Laporan & Export</h2>
-        <p className="text-sm text-text-muted">Tinjau riwayat penjualan dan unduh laporan.</p>
+        <h2 className="text-lg font-bold text-text-primary mb-1">Laporan & Sesi</h2>
+        <p className="text-sm text-text-muted">
+          Tinjau riwayat penjualan, unduh laporan, atau lihat riwayat sesi kerja.
+        </p>
       </div>
 
-      {/* Dynamic Metric Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Pemasukan Card */}
-        <div className="glass-card p-5">
-          <p className="text-xs font-semibold text-text-muted mb-1">Total Pemasukan</p>
-          <p className="text-2xl font-bold text-primary">{formatRupiah(totalRevenue)}</p>
-          <p className="text-[10px] text-text-muted mt-2">
-            {isFilterActive ? 'Sesuai filter' : 'Seluruh waktu'}
-          </p>
-        </div>
-
-        {/* Keluaran Card */}
-        <div className="glass-card p-5">
-          <p className="text-xs font-semibold text-text-muted mb-1">Total Keluaran (Pengeluaran)</p>
-          <p className="text-2xl font-bold text-accent-red">{formatRupiah(totalExpense)}</p>
-          <p className="text-[10px] text-text-muted mt-2">
-            {isFilterActive ? 'Sesuai filter' : 'Seluruh waktu'}
-          </p>
-        </div>
-
-        {/* Profit Card with Margin % */}
-        <div className="glass-card p-5">
-          <p className="text-xs font-semibold text-text-muted mb-1">Keuntungan Bersih (Profit)</p>
-          <div className="flex items-baseline gap-2">
-            <p
-              className={`text-2xl font-bold ${netProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}
-            >
-              {formatRupiah(netProfit)}
-            </p>
-            {/* QOL E.2: Profit Margin Percentage */}
-            {totalRevenue > 0 && (
-              <span
-                className={`text-sm font-bold px-1.5 py-0.5 rounded-md ${
-                  netProfit >= 0 ? 'bg-blue-500/10 text-blue-400' : 'bg-red-500/10 text-red-400'
-                }`}
-              >
-                {((netProfit / totalRevenue) * 100).toFixed(1)}%
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] text-text-muted mt-2">
-            Margin: Pemasukan - Modal ({formatRupiah(totalCostOfSales)}) - Keluaran
-          </p>
-        </div>
-      </div>
-
-      {/* SVG Reporting Chart */}
-      <ReportingChart
-        transactions={transactions}
-        expenses={filteredExpenses}
-        filterType={filterDate?.label || 'Custom'}
-      />
-
-      {/* Filters Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 sm:max-w-xs">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            id="filter-search"
-            placeholder="Cari ID, Kasir, atau Nama Barang..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
-          />
-        </div>
-
-        {/* Sort */}
-        <div className="flex items-center gap-2">
-          <label htmlFor="filter-sort" className="text-xs text-text-muted whitespace-nowrap">
-            Urutan:
-          </label>
-          <select
-            id="filter-sort"
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="px-3 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none appearance-none cursor-pointer"
-          >
-            <option value="newest">Waktu (Terbaru)</option>
-            <option value="oldest">Waktu (Terlama)</option>
-            <option value="highest">Nominal Tertinggi</option>
-            <option value="lowest">Nominal Terendah</option>
-          </select>
-        </div>
-
-        {/* Clear Filters */}
-        {(filterDate || searchQuery) && (
-          <button
-            onClick={() => {
-              setFilterDate('');
-              setSearchQuery('');
-              setShowCustomRange(false);
-              setCustomStart('');
-              setCustomEnd('');
-            }}
-            className="text-xs text-primary hover:text-primary-hover transition-colors cursor-pointer whitespace-nowrap"
-          >
-            ✕ Reset filter
-          </button>
-        )}
-      </div>
-
-      {/* Quick Filters — QOL E.1: Enhanced with Kemarin, 7 Hari, Bulan Lalu + W3-06 Custom */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { type: 'today', label: 'Hari Ini' },
-          { type: 'yesterday', label: 'Kemarin' },
-          { type: 'last7', label: '7 Hari Terakhir' },
-          { type: 'week', label: 'Mingguan' },
-          { type: 'month', label: 'Bulanan' },
-          { type: 'lastMonth', label: 'Bulan Lalu' },
-          { type: 'year', label: 'Tahunan' },
-        ].map((btn) => (
-          <button
-            key={btn.type}
-            onClick={() => handleQuickFilter(btn.type)}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
-              filterDate?.label === btn.label
-                ? 'bg-primary/10 text-primary border-primary/30'
-                : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
-            }`}
-          >
-            {btn.label}
-          </button>
-        ))}
-        {/* W3-06: Custom Range Toggle */}
+      {/* Segmented Control */}
+      <div className="flex gap-1 p-1 rounded-xl bg-bg-card/60 border border-border-default w-fit">
         <button
-          onClick={handleToggleCustomRange}
-          className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer inline-flex items-center gap-1.5 ${
-            showCustomRange || filterDate?.label === 'Custom'
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
+          onClick={() => setSubTab('penjualan')}
+          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer ${
+            subTab === 'penjualan'
+              ? 'bg-primary/15 text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary'
           }`}
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-          Rentang Kustom
+          Penjualan & Analitik
+        </button>
+        <button
+          onClick={() => setSubTab('sesi')}
+          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer ${
+            subTab === 'sesi'
+              ? 'bg-primary/15 text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          Riwayat Sesi Kerja
         </button>
       </div>
 
-      {/* W3-06: Custom Date Range Picker Panel */}
-      {showCustomRange && (
-        <div className="glass-card p-4 animate-slide-up">
-          <p className="text-xs font-semibold text-text-muted mb-3">Pilih Rentang Tanggal</p>
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="custom-start" className="text-[11px] text-text-muted font-medium">
-                Dari
-              </label>
+      {/* Sub-tab Content */}
+      {subTab === 'sesi' && getSessionTransactions ? (
+        <RiwayatSesi allSessions={allSessions} getSessionTransactions={getSessionTransactions} />
+      ) : (
+        <>
+          {/* Dynamic Metric Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Pemasukan Card */}
+            <div className="glass-card p-5">
+              <p className="text-xs font-semibold text-text-muted mb-1">Total Pemasukan</p>
+              <p className="text-2xl font-bold text-primary">{formatRupiah(totalRevenue)}</p>
+              <p className="text-[10px] text-text-muted mt-2">
+                {isFilterActive ? 'Sesuai filter' : 'Seluruh waktu'}
+              </p>
+            </div>
+
+            {/* Keluaran Card */}
+            <div className="glass-card p-5">
+              <p className="text-xs font-semibold text-text-muted mb-1">
+                Total Keluaran (Pengeluaran)
+              </p>
+              <p className="text-2xl font-bold text-accent-red">{formatRupiah(totalExpense)}</p>
+              <p className="text-[10px] text-text-muted mt-2">
+                {isFilterActive ? 'Sesuai filter' : 'Seluruh waktu'}
+              </p>
+            </div>
+
+            {/* Profit Card with Margin % */}
+            <div className="glass-card p-5">
+              <p className="text-xs font-semibold text-text-muted mb-1">
+                Keuntungan Bersih (Profit)
+              </p>
+              <div className="flex items-baseline gap-2">
+                <p
+                  className={`text-2xl font-bold ${netProfit >= 0 ? 'text-blue-400' : 'text-accent-red'}`}
+                >
+                  {formatRupiah(netProfit)}
+                </p>
+                {/* QOL E.2: Profit Margin Percentage */}
+                {totalRevenue > 0 && (
+                  <span
+                    className={`text-sm font-bold px-1.5 py-0.5 rounded-md ${
+                      netProfit >= 0 ? 'bg-blue-500/10 text-blue-400' : 'bg-red-500/10 text-red-400'
+                    }`}
+                  >
+                    {((netProfit / totalRevenue) * 100).toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-text-muted mt-2">
+                Margin: Pemasukan - Modal ({formatRupiah(totalCostOfSales)}) - Keluaran
+              </p>
+            </div>
+          </div>
+
+          {/* SVG Reporting Chart */}
+          <ReportingChart
+            transactions={transactions}
+            expenses={filteredExpenses}
+            filterType={filterDate?.label || 'Custom'}
+          />
+
+          {/* Filters Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 sm:max-w-xs">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
               <input
-                type="date"
-                id="custom-start"
-                value={customStart}
-                max={customEnd || undefined}
-                onChange={(e) => setCustomStart(e.target.value)}
-                className="pl-3 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+                type="text"
+                id="filter-search"
+                placeholder="Cari ID, Kasir, atau Nama Barang..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
               />
             </div>
-            <span className="text-text-muted text-sm hidden sm:block pb-2">→</span>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="custom-end" className="text-[11px] text-text-muted font-medium">
-                Sampai
+
+            {/* Sort */}
+            <div className="flex items-center gap-2">
+              <label htmlFor="filter-sort" className="text-xs text-text-muted whitespace-nowrap">
+                Urutan:
               </label>
-              <input
-                type="date"
-                id="custom-end"
-                value={customEnd}
-                min={customStart || undefined}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                className="pl-3 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
-              />
+              <select
+                id="filter-sort"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="px-3 py-2.5 text-base bg-bg-input border border-border-default rounded-xl text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none appearance-none cursor-pointer"
+              >
+                <option value="newest">Waktu (Terbaru)</option>
+                <option value="oldest">Waktu (Terlama)</option>
+                <option value="highest">Nominal Tertinggi</option>
+                <option value="lowest">Nominal Terendah</option>
+              </select>
             </div>
+
+            {/* Clear Filters */}
+            {(filterDate || searchQuery) && (
+              <button
+                onClick={() => {
+                  setFilterDate('');
+                  setSearchQuery('');
+                  setShowCustomRange(false);
+                  setCustomStart('');
+                  setCustomEnd('');
+                }}
+                className="text-xs text-primary hover:text-primary-hover transition-colors cursor-pointer whitespace-nowrap"
+              >
+                ✕ Reset filter
+              </button>
+            )}
+          </div>
+
+          {/* Quick Filters — QOL E.1: Enhanced with Kemarin, 7 Hari, Bulan Lalu + W3-06 Custom */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { type: 'today', label: 'Hari Ini' },
+              { type: 'yesterday', label: 'Kemarin' },
+              { type: 'last7', label: '7 Hari Terakhir' },
+              { type: 'week', label: 'Mingguan' },
+              { type: 'month', label: 'Bulanan' },
+              { type: 'lastMonth', label: 'Bulan Lalu' },
+              { type: 'year', label: 'Tahunan' },
+            ].map((btn) => (
+              <button
+                key={btn.type}
+                onClick={() => handleQuickFilter(btn.type)}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                  filterDate?.label === btn.label
+                    ? 'bg-primary/10 text-primary border-primary/30'
+                    : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
+                }`}
+              >
+                {btn.label}
+              </button>
+            ))}
+            {/* W3-06: Custom Range Toggle */}
             <button
-              onClick={handleApplyCustomRange}
-              disabled={!customStart || !customEnd}
-              className="px-5 py-2 text-sm font-semibold rounded-lg bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              onClick={handleToggleCustomRange}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+                showCustomRange || filterDate?.label === 'Custom'
+                  ? 'bg-primary/10 text-primary border-primary/30'
+                  : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-elevated'
+              }`}
             >
-              Terapkan
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Rentang Kustom
             </button>
           </div>
-        </div>
-      )}
 
-      {/* W3-06: Active date range badge */}
-      {activeRangeLabel && (
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-primary/10 text-primary border border-primary/20">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          {/* W3-06: Custom Date Range Picker Panel */}
+          {showCustomRange && (
+            <div className="glass-card p-4 animate-slide-up">
+              <p className="text-xs font-semibold text-text-muted mb-3">Pilih Rentang Tanggal</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="custom-start" className="text-[11px] text-text-muted font-medium">
+                    Dari
+                  </label>
+                  <input
+                    type="date"
+                    id="custom-start"
+                    value={customStart}
+                    max={customEnd || undefined}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="pl-3 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+                  />
+                </div>
+                <span className="text-text-muted text-sm hidden sm:block pb-2">→</span>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="custom-end" className="text-[11px] text-text-muted font-medium">
+                    Sampai
+                  </label>
+                  <input
+                    type="date"
+                    id="custom-end"
+                    value={customEnd}
+                    min={customStart || undefined}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="pl-3 pr-3 py-2 text-sm bg-bg-input border border-border-default rounded-lg text-text-primary focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+                  />
+                </div>
+                <button
+                  onClick={handleApplyCustomRange}
+                  disabled={!customStart || !customEnd}
+                  className="px-5 py-2 text-sm font-semibold rounded-lg bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  Terapkan
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* W3-06: Active date range badge */}
+          {activeRangeLabel && (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-primary/10 text-primary border border-primary/20">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                {activeRangeLabel}
+              </span>
+            </div>
+          )}
+
+          {isFilterActive && (
+            <div className="flex justify-between items-end mb-2">
+              <p className="text-sm text-text-muted">
+                Menampilkan <strong className="text-text-primary">{transactions.length}</strong>{' '}
+                hasil filter dari <strong className="text-text-primary">{totalCount}</strong> total
+                transaksi
+              </p>
+            </div>
+          )}
+          {/* Transaction Table (W3-09: passes searchQuery for highlight) */}
+          <TransactionTable
+            transactions={transactions}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+            searchQuery={searchQuery}
+          />
+
+          {/* Export Button */}
+          <div className="flex justify-center lg:justify-start pt-2">
+            <button
+              id="btn-export"
+              onClick={handleExport}
+              disabled={!hasData}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-bg-surface border border-border-default rounded-xl text-sm font-semibold text-text-primary hover:bg-bg-elevated hover:border-border-strong disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            {activeRangeLabel}
-          </span>
-        </div>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              {isFilterActive
+                ? `Export Hasil Filter (${transactions.length})`
+                : `Export Semua (${totalCount})`}
+            </button>
+          </div>
+        </>
       )}
-
-      {isFilterActive && (
-        <div className="flex justify-between items-end mb-2">
-          <p className="text-sm text-text-muted">
-            Menampilkan <strong className="text-text-primary">{transactions.length}</strong> hasil
-            filter dari <strong className="text-text-primary">{totalCount}</strong> total transaksi
-          </p>
-        </div>
-      )}
-      {/* Transaction Table (W3-09: passes searchQuery for highlight) */}
-      <TransactionTable
-        transactions={transactions}
-        onUpdate={onUpdate}
-        onDelete={onDelete}
-        searchQuery={searchQuery}
-      />
-
-      {/* Export Button */}
-      <div className="flex justify-center lg:justify-start pt-2">
-        <button
-          id="btn-export"
-          onClick={handleExport}
-          disabled={!hasData}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-bg-surface border border-border-default rounded-xl text-sm font-semibold text-text-primary hover:bg-bg-elevated hover:border-border-strong disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          {isFilterActive
-            ? `Export Hasil Filter (${transactions.length})`
-            : `Export Semua (${totalCount})`}
-        </button>
-      </div>
     </div>
   );
 }

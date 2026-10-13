@@ -154,6 +154,11 @@ export const transactionService = {
                   ? Number(item.total)
                   : deductQty * (Number(item.hargaSatuan) || 0)
               ),
+              // W4-04: Preserve discount snapshot (spread conditionally for exactOptionalPropertyTypes)
+              ...(item.diskonPersen ? { diskonPersen: item.diskonPersen } : {}),
+              ...(item.diskonNominal ? { diskonNominal: item.diskonNominal } : {}),
+              ...(item.totalSebelumDiskon ? { totalSebelumDiskon: item.totalSebelumDiskon } : {}),
+              ...(item.totalDiskon ? { totalDiskon: item.totalDiskon } : {}),
             });
           } else {
             // Auto-detect new catalog item: register with initial quantity = 0
@@ -200,6 +205,11 @@ export const transactionService = {
                   ? Number(item.total)
                   : deductQty * (Number(item.hargaSatuan) || 0)
               ),
+              // W4-04: Preserve discount snapshot (spread conditionally for exactOptionalPropertyTypes)
+              ...(item.diskonPersen ? { diskonPersen: item.diskonPersen } : {}),
+              ...(item.diskonNominal ? { diskonNominal: item.diskonNominal } : {}),
+              ...(item.totalSebelumDiskon ? { totalSebelumDiskon: item.totalSebelumDiskon } : {}),
+              ...(item.totalDiskon ? { totalDiskon: item.totalDiskon } : {}),
             });
           }
         }

@@ -29,6 +29,11 @@ export default function AppShell({
 }: AppShellProps) {
   return (
     <div className="min-h-screen bg-bg-base">
+      {/* W5-05: Skip-to-content link for keyboard navigation */}
+      <a href="#main-content" className="skip-link">
+        Lewati ke konten utama
+      </a>
+
       {/* Desktop Sidebar */}
       <Sidebar
         activeTab={activeTab}
@@ -39,7 +44,7 @@ export default function AppShell({
       />
 
       {/* Main Content Area */}
-      <main className="lg:ml-[260px] min-h-screen">
+      <main id="main-content" className="lg:ml-[260px] min-h-screen">
         {/* pb-24 = clearance for BottomNav (64px) + safe-area for gesture bar */}
         <div
           className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 lg:pb-8 max-w-[1400px]"

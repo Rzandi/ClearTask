@@ -79,10 +79,10 @@ describe('W1-12: Stock Drift Check Utility', () => {
 
     expect(report.hasDrift).toBe(true);
     expect(report.driftItems).toHaveLength(1);
-    expect(report.driftItems[0].namaBarang).toBe('Test Inflated');
-    expect(report.driftItems[0].drift).toBe(5); // 55 - 50
-    expect(report.driftItems[0].currentQty).toBe(55);
-    expect(report.driftItems[0].ledgerQty).toBe(50);
+    expect(report.driftItems[0]?.namaBarang).toBe('Test Inflated');
+    expect(report.driftItems[0]?.drift).toBe(5); // 55 - 50
+    expect(report.driftItems[0]?.currentQty).toBe(55);
+    expect(report.driftItems[0]?.ledgerQty).toBe(50);
   });
 
   it('should detect negative drift (inventory deflated)', async () => {
@@ -94,7 +94,7 @@ describe('W1-12: Stock Drift Check Utility', () => {
     const report = await checkStockDrift();
 
     expect(report.hasDrift).toBe(true);
-    expect(report.driftItems[0].drift).toBe(-5); // 25 - 30
+    expect(report.driftItems[0]?.drift).toBe(-5); // 25 - 30
   });
 
   it('should detect orphan items (no movements)', async () => {
@@ -116,7 +116,7 @@ describe('W1-12: Stock Drift Check Utility', () => {
     const report = await checkStockDrift();
 
     expect(report.orphanItems).toHaveLength(1);
-    expect(report.orphanItems[0].namaBarang).toBe('Orphan Item');
+    expect(report.orphanItems[0]?.namaBarang).toBe('Orphan Item');
     expect(report.summary).toContain('Barang tanpa riwayat movement: 1');
   });
 
@@ -138,7 +138,7 @@ describe('W1-12: Stock Drift Check Utility', () => {
 
     expect(report.hasDrift).toBe(true);
     expect(report.orphanMovements).toHaveLength(1);
-    expect(report.orphanMovements[0].inventoryId).toBe(fakeId);
+    expect(report.orphanMovements[0]?.inventoryId).toBe(fakeId);
     expect(report.summary).toContain('Movement tanpa barang: 1');
   });
 
