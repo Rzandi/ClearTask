@@ -333,6 +333,8 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
 
   let currentNewSeq = nextSeq + 1;
 
+  // FIX BUG-16: simpan ID asli untuk memetakan renumber ke referensi (movement, dll.)
+  const origTxIdOf = new Map<any, string>(importTransactions.map((t: any) => [t, t.transactionId]));
   const seenTxMap = new Map<string, any>();
   const transactionsToAdd = importTransactions
     .filter((tx: any) => {
@@ -398,6 +400,9 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     return true;
   });
 
+  const origArchiveIdOf = new Map<any, string>(
+    importArchiveTransactions.map((t: any) => [t, t.transactionId])
+  );
   const seenArchiveTxMap = new Map<string, any>();
   const archiveTransactionsToAdd = importArchiveTransactions
     .filter((tx: any) => {
@@ -641,6 +646,17 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     }
   }
 
+  // FIX BUG-16: peta ID lama -> ID baru hasil renumber
+  const renumberMap = new Map<string, string>();
+  for (const t of importTransactions) {
+    const o = origTxIdOf.get(t);
+    if (o && o !== t.transactionId) renumberMap.set(o, t.transactionId);
+  }
+  for (const t of importArchiveTransactions) {
+    const o = origArchiveIdOf.get(t);
+    if (o && o !== t.transactionId) renumberMap.set(o, t.transactionId);
+  }
+
   // Scan inventory
   const canonicalize = (s?: string) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
   const seenInventoryIds = new Set(existingInventoryIds);
@@ -649,16 +665,37 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
       .filter((item: any) => item.namaBarang || item.nama)
       .map((item: any) => canonicalize(item.namaBarang || item.nama))
   );
+  // FIX BUG-26: barang impor dengan nama sama dipetakan ke barang lokal, stoknya digabung
+  const inventoryIdRemap = new Map<string, string>();
+  const inventoryQtyMerge = new Map<string, number>();
+  const inventoryNameToId = new Map<string, string>(
+    existingInventory
+      .filter((i: any) => i.namaBarang || i.nama)
+      .map((i: any) => [canonicalize(i.namaBarang || i.nama), i.id])
+  );
   const inventoryToAdd = importInventory.filter((item: any) => {
     if (!item.id) return false;
     if (seenInventoryIds.has(item.id)) return false;
 
     // Deduplicate by canonical product name (W1-07: trim, lowercase, fold whitespace)
     const nameKey = canonicalize(item.namaBarang || item.nama);
-    if (nameKey && seenInventoryNames.has(nameKey)) return false;
+    if (nameKey && seenInventoryNames.has(nameKey)) {
+      const targetId = inventoryNameToId.get(nameKey);
+      if (targetId) {
+        inventoryIdRemap.set(item.id, targetId);
+        inventoryQtyMerge.set(
+          targetId,
+          (inventoryQtyMerge.get(targetId) || 0) + (Number(item.quantity) || 0)
+        );
+      }
+      return false;
+    }
 
     seenInventoryIds.add(item.id);
-    if (nameKey) seenInventoryNames.add(nameKey);
+    if (nameKey) {
+      seenInventoryNames.add(nameKey);
+      inventoryNameToId.set(nameKey, item.id);
+    }
 
     if (item.kategori) {
       const cat = item.kategori.trim();
@@ -708,9 +745,16 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   // Scan stock_movements (W1-10)
   const existingStockMovements = await db.stock_movements.toArray();
   const existingStockMovementIds = new Set(existingStockMovements.map((sm: any) => sm.id));
-  const importStockMovements = Array.isArray(importData.stock_movements)
-    ? importData.stock_movements
-    : [];
+  const importStockMovements = (
+    Array.isArray(importData.stock_movements) ? importData.stock_movements : []
+  ).map((sm: any) => {
+    const next = { ...sm };
+    if (sm.refType === 'transaction' && renumberMap.has(sm.refId))
+      next.refId = renumberMap.get(sm.refId);
+    if (inventoryIdRemap.has(sm.inventoryId))
+      next.inventoryId = inventoryIdRemap.get(sm.inventoryId);
+    return next;
+  });
   const stockMovementsToAdd = [
     ...importStockMovements.filter((sm: any) => sm.id && !existingStockMovementIds.has(sm.id)),
   ];
@@ -867,6 +911,7 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     creditPaymentsToAdd,
     priceHistoriesToAdd,
     categoriesRecordToPut,
+    inventoryQtyMerge: Array.from(inventoryQtyMerge.entries()),
   };
 }
 
@@ -960,6 +1005,34 @@ export async function applyMerge(
         }
         if (inventoryToAdd.length > 0) {
           await db.inventory.bulkAdd(inventoryToAdd);
+        }
+        // FIX BUG-26: tambahkan stok impor ke barang lokal yang sama, dicatat di ledger
+        for (const [targetId, qty] of (mergeResult as any).inventoryQtyMerge || []) {
+          const cur = await db.inventory.get(targetId);
+          if (!cur || !qty) continue;
+          const nowIso = new Date().toISOString();
+          await db.inventory.update(targetId, {
+            quantity: (Number(cur.quantity) || 0) + qty,
+            updatedAt: nowIso,
+            updatedBy: 'System Import',
+          } as any);
+          // Hanya tulis movement jika impor tidak membawa movement untuk barang ini
+          const importedHasLedger = (mergeResult.stockMovementsToAdd || []).some(
+            (m: any) => m.inventoryId === targetId
+          );
+          if (!importedHasLedger) {
+            await db.stock_movements.add({
+              id: crypto.randomUUID(),
+              inventoryId: targetId,
+              delta: qty,
+              reason: 'adjust',
+              refType: 'manual',
+              refId: 'import-merge',
+              at: nowIso,
+              by: 'System Import',
+              note: 'Gabung stok dari backup (nama barang sama)',
+            } as any);
+          }
         }
 
         // Recalculate and update seq in db.meta

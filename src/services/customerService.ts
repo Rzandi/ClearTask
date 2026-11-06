@@ -105,6 +105,17 @@ export async function updateCustomer(
 }
 
 export async function deleteCustomer(customerId: string, deletedBy?: string): Promise<void> {
+  // FIX BUG-15: pelanggan dengan hutang belum lunas tidak boleh dihapus
+  const openDebt = (
+    await db.credit_ledger
+      .where('customerId')
+      .equals(customerId)
+      .filter((l: CreditLedger) => !l.deletedAt && l.status === 'belum_lunas')
+      .toArray()
+  ).reduce((s: number, l: CreditLedger) => s + l.sisaHutang, 0);
+  if (openDebt > 0) {
+    throw new Error('Pelanggan masih memiliki hutang belum lunas');
+  }
   // Soft delete only
   const customer = await db.customers.get(customerId);
   const now = new Date().toISOString();
@@ -212,9 +223,12 @@ export async function getCustomerCreditLedgers(customerId: string): Promise<Cred
 }
 
 export async function getAllUnpaidLedgers(): Promise<CreditLedger[]> {
-  return await db.credit_ledger
+  // FIX BUG-15: hanya ledger dari pelanggan yang masih aktif
+  const activeIds = new Set((await getAllCustomers()).map((c) => c.id));
+  const ledgers = await db.credit_ledger
     .filter((ledger) => !ledger.deletedAt && ledger.status === 'belum_lunas')
     .sortBy('tanggalTransaksi');
+  return ledgers.filter((l) => activeIds.has(l.customerId));
 }
 
 // ── Payment Operations ─────────────────────────────────────
@@ -381,7 +395,11 @@ export async function getDebtSummary(): Promise<DebtSummary> {
   const allCustomers = await getAllCustomers();
   const customersWithDebt = allCustomers.filter((c) => c.totalHutang > 0);
 
-  const allLedgers = await db.credit_ledger.filter((ledger) => !ledger.deletedAt).toArray();
+  // FIX BUG-15: abaikan ledger milik pelanggan yang sudah dihapus
+  const activeCustIds = new Set(allCustomers.map((c) => c.id));
+  const allLedgers = (
+    await db.credit_ledger.filter((ledger) => !ledger.deletedAt).toArray()
+  ).filter((l) => activeCustIds.has(l.customerId));
 
   const unpaidLedgers = allLedgers.filter((ledger) => ledger.status === 'belum_lunas');
 

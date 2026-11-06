@@ -83,9 +83,10 @@ export async function checkStockDrift(): Promise<DriftReport> {
     if (!item.id) continue;
 
     const currentQty = item.quantity ?? 0;
-    const ledgerQty = deltaMap.get(item.id) ?? 0;
+    // FIX BUG-06: pembulatan untuk menghindari selisih float
+    const ledgerQty = Math.round((deltaMap.get(item.id) ?? 0) * 1e6) / 1e6;
     const movementCount = countMap.get(item.id) ?? 0;
-    const drift = currentQty - ledgerQty;
+    const drift = Math.round((currentQty - ledgerQty) * 1e6) / 1e6;
 
     if (movementCount === 0) {
       orphanItems.push({
@@ -106,11 +107,13 @@ export async function checkStockDrift(): Promise<DriftReport> {
     }
   }
 
+  // FIX BUG-05: orphan = movement yang barangnya benar-benar tidak ada (termasuk yang sudah dihapus)
+  const allInventoryIds = new Set((await db.inventory.toArray()).map((i: any) => i.id));
   // Check for orphan movements (movements referencing non-existent inventory)
   const orphanMovements: DriftReport['orphanMovements'] = [];
   const movementInventoryIds = new Set(deltaMap.keys());
   for (const movInvId of movementInventoryIds) {
-    if (!inventoryIds.has(movInvId)) {
+    if (!allInventoryIds.has(movInvId)) {
       orphanMovements.push({
         inventoryId: movInvId,
         movementCount: countMap.get(movInvId) || 0,
@@ -123,7 +126,7 @@ export async function checkStockDrift(): Promise<DriftReport> {
     if (!i.id) return false;
     const ledger = deltaMap.get(i.id) ?? 0;
     const count = countMap.get(i.id) ?? 0;
-    return count > 0 && (i.quantity ?? 0) === ledger;
+    return count > 0 && Math.abs((i.quantity ?? 0) - ledger) < 1e-6;
   }).length;
 
   const hasDrift = driftItems.length > 0 || orphanMovements.length > 0;

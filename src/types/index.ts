@@ -342,6 +342,7 @@ export interface CategoriesRecord {
 // ── Merge ──────────────────────────────────────────────────
 
 export interface MergeResult {
+  inventoryQtyMerge?: [string, number][];
   __isMergeResult: boolean;
   newTransactions: number;
   newSessions: number;

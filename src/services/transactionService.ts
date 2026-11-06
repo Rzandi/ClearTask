@@ -22,6 +22,25 @@ const generateUUID = (): string =>
         return v.toString(16);
       });
 
+async function recalcCustomerDebt(customerId: string, nowIso: string): Promise<void> {
+  const ls = await db.credit_ledger
+    .where('customerId')
+    .equals(customerId)
+    .filter((l: any) => !l.deletedAt)
+    .toArray();
+  const total = ls.reduce((s: number, l: any) => s + (Number(l.sisaHutang) || 0), 0);
+  await db.customers.update(customerId, { totalHutang: total, updatedAt: nowIso });
+}
+
+async function resolveItemKey(item: any): Promise<string> {
+  if (item.inventoryId) return item.inventoryId;
+  const c = canonicalize(item.namaBarang);
+  const inv = await db.inventory
+    .filter((i: any) => !i.deletedAt && canonicalize(i.namaBarang || i.nama) === c)
+    .first();
+  return inv?.id || c;
+}
+
 export interface CheckoutResult {
   transaction: Transaction;
   stockWarnings: string[];
@@ -64,7 +83,7 @@ export const transactionService = {
 
     await db.transaction(
       'rw',
-      [db.meta, db.transactions, db.inventory, db.stock_movements],
+      [db.meta, db.transactions, db.inventory, db.stock_movements, db.credit_ledger, db.customers],
       async () => {
         // 1. Monotonic transaction sequence
         const metaSeq = await db.meta.get({ key: 'seq' });
@@ -234,6 +253,14 @@ export const transactionService = {
         const roundedUangDiterima = Math.round(Number(orderData.uangDiterima) || roundedTotal);
         const roundedKembalian = Math.round(Number(orderData.kembalian) || 0);
 
+        // FIX BUG-08: total harus sama dengan jumlah item (tidak dipercaya dari client)
+        const sumItemTotal = sanitizedItems.reduce((s, it) => s + (Number(it.total) || 0), 0);
+        if (Math.round(sumItemTotal) !== roundedTotal) {
+          throw new Error(
+            `Total transaksi (${roundedTotal}) tidak sesuai dengan total item (${Math.round(sumItemTotal)})`
+          );
+        }
+
         const kasirSlug =
           (orderData.kasir || currentUser)
             .replace(/[^a-zA-Z0-9]/g, '')
@@ -260,9 +287,31 @@ export const transactionService = {
           status: 'Selesai',
           ...(stockWarnings.length > 0 ? { stockWarnings } : {}),
         } as Transaction;
+        const creditInput = (orderData as any).creditLedger;
+        delete (newTx as any).creditLedger;
 
         const insertedId = await db.transactions.add(newTx);
         newTx.id = Number(insertedId);
+
+        // FIX BUG-33: ledger hutang dibuat di transaksi yang sama (atomik)
+        if (creditInput && creditInput.customerId) {
+          const today = new Date().toISOString().slice(0, 10);
+          await db.credit_ledger.add({
+            id: generateUUID(),
+            customerId: creditInput.customerId,
+            transactionId: newTx.id,
+            jumlahKredit: roundedTotal,
+            sisaHutang: roundedTotal,
+            tanggalTransaksi: today,
+            status: 'belum_lunas',
+            catatan: creditInput.catatan,
+            createdAt: safeIsoTime,
+            updatedAt: safeIsoTime,
+            deletedAt: null,
+            syncStatus: 'local',
+          } as any);
+          await recalcCustomerDebt(creditInput.customerId, safeIsoTime);
+        }
       }
     );
 
@@ -283,7 +332,15 @@ export const transactionService = {
 
     await db.transaction(
       'rw',
-      [db.transactions, db.inventory, db.stock_movements, db.sessions, db.audit_log],
+      [
+        db.transactions,
+        db.inventory,
+        db.stock_movements,
+        db.sessions,
+        db.audit_log,
+        db.credit_ledger,
+        db.customers,
+      ],
       async () => {
         const tx = await db.transactions.get(numId);
         if (!tx || tx.deletedAt) return; // Idempotent guard
@@ -346,6 +403,22 @@ export const transactionService = {
           await db.stock_movements.bulkAdd(movements);
         }
 
+        // FIX BUG-32: batalkan ledger hutang yang terkait transaksi ini
+        const relatedLedgers = await db.credit_ledger
+          .filter((l: any) => !l.deletedAt && String(l.transactionId) === String(numId))
+          .toArray();
+        for (const l of relatedLedgers) {
+          if (Number(l.sisaHutang) < Number(l.jumlahKredit)) {
+            throw new Error('Transaksi kredit sudah ada pembayaran. Batalkan pembayaran dulu.');
+          }
+          await db.credit_ledger.update(l.id, {
+            deletedAt: nowIso,
+            voidedByTxId: numId,
+            updatedAt: nowIso,
+          });
+          await recalcCustomerDebt(l.customerId, nowIso);
+        }
+
         await db.transactions.update(numId, {
           deletedAt: nowIso,
           voidReason: reason,
@@ -378,7 +451,14 @@ export const transactionService = {
 
     await db.transaction(
       'rw',
-      [db.transactions, db.inventory, db.stock_movements, db.audit_log],
+      [
+        db.transactions,
+        db.inventory,
+        db.stock_movements,
+        db.audit_log,
+        db.credit_ledger,
+        db.customers,
+      ],
       async () => {
         const tx = await db.transactions.get(numId);
         if (!tx || !tx.deletedAt) return;
@@ -429,6 +509,19 @@ export const transactionService = {
           await db.stock_movements.bulkAdd(movements);
         }
 
+        // FIX BUG-32: aktifkan kembali ledger yang dibatalkan oleh void transaksi ini
+        const reopened = await db.credit_ledger
+          .filter((l: any) => l.voidedByTxId === numId)
+          .toArray();
+        for (const l of reopened) {
+          await db.credit_ledger.update(l.id, {
+            deletedAt: null,
+            voidedByTxId: null,
+            updatedAt: nowIso,
+          });
+          await recalcCustomerDebt(l.customerId, nowIso);
+        }
+
         delete tx.deletedAt;
         delete tx.voidReason;
         tx.updatedAt = nowIso;
@@ -461,11 +554,37 @@ export const transactionService = {
     const numId = Number(id);
     if (isNaN(numId)) return null;
 
+    // FIX BUG-04: validasi item pada jalur edit (sama seperti checkout)
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        const q = Number(item.qty);
+        if (item.qty === undefined || item.qty === null || !Number.isFinite(q) || q <= 0) {
+          throw new Error(`Kuantitas barang "${item.namaBarang || 'item'}" harus lebih dari 0`);
+        }
+        const h = Number(item.hargaSatuan);
+        if (
+          item.hargaSatuan !== undefined &&
+          item.hargaSatuan !== null &&
+          (!Number.isFinite(h) || h < 0)
+        ) {
+          throw new Error(`Harga satuan barang "${item.namaBarang || 'item'}" tidak boleh negatif`);
+        }
+      }
+    }
+
     let updatedTx: Transaction | null = null;
 
     await db.transaction(
       'rw',
-      [db.transactions, db.inventory, db.stock_movements, db.sessions, db.audit_log],
+      [
+        db.transactions,
+        db.inventory,
+        db.stock_movements,
+        db.sessions,
+        db.audit_log,
+        db.credit_ledger,
+        db.customers,
+      ],
       async () => {
         const oldTx = await db.transactions.get(numId);
         if (!oldTx) return;
@@ -487,13 +606,13 @@ export const transactionService = {
         if (data.items && Array.isArray(data.items)) {
           const oldMap = new Map<string, number>();
           for (const item of oldTx.items || []) {
-            const key = item.inventoryId || canonicalize(item.namaBarang);
+            const key = await resolveItemKey(item);
             oldMap.set(key, (oldMap.get(key) || 0) + (Number(item.qty) || 0));
           }
 
           const newMap = new Map<string, number>();
           for (const item of data.items) {
-            const key = item.inventoryId || canonicalize(item.namaBarang);
+            const key = await resolveItemKey(item);
             newMap.set(key, (newMap.get(key) || 0) + (Number(item.qty) || 0));
           }
 
@@ -571,6 +690,44 @@ export const transactionService = {
     );
 
     return updatedTx;
+  },
+
+  /**
+   * FIX BUG-02: penyesuaian stok manual yang selalu menulis stock_movements.
+   */
+  async adjustStock(
+    itemId: string,
+    newQuantity: number,
+    reason: string = 'Penyesuaian manual',
+    currentUser: string = 'Admin'
+  ): Promise<void> {
+    if (!Number.isFinite(newQuantity) || newQuantity < 0) {
+      throw new Error('Jumlah stok tidak valid');
+    }
+    await db.transaction('rw', [db.inventory, db.stock_movements], async () => {
+      const item = await db.inventory.get(itemId);
+      if (!item) throw new Error('Barang tidak ditemukan');
+      const oldQty = Number(item.quantity) || 0;
+      const delta = Math.round((newQuantity - oldQty) * 1e6) / 1e6;
+      if (delta === 0) return;
+      const nowIso = new Date().toISOString();
+      await db.inventory.update(itemId, {
+        quantity: newQuantity,
+        updatedAt: nowIso,
+        updatedBy: currentUser,
+      });
+      await db.stock_movements.add({
+        id: generateUUID(),
+        inventoryId: itemId,
+        delta,
+        reason: 'adjust',
+        refType: 'manual',
+        refId: itemId,
+        at: nowIso,
+        by: currentUser,
+        note: `${reason}: ${oldQty} -> ${newQuantity}`,
+      } as any);
+    });
   },
 
   /**
