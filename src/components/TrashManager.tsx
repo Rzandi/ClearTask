@@ -88,7 +88,8 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
   const totalDeleted = deletedTransactions.length + deletedInventory.length;
 
   /**
-   * Helper: check if an inventory item is referenced by any transaction (active or archived)
+   * Helper: check if an inventory item is referenced by any transaction (active or archived),
+   * stock movements, or price history (BUG-18)
    */
   const isItemReferencedInTransactions = useCallback(
     async (invItem: InventoryItem): Promise<boolean> => {
@@ -120,6 +121,21 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
           })
           .first();
         if (foundInArchive) return true;
+      }
+
+      // BUG-18: check stock_movements and price_history
+      if (invItem.id) {
+        const hasMovements = await db.stock_movements
+          .where('inventoryId')
+          .equals(invItem.id)
+          .first();
+        if (hasMovements) return true;
+
+        const hasPriceHistory = await db.price_history
+          .where('inventoryId')
+          .equals(invItem.id)
+          .first();
+        if (hasPriceHistory) return true;
       }
 
       return false;
@@ -173,8 +189,9 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
       confirmLabel: 'Hapus Permanen',
       onConfirm: async () => {
         setConfirmState((prev) => ({ ...prev, isOpen: false }));
-        // Bug #6: write audit_log before purge
+        // BUG-18: bersihkan credit_ledger terkait dan catat audit log
         try {
+          await db.credit_ledger.where('transactionId').equals(id).delete();
           await db.audit_log.add({
             id: crypto.randomUUID(),
             action: 'purge',
@@ -240,6 +257,20 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
       .map((tx: Transaction) => tx.id)
       .filter((id): id is number => id !== undefined);
     if (txIds.length > 0) {
+      // BUG-18: bersihkan credit_ledger dan catat audit log untuk bulk purge transaksi
+      try {
+        await db.credit_ledger.where('transactionId').anyOf(txIds).delete();
+        const logs = txIds.map((tid) => ({
+          id: crypto.randomUUID(),
+          action: 'purge',
+          entity: 'transaction',
+          entityId: String(tid),
+          timestamp: new Date().toISOString(),
+          actor: 'Admin',
+          detail: `Transaksi ${tid} dibersihkan otomatis (>30 hari) dari Trash Manager`,
+        }));
+        await db.audit_log.bulkAdd(logs);
+      } catch {}
       await db.transactions.bulkDelete(txIds);
     }
 
@@ -256,6 +287,18 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
     }
 
     if (deletableInvIds.length > 0) {
+      try {
+        const invLogs = deletableInvIds.map((iid) => ({
+          id: crypto.randomUUID(),
+          action: 'purge',
+          entity: 'inventory',
+          entityId: String(iid),
+          timestamp: new Date().toISOString(),
+          actor: 'Admin',
+          detail: `Barang ${iid} dibersihkan otomatis (>30 hari) dari Trash Manager`,
+        }));
+        await db.audit_log.bulkAdd(invLogs);
+      } catch {}
       await db.inventory.bulkDelete(deletableInvIds as any);
     }
 
@@ -286,6 +329,20 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
       .map((tx: Transaction) => tx.id)
       .filter((id): id is number => id !== undefined);
     if (txIds.length > 0) {
+      // BUG-18: bersihkan credit_ledger dan catat audit log untuk bulk delete transaksi
+      try {
+        await db.credit_ledger.where('transactionId').anyOf(txIds).delete();
+        const logs = txIds.map((tid) => ({
+          id: crypto.randomUUID(),
+          action: 'purge',
+          entity: 'transaction',
+          entityId: String(tid),
+          timestamp: new Date().toISOString(),
+          actor: 'Admin',
+          detail: `Transaksi ${tid} dihapus via Kosongkan Trash Manager`,
+        }));
+        await db.audit_log.bulkAdd(logs);
+      } catch {}
       await db.transactions.bulkDelete(txIds);
     }
 
@@ -302,6 +359,18 @@ export default memo(function TrashManager({ onRestore }: TrashManagerProps) {
     }
 
     if (deletableInvIds.length > 0) {
+      try {
+        const invLogs = deletableInvIds.map((iid) => ({
+          id: crypto.randomUUID(),
+          action: 'purge',
+          entity: 'inventory',
+          entityId: String(iid),
+          timestamp: new Date().toISOString(),
+          actor: 'Admin',
+          detail: `Barang ${iid} dihapus via Kosongkan Trash Manager`,
+        }));
+        await db.audit_log.bulkAdd(invLogs);
+      } catch {}
       await db.inventory.bulkDelete(deletableInvIds as any);
     }
 

@@ -3,9 +3,68 @@
 Semua perubahan penting pada proyek ClearTask akan didokumentasikan dalam file ini.
 Format yang digunakan berdasarkan pedoman [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [3.8.1] - 2026-11-06
 
-## [3.8.0] - 2026-10-13
+Versi 3.8.1 merupakan rilis perbaikan stabilitas & integritas data menyeluruh (_Comprehensive Integrity & Audit Hardening_). Pembaruan ini menuntaskan 33 temuan audit kode mendalam mencakup konsistensi ledger stok, rekonsiliasi piutang pelanggan, pencegahan duplikasi atomik, perbaikan backup/merge, serta penyempurnaan format data input/output.
+
+### 🛡️ Fixed & Hardened (Prioritas Tinggi)
+
+- **Audit Riwayat Harga Tunggal (BUG-01)**:
+  - Mengalirkan semua pembaruan inventaris lewat satu jalur `inventoryService.updateItem` sehingga perubahan harga selalu tercatat ke tabel `price_history`.
+- **Penyesuaian Stok Manual Tercatat Ledger (BUG-02)**:
+  - Mengeliminasi bypass mutasi stok di `handleQuickAdjustStock`; perubahan manual kini melalui `transactionService.adjustStock` yang mencatat entri `adjust` pada `stock_movements`.
+- **Saldo Awal Barang Baru Atomik (BUG-03 & BUG-14)**:
+  - Penambahan barang baru dengan stok awal secara atomik menulis movement `opening` dalam transaksi Dexie yang sama serta melindungi dari race condition pengecekan nama duplikat.
+- **Validasi Kuantitas & Harga pada Edit Transaksi (BUG-04)**:
+  - `updateTransaction` memvalidasi kuantitas wajib $> 0$ dan harga $\ge 0$ untuk mencegah mutasi stok siluman akibat nilai negatif.
+- **Isolasi Piutang Pelanggan Terhapus (BUG-15)**:
+  - `deleteCustomer` menolak penghapusan pelanggan yang masih memiliki hutang belum lunas; query ringkasan hutang dan daftar piutang hanya menghitung pelanggan aktif.
+- **Remap Transaksi Impor Lengkap (BUG-16)**:
+  - Penomoran ulang `transactionId` saat merge data impor otomatis meremap referensi pada `stock_movements`, `credit_ledger`, dan `audit_log`.
+- **Penggabungan Stok Otomatis saat Merge (BUG-26)**:
+  - Barang impor dengan nama sama tidak lagi dibuang; stoknya digabungkan secara aman ke barang lokal dan dicatat di ledger.
+- **Void & Restore Transaksi Kredit Terintegrasi (BUG-32)**:
+  - `voidTransaction` membatalkan credit ledger terkait dan merekalibrasi hutang pelanggan; `restoreTransaction` memulihkan kembali status ledger.
+- **Pencatatan Penjualan Kredit Atomik (BUG-33)**:
+  - Pembuatan transaksi dan ledger piutang disatukan dalam satu transaksi DB Dexie ACID, mengeliminasi risiko transaksi tersimpan tanpa buku besar kredit.
+
+### ⚙️ Enhanced & Optimized (Prioritas Sedang)
+
+- **Akurasi Alarm Stock Drift (BUG-05 & BUG-06)**:
+  - Deteksi pergerakan orphan mempertimbangkan seluruh entitas inventaris (termasuk yang soft-delete).
+  - Penjumlahan kuantitas desimal dibulatkan dengan toleransi $10^{-6}$ untuk mengeliminasi alarm palsu akibat pembulatan floating point.
+- **Resolusi Kunci Produk Konsisten (BUG-07)**:
+  - Penyelarasan pemetaan item lama dan baru pada `updateTransaction` melalui resolver `resolveItemKey`.
+- **Verifikasi Integritas Total Transaksi (BUG-08)**:
+  - `createTransaction` memvalidasi ulang kecocokan total transaksi dengan akumulasi subtotal sanitized items.
+- **Proteksi Merge Basi / Race Condition (BUG-17)**:
+  - Menambahkan snapshot stamp pada kalkulasi merge; `applyMerge` otomatis menghitung ulang jika ada data lokal yang berubah selama pratinjau.
+- **Pembersihan Bersih & Audit Trash Manager (BUG-18)**:
+  - Purge transaksi otomatis membersihkan credit ledger terkait; purge inventaris memeriksa relasi mutasi stok dan histori harga; operasi bulk purge konsisten mencatat `audit_log`.
+- **Ekspor Database Atomik & Menyertakan Pengaturan Toko (BUG-19)**:
+  - Ekspor seluruh tabel dibungkus dalam single read transaction dan tabel `settings` kini ikut dicadangkan.
+- **Validasi Skema Impor Ketat (BUG-20)**:
+  - Pengecekan versi skema ($\le 15$), finite check pada nilai finansial, dan integritas format array pada berkas impor.
+- **Dukungan Desimal Timbangan Indonesia (BUG-27)**:
+  - Parsing kuantitas (`parseQty`) mendukung format desimal koma maupun titik (`0,500` / `0.500` $\rightarrow$ 0.5) pada formulir kasir.
+- **Integritas Append-Only Audit Log (BUG-28)**:
+  - Rutinitas pembersihan `cleanOldLogs` mencatat aksi rotasi dirinya sendiri ke dalam audit log.
+
+### 🧹 Refined & Standardized (Prioritas Rendah)
+
+- **Guard Restore Barang Terhapus (BUG-09)**:
+  - Transaksi yang dipulihkan dari tong sampah tidak mengubah stok barang yang berstatus soft-deleted.
+- **Deteksi Satuan Timbangan Presisi (BUG-10)**:
+  - Pencocokan satuan timbangan (`needsDecimalQty`) memakai word boundary/exact match untuk mencegah salah deteksi kata seperti "kemasan".
+- **Validasi Duplikasi & Pembayaran Kredit (BUG-21, BUG-22, BUG-23, BUG-24, BUG-25)**:
+  - Pencegahan pembuatan ledger kredit ganda untuk nomor transaksi yang sama.
+  - Penolakan pembayaran hutang untuk pelanggan terhapus dan penolakan pembayaran yang melampaui total hutang riil.
+  - Validasi nama pelanggan wajib diisi pada create/update.
+  - Sinkronisasi kalkulasi daftar pelanggan berhutang langsung dari ledger aktif.
+- **Standarisasi Waktu & Berkas CSV (BUG-29, BUG-30, BUG-31)**:
+  - Evaluasi tanggal jatuh tempo hutang menggunakan tanggal lokal perangkat kasir (WIB), bukan UTC.
+  - Parser CSV mendukung multi-line quoted fields sesuai spesifikasi RFC 4180.
+  - Ekspor CSV tidak lagi memberi prefix kutip pada angka minus murni, menjaga kompatibilitas pembacaan angka negatif di Excel.
 
 Versi 3.8.0 menghadirkan modul ekspansi bisnis baru **Sistem Manajemen Hutang & Piutang Pelanggan (W4-02)**, pelacakan **Riwayat Perubahan Harga Barang (W4-03)**, input cepat **Syntax Inline Kasir**, resolusi temuan audit manual v3.7.0 (W4-Bug-01 s/d W4-Bug-06), serta pembersihan menyeluruh **Type Safety TypeScript (W4-05)**.
 

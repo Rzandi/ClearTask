@@ -329,6 +329,7 @@ export interface DatabaseExport {
   credit_ledger?: CreditLedger[]; // W4-02 & W5-01
   credit_payments?: CreditPayment[]; // W4-02 & W5-01
   price_history?: PriceHistoryEntry[]; // W4-03 & W5-01
+  settings?: any[]; // BUG-19: include settings in export
   metadata: DatabaseExportMetadata;
 }
 
@@ -371,4 +372,6 @@ export interface MergeResult {
   creditPaymentsToAdd?: CreditPayment[]; // W5-01
   priceHistoriesToAdd?: PriceHistoryEntry[]; // W5-01
   categoriesRecordToPut?: CategoriesRecord | null;
+  sourceImportData?: DatabaseExport;
+  dbSnapshotStamp?: string;
 }

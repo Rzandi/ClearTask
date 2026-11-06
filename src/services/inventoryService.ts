@@ -20,17 +20,6 @@ export async function addItem(
 ) {
   const itemName = (itemData.namaBarang || itemData.nama || '').trim();
   const nameKey = canonicalize(itemName);
-  if (nameKey) {
-    const existing = await db.inventory
-      .filter(
-        (item: any) => !item.deletedAt && canonicalize(item.namaBarang || item.nama) === nameKey
-      )
-      .first();
-    if (existing) {
-      if (options.skipDuplicate) return existing;
-      throw new Error(`Barang "${itemName}" sudah ada di inventaris.`);
-    }
-  }
   const nowIso = new Date().toISOString();
   const newItem: any = {
     ...itemData,
@@ -41,8 +30,20 @@ export async function addItem(
   };
   if (!newItem.id) newItem.id = newId();
 
-  // FIX BUG-03: stok awal dicatat sebagai movement 'opening' dalam transaksi yang sama
-  await db.transaction('rw', [db.inventory, db.stock_movements], async () => {
+  // FIX BUG-03 & BUG-14: Cek duplikat dan add stok awal dalam transaksi atomic Dexie
+  return await db.transaction('rw', [db.inventory, db.stock_movements], async () => {
+    if (nameKey) {
+      const existing = await db.inventory
+        .filter(
+          (item: any) => !item.deletedAt && canonicalize(item.namaBarang || item.nama) === nameKey
+        )
+        .first();
+      if (existing) {
+        if (options.skipDuplicate) return existing;
+        throw new Error(`Barang "${itemName}" sudah ada di inventaris.`);
+      }
+    }
+
     await db.inventory.add(newItem);
     const qty = Number(newItem.quantity) || 0;
     if (qty !== 0) {
@@ -58,8 +59,8 @@ export async function addItem(
         note: 'Saldo awal barang baru',
       } as any);
     }
+    return newItem;
   });
-  return newItem;
 }
 
 export async function updateItem(id: string, itemData: any, currentUser: string, reason?: string) {

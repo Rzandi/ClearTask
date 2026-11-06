@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">ClearTask v3.8.0</h1>
+  <h1 align="center">ClearTask v3.8.1</h1>
   <p align="center"><strong>Aplikasi Kasir PWA Offline-First — Sektor Retail, Minimarket & High-Resiliency POS.</strong></p>
 </p>
 
@@ -9,9 +9,16 @@
 
 ClearTask adalah aplikasi Point-of-Sale (POS) berbasis PWA yang dirancang untuk kasir, toko kelontong, minimarket, dan UMKM. Semua data tersimpan **100% lokal** di perangkat pengguna menggunakan IndexedDB — tidak ada server, tidak ada akun wajib, tidak ada biaya langganan, dan dapat bekerja secara penuh tanpa jaringan internet.
 
-### Fitur Utama ClearTask v3.8.0
+### Fitur Utama ClearTask v3.8.1
 
-- 🤝 **Sistem Manajemen Hutang & Piutang Pelanggan (W4-02 — Phase 1–5)**:
+- 🛡️ **Integritas Data & Audit Hardening Menyeluruh (v3.8.1)**:
+  - **Satu Jalur Inventaris & Riwayat Harga**: Pencatatan riwayat harga jual dan modal otomatis terpusat via `inventoryService`.
+  - **Ledger Stok Terpadu & Akurat**: Penyesuaian stok manual dan barang baru selalu tercatat di `stock_movements`, kebal terhadap false positive drift floating point.
+  - **Penjualan & Void Kredit ACID**: Pembatalan transaksi kredit otomatis membatalkan buku besar hutang, dan checkout kredit dieksekusi secara atomik.
+  - **Smart Merge & Backup Resiliency**: Penggabungan cadangan database otomatis menggabungkan stok dan meremap referensi transaksi, ledger, dan audit log; dilengkapi validasi skema ketat.
+  - **Dukungan Timbangan Indonesia**: Pengenalan kuantitas timbangan desimal (`0,500` / `0.500`) yang akurat pada antarmuka kasir.
+
+- 🤝 **Sistem Manajemen Hutang & Piutang Pelanggan (W4-02)**:
   - **Buku Besar Piutang (`credit_ledger` & `credit_payments`)**: Pelacakan saldo hutang per pelanggan dengan status `unpaid`, `partial`, dan `paid` yang terhubung langsung ke transaksi penjualan.
   - **Pelunasan Otomatis Multi-Transaksi (FIFO)**: Modal pembayaran pintar yang mengalokasikan cicilan/pembayaran secara otomatis ke nota hutang tertua dengan pratinjau alokasi langsung.
   - **Notifikasi Jatuh Tempo & Pengingat WhatsApp**: Tag keterlambatan (`⚠️ Lewat X hari`), alert ringkasan hutang menunggak harian via toast, dan tombol 1-klik untuk generate pesan tagihan WhatsApp format rapi.

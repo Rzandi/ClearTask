@@ -35,48 +35,70 @@ export type { DatabaseExport, MergeResult, EncryptedBackupEnvelope } from '../ty
  * @returns {Promise<void>}
  */
 export async function exportDatabase(options?: { password?: string }): Promise<void> {
-  const transactions = await db.transactions.toArray();
-  const sessions = await db.sessions.toArray();
-  const categoriesDb = await db.categories.toArray();
-  const categories = categoriesDb.length > 0 ? categoriesDb[0] : { categories: [] };
-  const inventory = await db.inventory.toArray();
-  const expenses = await db.expenses.toArray();
-  const archiveTransactions = await db.archive_transactions.toArray();
-  const stockMovements = await db.stock_movements.toArray();
-  // Bug #3: include audit_log in backup so audit trail survives device loss
-  const auditLog = await db.audit_log.toArray();
-  // W4-02: include customers, credit ledger, and payments
-  const customers = await db.customers.toArray();
-  const creditLedger = await db.credit_ledger.toArray();
-  const creditPayments = await db.credit_payments.toArray();
-  // W4-03: include price history
-  const priceHistory = await db.price_history.toArray();
+  // BUG-19: Wrap all reads in a single read transaction for snapshot consistency
+  const exportData: DatabaseExport = await db.transaction(
+    'r',
+    [
+      db.transactions,
+      db.sessions,
+      db.categories,
+      db.inventory,
+      db.expenses,
+      db.archive_transactions,
+      db.stock_movements,
+      db.audit_log,
+      db.customers,
+      db.credit_ledger,
+      db.credit_payments,
+      db.price_history,
+      db.settings,
+    ],
+    async () => {
+      const transactions = await db.transactions.toArray();
+      const sessions = await db.sessions.toArray();
+      const categoriesDb = await db.categories.toArray();
+      const categories = categoriesDb.length > 0 ? categoriesDb[0] : { categories: [] };
+      const inventory = await db.inventory.toArray();
+      const expenses = await db.expenses.toArray();
+      const archiveTransactions = await db.archive_transactions.toArray();
+      const stockMovements = await db.stock_movements.toArray();
+      const auditLog = await db.audit_log.toArray();
+      const customers = await db.customers.toArray();
+      const creditLedger = await db.credit_ledger.toArray();
+      const creditPayments = await db.credit_payments.toArray();
+      const priceHistory = await db.price_history.toArray();
+      const settings = await db.settings.toArray();
 
-  const exportData: DatabaseExport = {
-    version: '2.0',
-    schemaVersion: 15, // reflects schema v15 (customers, credit, price_history)
-    exportedAt: new Date().toISOString(),
-    transactions: Array.isArray(transactions) ? transactions : [],
-    sessions: Array.isArray(sessions) ? sessions : [],
-    categories: categories && typeof categories === 'object' ? categories : { categories: [] },
-    inventory: Array.isArray(inventory) ? inventory : [],
-    expenses: Array.isArray(expenses) ? expenses : [],
-    archive_transactions: Array.isArray(archiveTransactions) ? archiveTransactions : [],
-    stock_movements: Array.isArray(stockMovements) ? stockMovements : [],
-    audit_log: Array.isArray(auditLog) ? auditLog : [],
-    customers: Array.isArray(customers) ? customers : [],
-    credit_ledger: Array.isArray(creditLedger) ? creditLedger : [],
-    credit_payments: Array.isArray(creditPayments) ? creditPayments : [],
-    price_history: Array.isArray(priceHistory) ? priceHistory : [],
-    metadata: {
-      totalTransactions: Array.isArray(transactions) ? transactions.length : 0,
-      totalSessions: Array.isArray(sessions) ? sessions.length : 0,
-      totalInventory: Array.isArray(inventory) ? inventory.length : 0,
-      totalExpenses: Array.isArray(expenses) ? expenses.length : 0,
-      totalArchiveTransactions: Array.isArray(archiveTransactions) ? archiveTransactions.length : 0,
-      deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-    },
-  };
+      return {
+        version: '2.0',
+        schemaVersion: 15,
+        exportedAt: new Date().toISOString(),
+        transactions: Array.isArray(transactions) ? transactions : [],
+        sessions: Array.isArray(sessions) ? sessions : [],
+        categories: categories && typeof categories === 'object' ? categories : { categories: [] },
+        inventory: Array.isArray(inventory) ? inventory : [],
+        expenses: Array.isArray(expenses) ? expenses : [],
+        archive_transactions: Array.isArray(archiveTransactions) ? archiveTransactions : [],
+        stock_movements: Array.isArray(stockMovements) ? stockMovements : [],
+        audit_log: Array.isArray(auditLog) ? auditLog : [],
+        customers: Array.isArray(customers) ? customers : [],
+        credit_ledger: Array.isArray(creditLedger) ? creditLedger : [],
+        credit_payments: Array.isArray(creditPayments) ? creditPayments : [],
+        price_history: Array.isArray(priceHistory) ? priceHistory : [],
+        settings: Array.isArray(settings) ? settings : [],
+        metadata: {
+          totalTransactions: Array.isArray(transactions) ? transactions.length : 0,
+          totalSessions: Array.isArray(sessions) ? sessions.length : 0,
+          totalInventory: Array.isArray(inventory) ? inventory.length : 0,
+          totalExpenses: Array.isArray(expenses) ? expenses.length : 0,
+          totalArchiveTransactions: Array.isArray(archiveTransactions)
+            ? archiveTransactions.length
+            : 0,
+          deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        },
+      };
+    }
+  );
 
   const jsonString = JSON.stringify(exportData, null, 2);
   const dateStr = toLocalDateString(new Date());
@@ -185,6 +207,20 @@ export function validateImport(jsonString: string): {
     };
   }
 
+  // BUG-20: Check schemaVersion if present
+  if (
+    parsed.schemaVersion !== undefined &&
+    (typeof parsed.schemaVersion !== 'number' ||
+      parsed.schemaVersion > 15 ||
+      parsed.schemaVersion < 1)
+  ) {
+    return {
+      valid: false,
+      data: null,
+      error: `File tidak valid: schemaVersion tidak didukung (${parsed.schemaVersion})`,
+    };
+  }
+
   // 3. Check transactions and sessions are arrays
   if (!Array.isArray(parsed.transactions) || !Array.isArray(parsed.sessions)) {
     return {
@@ -192,6 +228,50 @@ export function validateImport(jsonString: string): {
       data: null,
       error: 'File tidak valid: format data transaksi atau sesi tidak dikenali',
     };
+  }
+
+  // BUG-20: Validasi struktur dasar transaksi & inventaris
+  for (const tx of parsed.transactions) {
+    if (!tx || typeof tx !== 'object') {
+      return {
+        valid: false,
+        data: null,
+        error: 'File tidak valid: ada entri transaksi yang rusak',
+      };
+    }
+    if (tx.total !== undefined && (typeof tx.total !== 'number' || !Number.isFinite(tx.total))) {
+      return {
+        valid: false,
+        data: null,
+        error: 'File tidak valid: nilai total transaksi tidak valid',
+      };
+    }
+    if (tx.items !== undefined && !Array.isArray(tx.items)) {
+      return {
+        valid: false,
+        data: null,
+        error: 'File tidak valid: format items transaksi harus berupa array',
+      };
+    }
+  }
+
+  if (parsed.inventory !== undefined) {
+    if (!Array.isArray(parsed.inventory)) {
+      return {
+        valid: false,
+        data: null,
+        error: 'File tidak valid: format inventaris harus berupa array',
+      };
+    }
+    for (const inv of parsed.inventory) {
+      if (!inv || typeof inv !== 'object') {
+        return {
+          valid: false,
+          data: null,
+          error: 'File tidak valid: ada entri inventaris yang rusak',
+        };
+      }
+    }
   }
 
   return { valid: true, data: parsed, error: null };
@@ -787,9 +867,16 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
   // Bug #3: Scan audit_log — append-only with UUID keys, simple dedup by id
   const existingAuditLogs = await db.audit_log.toArray();
   const existingAuditLogIds = new Set(existingAuditLogs.map((al: any) => al.id));
-  const importAuditLogs = Array.isArray((importData as any).audit_log)
-    ? (importData as any).audit_log
-    : [];
+  const importAuditLogs = (
+    Array.isArray((importData as any).audit_log) ? (importData as any).audit_log : []
+  ).map((al: any) => {
+    // FIX BUG-16: entityId yang merujuk transactionId impor harus diremap ke nomor baru
+    const next = { ...al };
+    if (al.entity === 'transaction' && al.entityId && renumberMap.has(al.entityId)) {
+      next.entityId = renumberMap.get(al.entityId);
+    }
+    return next;
+  });
   const auditLogsToAdd = importAuditLogs.filter(
     (al: any) => al.id && !existingAuditLogIds.has(al.id)
   );
@@ -889,8 +976,13 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     skippedCreditPayments +
     skippedPriceHistory;
 
+  // BUG-17: Buat stamp sederhana untuk mendeteksi perubahan DB lokal saat applyMerge
+  const currentStamp = `${existingTransactions.length}:${existingInventory.length}:${existingSessions.length}`;
+
   return {
     __isMergeResult: true,
+    sourceImportData: importData,
+    dbSnapshotStamp: currentStamp,
     newTransactions: transactionsToAdd.length,
     newSessions: sessionsToAdd.length,
     newCategories: categoriesToAdd.length,
@@ -930,11 +1022,26 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
 export async function applyMerge(
   data: MergeResult | DatabaseExport
 ): Promise<{ success: boolean; error: string | null }> {
-  // Explicit flag is more reliable than duck-typing on transactionsToAdd
-  const mergeResult: MergeResult =
-    '__isMergeResult' in data && data.__isMergeResult === true
-      ? data
-      : await calculateMerge(data as DatabaseExport);
+  // BUG-17: Cek apakah mergeResult basi karena data DB lokal berubah sejak kalkulasi preview
+  let mergeResult: MergeResult;
+  if ('__isMergeResult' in data && data.__isMergeResult === true) {
+    if (data.dbSnapshotStamp && data.sourceImportData) {
+      const txCount = await db.transactions.count();
+      const invCount = await db.inventory.count();
+      const sessCount = await db.sessions.count();
+      const currentStamp = `${txCount}:${invCount}:${sessCount}`;
+      if (currentStamp !== data.dbSnapshotStamp) {
+        // Data lokal sudah berubah, hitung ulang agar nomor seq & dedup tidak basi
+        mergeResult = await calculateMerge(data.sourceImportData);
+      } else {
+        mergeResult = data;
+      }
+    } else {
+      mergeResult = data;
+    }
+  } else {
+    mergeResult = await calculateMerge(data as DatabaseExport);
+  }
   const {
     transactionsToAdd,
     sessionsToAdd,

@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import type { CreditLedger, Customer } from '../types';
+import { toLocalDateString } from './formatters';
 
 export type CreditStatus = 'safe' | 'warning' | 'exceeded';
 
@@ -14,7 +15,8 @@ export function isLedgerOverdue(ledger: CreditLedger, referenceDate?: string): b
   if (ledger.status !== 'belum_lunas' || !ledger.tanggalJatuhTempo || ledger.sisaHutang <= 0) {
     return false;
   }
-  const today = referenceDate || new Date().toISOString().slice(0, 10);
+  // BUG-29: gunakan tanggal lokal agar status overdue sinkron di zona waktu lokal (WIB)
+  const today = referenceDate || toLocalDateString(new Date());
   return ledger.tanggalJatuhTempo < today;
 }
 
@@ -25,7 +27,7 @@ export function getDaysOverdue(ledger: CreditLedger, referenceDate?: string): nu
   if (!isLedgerOverdue(ledger, referenceDate) || !ledger.tanggalJatuhTempo) {
     return 0;
   }
-  const todayStr = referenceDate || new Date().toISOString().slice(0, 10);
+  const todayStr = referenceDate || toLocalDateString(new Date());
   const due = new Date(ledger.tanggalJatuhTempo).getTime();
   const today = new Date(todayStr).getTime();
   const diffTime = today - due;

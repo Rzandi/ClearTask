@@ -344,6 +344,7 @@ export const auditService = {
   /**
    * Delete audit logs older than `daysToKeep` days.
    * Returns the number of records deleted.
+   * BUG-28: Catat aksi rotasi log ke audit log itu sendiri agar append-only principle terjaga.
    */
   async cleanOldLogs(daysToKeep: number = 365): Promise<number> {
     try {
@@ -358,6 +359,15 @@ export const auditService = {
       if (old.length === 0) return 0;
 
       await db.audit_log.bulkDelete(old.map((l: AuditLogEntry) => l.id));
+      await db.audit_log.add({
+        id: crypto.randomUUID(),
+        action: 'purge',
+        entity: 'audit_log',
+        entityId: 'system',
+        timestamp: new Date().toISOString(),
+        actor: 'System',
+        detail: `Rotasi pembersihan ${old.length} audit log lebih lama dari ${daysToKeep} hari`,
+      });
       console.info(`[AuditService] Cleaned ${old.length} logs older than ${daysToKeep} days.`);
       return old.length;
     } catch (err) {

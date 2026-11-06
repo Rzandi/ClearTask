@@ -97,10 +97,12 @@ export function needsDecimalQty(satuan?: string | null, kategori?: string | null
 
   const satuanLower = satuan.toLowerCase().trim();
 
-  // Satuan yang umum pakai timbangan
-  const timbangUnits = ['kg', 'gram', 'gr', 'liter', 'ml', 'meter', 'm'];
+  // BUG-10: Cocokkan satuan utuh atau token terpisah, hindari partial substring (misal 'kemasan' cocok 'm'/'gr')
+  const timbangUnits = new Set(['kg', 'gram', 'gr', 'liter', 'ml', 'meter', 'm']);
+  if (timbangUnits.has(satuanLower)) return true;
 
-  return timbangUnits.some((unit) => satuanLower.includes(unit));
+  const words = satuanLower.split(/[\s/.,_-]+/);
+  return words.some((word) => timbangUnits.has(word));
 }
 
 /**

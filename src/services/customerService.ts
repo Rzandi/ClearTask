@@ -39,11 +39,16 @@ export async function createCustomer(data: {
   catatan?: string | undefined;
   createdBy?: string | undefined;
 }): Promise<Customer> {
+  // BUG-24: Validasi nama pelanggan tidak boleh kosong
+  const trimmedName = (data.nama || '').trim();
+  if (!trimmedName) {
+    throw new Error('Nama pelanggan tidak boleh kosong');
+  }
   const now = new Date().toISOString();
 
   const customer: Customer = {
     id: generateUUID(),
-    nama: data.nama.trim(),
+    nama: trimmedName,
     telepon: data.telepon?.trim() || undefined,
     alamat: data.alamat?.trim() || undefined,
     catatan: data.catatan?.trim() || undefined,
@@ -83,7 +88,11 @@ export async function updateCustomer(
   };
 
   if (updates.nama !== undefined) {
-    updateData.nama = updates.nama.trim();
+    const trimmed = updates.nama.trim();
+    if (!trimmed) {
+      throw new Error('Nama pelanggan tidak boleh kosong');
+    }
+    updateData.nama = trimmed;
   }
   if (updates.telepon !== undefined) {
     updateData.telepon = updates.telepon.trim() || undefined;
@@ -190,6 +199,19 @@ export async function createCreditLedger(data: {
   };
 
   await db.transaction('rw', [db.credit_ledger, db.customers], async () => {
+    // BUG-21: Cegah pembuatan ledger ganda untuk transaksi yang sama
+    if (data.transactionId) {
+      const existing = await db.credit_ledger
+        .filter(
+          (l: CreditLedger) =>
+            !l.deletedAt && String(l.transactionId) === String(data.transactionId)
+        )
+        .first();
+      if (existing) {
+        throw new Error(`Ledger hutang untuk transaksi ${data.transactionId} sudah ada`);
+      }
+    }
+
     await db.credit_ledger.add(ledger);
     const ledgers = await db.credit_ledger
       .where('customerId')
@@ -267,9 +289,11 @@ export async function createPayment(data: {
 
     ledgerCustomerId = ledger.customerId;
     const customer = await db.customers.get(ledger.customerId);
-    if (customer) {
-      customerName = customer.nama;
+    // BUG-22: Tolak pembayaran untuk pelanggan yang sudah dihapus
+    if (!customer || customer.deletedAt) {
+      throw new Error('Pelanggan tidak ditemukan atau sudah dihapus');
     }
+    customerName = customer.nama;
 
     // Create payment record
     const payment: CreditPayment = {
@@ -364,15 +388,20 @@ export async function getCustomersWithDebt(): Promise<CustomerWithDebt[]> {
   const customersWithDebt: CustomerWithDebt[] = [];
 
   for (const customer of customers) {
-    if (customer.totalHutang > 0) {
-      const unpaidLedgers = await db.credit_ledger
-        .where('customerId')
-        .equals(customer.id)
-        .filter((ledger) => !ledger.deletedAt && ledger.status === 'belum_lunas')
-        .sortBy('tanggalTransaksi');
+    const unpaidLedgers = await db.credit_ledger
+      .where('customerId')
+      .equals(customer.id)
+      .filter(
+        (ledger) => !ledger.deletedAt && ledger.status === 'belum_lunas' && ledger.sisaHutang > 0
+      )
+      .sortBy('tanggalTransaksi');
 
+    const calculatedTotalDebt = unpaidLedgers.reduce((sum, l) => sum + l.sisaHutang, 0);
+
+    if (calculatedTotalDebt > 0) {
       customersWithDebt.push({
         ...customer,
+        totalHutang: calculatedTotalDebt,
         unpaidCount: unpaidLedgers.length,
         oldestDebtDate: unpaidLedgers[0]?.tanggalTransaksi,
       });
@@ -454,6 +483,15 @@ export async function payCustomerDebtFIFO(data: {
 
     if (unpaidLedgers.length === 0) {
       throw new Error('Pelanggan tidak memiliki hutang yang belum lunas');
+    }
+
+    const totalUnpaid = unpaidLedgers.reduce(
+      (sum: number, l: CreditLedger) => sum + l.sisaHutang,
+      0
+    );
+    // BUG-23: Tolak pembayaran jika melebihi total seluruh hutang belum lunas
+    if (data.jumlahBayar > totalUnpaid) {
+      throw new Error(`Jumlah bayar (${data.jumlahBayar}) melebihi total hutang (${totalUnpaid})`);
     }
 
     const result = allocatePaymentFIFO(unpaidLedgers, data.jumlahBayar);

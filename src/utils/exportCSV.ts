@@ -17,8 +17,9 @@ import { type Transaction, type Session } from './sessionStats';
 export function escapeCSVValue(value: any): string {
   let str = value === null || value === undefined ? '' : String(value);
 
-  // Prevent CSV Injection (DDE) by prepending a single quote to dangerous characters
-  if (/^[ \t]*[=\-+@]/.test(str)) {
+  // BUG-31: Prevent CSV Injection (DDE) by prepending a single quote to dangerous formula triggers
+  // Nilai angka negatif murni (misal -5000) jangan diberi prefix quote
+  if (/^[ \t]*[=+@]/.test(str) || /^[ \t]*-(?!\d)/.test(str)) {
     str = "'" + str;
   }
 

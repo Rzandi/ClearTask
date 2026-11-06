@@ -483,6 +483,9 @@ export const transactionService = {
             }
 
             if (targetInv && targetInv.id) {
+              // BUG-09: Jangan kurangi stok barang yang sudah dihapus
+              if (targetInv.deletedAt) continue;
+
               const newQty = (targetInv.quantity || 0) - qty;
               await db.inventory.update(targetInv.id, {
                 quantity: newQty,
