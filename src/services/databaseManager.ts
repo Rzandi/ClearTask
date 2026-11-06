@@ -802,12 +802,18 @@ export async function calculateMerge(importData: DatabaseExport): Promise<MergeR
     : [];
   const customersToAdd = importCustomers.filter((c: any) => c.id && !existingCustomerIds.has(c.id));
 
-  // W5-01: Scan credit_ledger
+  // Scan credit_ledger
   const existingCreditLedger = await db.credit_ledger.toArray();
   const existingCreditLedgerIds = new Set(existingCreditLedger.map((cl: any) => cl.id));
-  const importCreditLedger = Array.isArray((importData as any).credit_ledger)
-    ? (importData as any).credit_ledger
-    : [];
+  const importCreditLedger = (
+    Array.isArray((importData as any).credit_ledger) ? (importData as any).credit_ledger : []
+  ).map((cl: any) => {
+    const next = { ...cl };
+    if (cl.transactionId && renumberMap.has(cl.transactionId)) {
+      next.transactionId = renumberMap.get(cl.transactionId);
+    }
+    return next;
+  });
   const creditLedgersToAdd = importCreditLedger.filter(
     (cl: any) => cl.id && !existingCreditLedgerIds.has(cl.id)
   );

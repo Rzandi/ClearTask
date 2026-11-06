@@ -521,6 +521,9 @@ export default memo(function InputPenjualan({
       kasir: kasirName,
       sessionId: activeSession?.id ?? null,
       customerId: isCreditSale ? customerId : undefined, // W4-02: Store customer ID
+      // W4-02 / BUG-33: Kirim payload creditLedger agar tersimpan atomik di transactionService
+      creditLedger:
+        isCreditSale && customerId ? { customerId, catatan: `Penjualan kredit` } : undefined,
       // W4-04: Discount snapshot
       diskonTransaksi:
         diskonTransaksiEnabled && diskonTransaksiNilai > 0
@@ -542,17 +545,9 @@ export default memo(function InputPenjualan({
             id: savedTx && typeof savedTx === 'object' ? savedTx.id : undefined,
           };
 
-    // W4-02: Create credit ledger entry if this is a credit sale
+    // W4-02: Logging audit log jika penjualan kredit (ledger sudah dibuat atomik di service)
     if (isCreditSale && customerId && finalOrder.id) {
       try {
-        const ledger = await createCreditLedger({
-          customerId,
-          transactionId: finalOrder.id,
-          jumlahKredit: grandTotal,
-          catatan: `Penjualan ${finalOrder.transactionId || finalOrder.id}`,
-        });
-
-        // W4-02 Phase 3D: Audit log — look up customer name for rich context
         const customer = await getCustomerById(customerId).catch(() => undefined);
         const customerName = customer?.nama ?? `Customer ${customerId}`;
 
@@ -567,19 +562,9 @@ export default memo(function InputPenjualan({
           itemCount: finalItems.length,
         });
 
-        await auditService.logCreditLedgerCreated({
-          ledgerId: ledger.id,
-          customerId,
-          customerName,
-          transactionId: finalOrder.transactionId ?? String(finalOrder.id),
-          amount: grandTotal,
-          kasir: kasirName,
-        });
-
         showToast(`Hutang berhasil dicatat untuk pelanggan`, 'success');
       } catch (err: any) {
-        console.error('Failed to create credit ledger:', err);
-        showToast(`⚠️ Transaksi tersimpan, tapi gagal catat hutang: ${err.message}`, 'warning');
+        console.error('Failed to log credit transaction audit:', err);
       }
     }
 
